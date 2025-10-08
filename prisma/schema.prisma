@@ -3,8 +3,8 @@
 
 // 1. Defines the database connection and Prisma client generator.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 generator client {
@@ -31,8 +31,8 @@ model User {
   image         String?
   walletAddress String    @unique 
 
-  accounts Session[]
-  sessions Account[]
+  accounts      Account[]
+  sessions      Session[]
 
   // User-specific application data
   storiesSubmitted Story[]   @relation("SubmittedStories")
@@ -50,12 +50,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -87,9 +87,9 @@ model VerificationToken {
 // Story model represents a news article submitted by a user.
 model Story {
   id          String @id @default(cuid())
-  headline    String @db.Text
-  originalUrl String @unique @db.Text
-  aiSummary   String @db.Text
+  headline    String
+  originalUrl String @unique
+  aiSummary   String
 
   submitterId String
   submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
@@ -111,10 +111,10 @@ model Tag {
 // Token model represents the tradable asset linked to a Story.
 model Token {
   id               String    @id @default(cuid())
-  price            Decimal   @default(0.01) @db.Decimal(18, 8)
+  price            Float     @default(0.01)
   priceChange24h   Float     @default(0)
-  volume24h        Decimal   @default(0) @db.Decimal(18, 2)
-  marketCap        Decimal   @default(0) @db.Decimal(18, 2)
+  volume24h        Float     @default(0)
+  marketCap        Float     @default(0)
 
   storyId          String    @unique
   story            Story     @relation(fields: [storyId], references: [id])
@@ -128,7 +128,7 @@ model Token {
 // Holding model represents a user's ownership of a specific token.
 model Holding {
   id       String  @id @default(cuid())
-  amount   Decimal @db.Decimal(18, 8)
+  amount   Float
 
   userId   String
   user     User    @relation(fields: [userId], references: [id])
@@ -143,8 +143,8 @@ model Holding {
 model Trade {
   id           String    @id @default(cuid())
   type         TradeType
-  amount       Decimal   @db.Decimal(18, 8)
-  priceAtTrade Decimal   @db.Decimal(18, 8)
+  amount       Float
+  priceAtTrade Float
 
   traderId     String
   trader       User      @relation(fields: [traderId], references: [id])

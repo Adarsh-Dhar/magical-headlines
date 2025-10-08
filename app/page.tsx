@@ -1,10 +1,12 @@
 import { NewsFeed } from "@/components/news-feed"
 import { TrendingStories } from "@/components/trending-stories"
 import { MarketStats } from "@/components/market-stats"
+import { UserInfoLogger } from "@/components/user-info-logger"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
+      <UserInfoLogger />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Trade the News</h1>
