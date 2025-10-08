@@ -23,6 +23,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Ensure user exists in database (for JWT strategy)
+    let user = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    })
+
+    if (!user) {
+      // Create user if they don't exist in database
+      user = await prisma.user.create({
+        data: {
+          id: session.user.id,
+          email: session.user.email || null,
+          name: session.user.name || null,
+          walletAddress: session.user.walletAddress || `user_${session.user.id}`,
+        }
+      })
+    }
+
     // Parse and validate request body
     const body = await request.json()
     const validation = createStorySchema.safeParse(body)
@@ -53,7 +70,7 @@ export async function POST(request: NextRequest) {
       data: {
         headline,
         originalUrl,
-        submitterId: session.user.id,
+        submitterId: user.id,
       },
       include: {
         submitter: {
