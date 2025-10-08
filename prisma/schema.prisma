@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// 1. Defines the database connection and Prisma client generator.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- ENUMS ---
+// Defines the type of a trade.
+enum TradeType {
+  BUY
+  SELL
+}
+
+
+// --- AUTHENTICATION MODELS ---
+// These models are compatible with NextAuth.js for robust authentication.
+
+// User model represents a unique user, identified by their wallet address.
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  walletAddress String    @unique 
+
+  accounts Session[]
+  sessions Account[]
+
+  // User-specific application data
+  storiesSubmitted Story[]   @relation("SubmittedStories")
+  holdings         Holding[]
+  trades           Trade[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Account model for linking different OAuth providers to a User.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// Session model for managing user login sessions.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// VerificationToken for "magic link" email sign-ins.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+// --- APPLICATION-SPECIFIC MODELS ---
+
+// Story model represents a news article submitted by a user.
+model Story {
+  id          String @id @default(cuid())
+  headline    String @db.Text
+  originalUrl String @unique @db.Text
+  aiSummary   String @db.Text
+
+  submitterId String
+  submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
+
+  tags  Tag[]
+  token Token? // A story has one corresponding token
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tag model for categorizing stories.
+model Tag {
+  id      String  @id @default(cuid())
+  name    String  @unique 
+  stories Story[]
+}
+
+// Token model represents the tradable asset linked to a Story.
+model Token {
+  id               String    @id @default(cuid())
+  price            Decimal   @default(0.01) @db.Decimal(18, 8)
+  priceChange24h   Float     @default(0)
+  volume24h        Decimal   @default(0) @db.Decimal(18, 2)
+  marketCap        Decimal   @default(0) @db.Decimal(18, 2)
+
+  storyId          String    @unique
+  story            Story     @relation(fields: [storyId], references: [id])
+
+  holders          Holding[]
+  trades           Trade[]
+
+  createdAt        DateTime  @default(now())
+}
+
+// Holding model represents a user's ownership of a specific token.
+model Holding {
+  id       String  @id @default(cuid())
+  amount   Decimal @db.Decimal(18, 8)
+
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+
+  tokenId  String
+  token    Token   @relation(fields: [tokenId], references: [id])
+
+  @@unique([userId, tokenId], name: "UserTokenHolding") // A user can only have one holding entry per token
+}
+
+// Trade model logs every buy and sell transaction.
+model Trade {
+  id           String    @id @default(cuid())
+  type         TradeType
+  amount       Decimal   @db.Decimal(18, 8)
+  priceAtTrade Decimal   @db.Decimal(18, 8)
+
+  traderId     String
+  trader       User      @relation(fields: [traderId], references: [id])
+
+  tokenId      String
+  token        Token     @relation(fields: [tokenId], references: [id])
+
+  timestamp    DateTime  @default(now())
+}
