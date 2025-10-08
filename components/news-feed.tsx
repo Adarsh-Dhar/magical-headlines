@@ -1,61 +1,137 @@
-import { NewsCard } from "./news-card"
-import { Button } from "@/components/ui/button"
-import { PlusIcon } from "lucide-react"
+"use client"
 
-const mockNews = [
-  {
-    id: "1",
-    headline: "Major Tech Company Announces Revolutionary AI Breakthrough",
-    summary:
-      "Leading technology firm unveils groundbreaking artificial intelligence system that could reshape the industry landscape.",
-    tags: ["Technology", "AI", "Innovation"],
-    attentionScore: 94,
-    tokenPrice: 12.45,
-    priceChange: 23.5,
-    volume24h: 45600,
-    timestamp: "2 hours ago",
-  },
-  {
-    id: "2",
-    headline: "Global Markets Rally on Positive Economic Data",
-    summary:
-      "Stock markets worldwide surge as new economic indicators exceed expectations, boosting investor confidence.",
-    tags: ["Finance", "Markets", "Economy"],
-    attentionScore: 87,
-    tokenPrice: 8.92,
-    priceChange: -5.2,
-    volume24h: 32100,
-    timestamp: "4 hours ago",
-  },
-  {
-    id: "3",
-    headline: "Climate Summit Reaches Historic Agreement",
-    summary:
-      "World leaders commit to ambitious new targets in landmark climate accord, marking a turning point in environmental policy.",
-    tags: ["Climate", "Politics", "Environment"],
-    attentionScore: 91,
-    tokenPrice: 15.67,
-    priceChange: 18.3,
-    volume24h: 28900,
-    timestamp: "6 hours ago",
-  },
-]
+import { NewsCard } from "./news-card"
+import { CreateStoryDialog } from "./create-story-dialog"
+import { useEffect, useState } from "react"
+
+interface Story {
+  id: string
+  headline: string
+  originalUrl: string
+  submitter: {
+    id: string
+    name: string
+    email: string
+    walletAddress: string
+  }
+  tags: Array<{ name: string }>
+  token: {
+    price: number
+    priceChange24h: number
+    volume24h: number
+    marketCap: number
+  }
+  createdAt: string
+}
+
+interface StoriesResponse {
+  stories: Story[]
+  pagination: {
+    page: number
+    limit: number
+    totalCount: number
+    totalPages: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
+  }
+}
 
 export function NewsFeed() {
+  const [stories, setStories] = useState<Story[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchStories = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/story')
+      if (!response.ok) {
+        throw new Error('Failed to fetch stories')
+      }
+      const data: StoriesResponse = await response.json()
+      setStories(data.stories)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStories()
+  }, [])
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return 'Just now'
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+    
+    return date.toLocaleDateString()
+  }
+
+  const transformStoryForCard = (story: Story) => ({
+    id: story.id,
+    headline: story.headline,
+    summary: "Click to read the full story", // Placeholder since we don't have aiSummary
+    tags: story.tags.map(tag => tag.name),
+    attentionScore: Math.floor(Math.random() * 20) + 80, // Placeholder until we implement real scoring
+    tokenPrice: story.token.price,
+    priceChange: story.token.priceChange24h,
+    volume24h: story.token.volume24h,
+    timestamp: formatTimestamp(story.createdAt)
+  })
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Latest Stories</h2>
+          <CreateStoryDialog onStoryCreated={fetchStories} />
+        </div>
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Loading stories...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Latest Stories</h2>
+          <CreateStoryDialog onStoryCreated={fetchStories} />
+        </div>
+        <div className="text-center py-8">
+          <p className="text-red-500">Error: {error}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">Latest Stories</h2>
-        <Button className="gap-2">
-          <PlusIcon className="w-4 h-4" />
-          Post Story
-        </Button>
+        <CreateStoryDialog onStoryCreated={fetchStories} />
       </div>
 
       <div className="space-y-4">
-        {mockNews.map((story) => (
-          <NewsCard key={story.id} story={story} />
-        ))}
+        {stories.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No stories available yet.</p>
+          </div>
+        ) : (
+          stories.map((story) => (
+            <NewsCard key={story.id} story={transformStoryForCard(story)} />
+          ))
+        )}
       </div>
     </div>
   )

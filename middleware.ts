@@ -21,6 +21,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Allow GET requests to /api/story (viewing stories)
+  if (pathname === "/api/story" && request.method === "GET") {
+    return NextResponse.next()
+  }
+
   // Allow visiting /auth if unauthenticated
   if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next()

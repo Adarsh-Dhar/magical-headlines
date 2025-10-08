@@ -89,7 +89,6 @@ model Story {
   id          String @id @default(cuid())
   headline    String
   originalUrl String @unique
-  aiSummary   String
 
   submitterId String
   submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
