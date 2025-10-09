@@ -14,7 +14,8 @@ export function useAnchorProgram() {
   const wallet = useWallet()
 
   const program = useMemo(() => {
-    if (!wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) {
+    // Check if wallet is connected and has required methods
+    if (!wallet || !wallet.publicKey || !wallet.signTransaction || !wallet.signAllTransactions) {
       return null
     }
 
@@ -29,7 +30,7 @@ export function useAnchorProgram() {
       )
 
       return new Program<Contract>(
-        require('../contract/target/idl/contract.json'),
+        require('../contract/target/idl/news_platform.json'),
         PROGRAM_ID,
         provider
       )

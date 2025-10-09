@@ -22,7 +22,8 @@ export interface PublishNewsResult {
 }
 
 export function usePublishNews() {
-  const { publicKey, signTransaction } = useWallet()
+  const wallet = useWallet()
+  const { publicKey, signTransaction } = wallet || {}
   const { connection } = useConnection()
   const program = useAnchorProgram()
   const { toast } = useToast()

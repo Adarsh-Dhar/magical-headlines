@@ -2,8 +2,10 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
+import "@solana/wallet-adapter-react-ui/styles.css"
 import { Navigation } from "@/components/navigation"
 import { Providers } from "@/components/providers"
+import { SolanaProvider } from "./provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,10 +31,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <body className="font-sans">
-        <Providers>
-          <Navigation />
-          {children}
-        </Providers>
+        <SolanaProvider>
+          <Providers>
+            <Navigation />
+            {children}
+          </Providers>
+        </SolanaProvider>
       </body>
     </html>
   )

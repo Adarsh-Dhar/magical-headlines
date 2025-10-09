@@ -18,7 +18,8 @@ export interface CommitRollupResult {
 }
 
 export function useCommitRollup() {
-  const { publicKey, signTransaction } = useWallet()
+  const wallet = useWallet()
+  const { publicKey, signTransaction } = wallet || {}
   const { connection } = useConnection()
   const program = useAnchorProgram()
   const { toast } = useToast()

@@ -12,7 +12,8 @@ export interface InitializeOracleResult {
 }
 
 export function useInitializeOracle() {
-  const { publicKey, signTransaction } = useWallet()
+  const wallet = useWallet()
+  const { publicKey, signTransaction } = wallet || {}
   const { connection } = useConnection()
   const program = useAnchorProgram()
   const { toast } = useToast()

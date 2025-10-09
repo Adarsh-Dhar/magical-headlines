@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NewspaperIcon, TrendingUpIcon, WalletIcon, TrophyIcon } from "lucide-react"
 import { usePathname } from "next/navigation"
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 
 const navItems = [
   { href: "/", label: "Feed", icon: NewspaperIcon },
@@ -41,7 +42,7 @@ export function Navigation() {
             })}
           </div>
 
-          <Button>Connect Wallet</Button>
+          <WalletMultiButton />
         </div>
       </div>
     </nav>

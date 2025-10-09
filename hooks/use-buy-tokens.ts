@@ -20,7 +20,8 @@ export interface BuyTokensResult {
 }
 
 export function useBuyTokens() {
-  const { publicKey, signTransaction } = useWallet()
+  const wallet = useWallet()
+  const { publicKey, signTransaction } = wallet || {}
   const { connection } = useConnection()
   const program = useAnchorProgram()
   const { toast } = useToast()

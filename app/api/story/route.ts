@@ -7,7 +7,11 @@ import { z } from "zod"
 // Validation schemas
 const createStorySchema = z.object({
   headline: z.string().min(1, "Headline is required").max(500, "Headline too long"),
+  content: z.string().min(1, "Content is required").max(10000, "Content too long"),
   originalUrl: z.string().url("Invalid URL"),
+  arweaveUrl: z.string().url("Invalid Arweave URL"),
+  arweaveId: z.string().min(1, "Arweave ID is required"),
+  onchainSignature: z.string().min(1, "Onchain signature is required"),
   tags: z.array(z.string()).optional().default([]),
 })
 
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { headline, originalUrl, tags } = validation.data
+    const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, tags } = validation.data
 
     // Check if story with this URL already exists
     const existingStory = await prisma.story.findUnique({
@@ -65,13 +69,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create story first
+    // Verify onchain transaction exists (basic validation)
+    if (!onchainSignature || onchainSignature.length < 80) {
+      return NextResponse.json(
+        { error: "Invalid onchain transaction signature" },
+        { status: 400 }
+      )
+    }
+
+    // Create story with all the new fields
     const story = await prisma.story.create({
       data: {
         headline,
+        content,
         originalUrl,
+        arweaveUrl,
+        arweaveId,
+        onchainSignature,
         submitterId: user.id,
-      },
+      } as any,
       include: {
         submitter: {
           select: {

@@ -88,7 +88,15 @@ model VerificationToken {
 model Story {
   id          String @id @default(cuid())
   headline    String
+  content     String
   originalUrl String @unique
+  
+  // Arweave storage
+  arweaveUrl  String
+  arweaveId   String
+  
+  // Onchain data
+  onchainSignature String
 
   submitterId String
   submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
