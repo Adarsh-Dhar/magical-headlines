@@ -7,7 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 // Import the generated types
 import { NewsPlatform } from '../contract/target/types/news_platform'
 
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+const PROGRAM_ID = new PublicKey('7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf')
 
 export function useAnchorProgram() {
   const { connection } = useConnection()

@@ -6,7 +6,7 @@ import { BN } from '@coral-xyz/anchor'
 import { useAnchorProgram } from './use-anchor-program'
 import { useToast } from './use-toast'
 
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+const PROGRAM_ID = new PublicKey('7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf')
 const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
 
 export interface PublishNewsParams {
@@ -133,7 +133,31 @@ export function usePublishNews() {
       console.log('✍️ Signing and sending transaction...')
       console.log('🔍 Using wallet signTransaction method')
       console.log('🆕 NEW CODE VERSION - Using signTransaction instead of partialSign')
-      const signature = await sendAndConfirmTransaction(connection, transaction, signTransaction, publicKey)
+      
+      // Get recent blockhash and set it on the transaction
+      console.log('🔗 Getting recent blockhash...')
+      const { blockhash } = await connection.getLatestBlockhash('processed')
+      transaction.recentBlockhash = blockhash
+      transaction.feePayer = publicKey
+      console.log('✅ Recent blockhash set:', blockhash)
+      console.log('✅ Fee payer set:', publicKey.toString())
+      
+      // Sign the transaction using the wallet's signTransaction method
+      console.log('✍️ Signing transaction with wallet...')
+      const signedTransaction = await signTransaction(transaction)
+      console.log('✅ Transaction signed successfully')
+      
+      // Send and confirm the transaction
+      console.log('📤 Sending transaction...')
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'processed',
+      })
+      console.log('📤 Transaction sent with signature:', signature)
+      
+      // Wait for confirmation
+      console.log('⏳ Waiting for confirmation...')
+      await connection.confirmTransaction(signature, 'processed')
       console.log('✅ Transaction confirmed with signature:', signature)
 
       toast({
@@ -166,57 +190,4 @@ export function usePublishNews() {
   }
 }
 
-// Helper function to send and confirm transaction - VERSION 2.0 WITH BLOCKHASH FIX
-async function sendAndConfirmTransaction(connection: any, transaction: any, signTransaction: any, feePayer: any) {
-  console.log('🔧 sendAndConfirmTransaction called with:', {
-    connection: !!connection,
-    transaction: !!transaction,
-    signTransaction: !!signTransaction,
-    feePayer: feePayer?.toString()
-  })
-  console.log('🆕 NEW VERSION - Using wallet signTransaction method, NOT partialSign')
-  console.log('🚨 VERSION 2.0 - WITH RECENT BLOCKHASH AND FEE PAYER FIX')
-
-  // Validate signTransaction function
-  if (!signTransaction || typeof signTransaction !== 'function') {
-    throw new Error('signTransaction function is required')
-  }
-
-  // Validate fee payer
-  if (!feePayer) {
-    throw new Error('Fee payer is required')
-  }
-
-  try {
-    // Get recent blockhash and set it on the transaction
-    console.log('🔗 Getting recent blockhash...')
-    const { blockhash } = await connection.getLatestBlockhash('processed')
-    transaction.recentBlockhash = blockhash
-    transaction.feePayer = feePayer
-    console.log('✅ Recent blockhash set:', blockhash)
-    console.log('✅ Fee payer set:', feePayer.toString())
-    
-    // Sign the transaction using the wallet's signTransaction method
-    console.log('✍️ Signing transaction with wallet...')
-    const signedTransaction = await signTransaction(transaction)
-    console.log('✅ Transaction signed successfully')
-    
-    // Send and confirm the transaction
-    console.log('📤 Sending transaction...')
-    const signature = await connection.sendTransaction(signedTransaction, {
-      skipPreflight: false,
-      preflightCommitment: 'processed',
-    })
-    console.log('📤 Transaction sent with signature:', signature)
-    
-    // Wait for confirmation
-    console.log('⏳ Waiting for confirmation...')
-    await connection.confirmTransaction(signature, 'processed')
-    console.log('✅ Transaction confirmed!')
-    
-    return signature
-  } catch (error) {
-    console.error('❌ Error in sendAndConfirmTransaction:', error)
-    throw error
-  }
-}
+// Note: Using Solana's built-in sendAndConfirmTransaction instead of custom function
