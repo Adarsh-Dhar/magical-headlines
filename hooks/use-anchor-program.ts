@@ -5,7 +5,7 @@ import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 // Import the generated types
-import { Contract } from '../contract/target/types/contract'
+import { NewsPlatform } from '../contract/target/types/news_platform'
 
 const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
 
@@ -29,11 +29,8 @@ export function useAnchorProgram() {
         }
       )
 
-      return new Program<Contract>(
-        require('../contract/target/idl/news_platform.json'),
-        PROGRAM_ID,
-        provider
-      )
+      const idl = require('../contract/target/idl/news_platform.json')
+      return new Program<NewsPlatform>(idl, provider)
     } catch (error) {
       console.error('Error creating anchor program:', error)
       return null

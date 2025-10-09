@@ -42,7 +42,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const wallet = useWallet()
   const { publicKey, connected } = wallet || {}
   const { publishNews: publishOnchain } = usePublishNews()
-  const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews(publicKey?.toString(), [])
+  const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,6 +64,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       return
     }
+
+    console.log('Wallet state:', { connected, publicKey: publicKey?.toString() })
 
     // Basic URL validation
     try {
@@ -97,7 +99,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       const arweaveResult = await publishToArweave(newsContent, [
         { name: 'Original-URL', value: formData.originalUrl },
         { name: 'Story-Type', value: 'news-trading' },
-      ])
+      ], publicKey?.toString())
 
       if (!arweaveResult.success) {
         throw new Error('error' in arweaveResult ? arweaveResult.error : 'Failed to upload to Arweave')
@@ -220,6 +222,11 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           <DialogDescription>
             Share a news story and let the community trade on it.
           </DialogDescription>
+          {connected && publicKey && (
+            <div className="text-xs text-green-600 dark:text-green-400 mt-2">
+              Wallet connected: {publicKey.toString().slice(0, 8)}...{publicKey.toString().slice(-8)}
+            </div>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
@@ -353,6 +360,11 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 "Processing..."
               ) : !connected ? "Connect Wallet" : "Create Story"}
             </Button>
+            {!connected && (
+              <div className="text-xs text-muted-foreground mt-2">
+                Please connect your wallet to create a story
+              </div>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

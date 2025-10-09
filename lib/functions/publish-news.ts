@@ -105,7 +105,7 @@ export function usePublishNews(walletAddress?: string, defaultTags?: Array<{ nam
   const [lastUploadResult, setLastUploadResult] = useState<PublishNewsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const publishNewsContent = async (newsContent: NewsContent, customTags?: Array<{ name: string; value: string }>) => {
+  const publishNewsContent = async (newsContent: NewsContent, customTags?: Array<{ name: string; value: string }>, dynamicWalletAddress?: string) => {
     setUploading(true);
     setError(null);
     setUploadProgress(0);
@@ -136,6 +136,9 @@ export function usePublishNews(walletAddress?: string, defaultTags?: Array<{ nam
       setUploadProgress(50);
 
       // Upload to Arweave via API
+      const finalWalletAddress = dynamicWalletAddress || walletAddress;
+      console.log('Publishing to Arweave with wallet address:', finalWalletAddress);
+      
       const response = await fetch('/api/arweave/upload', {
         method: 'POST',
         headers: {
@@ -144,7 +147,7 @@ export function usePublishNews(walletAddress?: string, defaultTags?: Array<{ nam
         body: JSON.stringify({
           content,
           tags: allTags,
-          walletAddress,
+          walletAddress: finalWalletAddress,
         }),
       });
 
