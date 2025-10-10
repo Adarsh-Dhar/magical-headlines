@@ -3,8 +3,7 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram } from '@solana/web3.js'
 import { useAnchorProgram } from './use-anchor-program'
 import { useToast } from './use-toast'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export interface UndelegateMarketParams {
   market: PublicKey
@@ -68,7 +67,7 @@ export function useUndelegateMarket() {
         transactionSignature: signature,
       }
     } catch (error) {
-      console.error('Error undelegating market:', error)
+      
       toast({
         title: 'Error',
         description: `Failed to undelegate market: ${error.message}`,

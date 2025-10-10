@@ -15,6 +15,7 @@ import { useMarket } from './use-market'
 import { useOracle } from './use-oracle'
 import { useWhitelistedAuthority } from './use-whitelisted-authority'
 import { useBondingCurve } from './use-bonding-curve'
+import { PROGRAM_ID } from './program-id'
 
 // Example hook that demonstrates how to use all the news platform hooks
 export function useNewsPlatformExample() {
@@ -241,7 +242,7 @@ function useMarketByNewsAccount(newsAccount: PublicKey | null) {
     try {
       const [address] = PublicKey.findProgramAddressSync(
         [Buffer.from('market'), newsAccount.toBuffer()],
-        new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+        PROGRAM_ID
       )
       setMarketAddress(address)
     } catch (error) {

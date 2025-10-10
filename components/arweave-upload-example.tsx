@@ -5,7 +5,7 @@ import { ArweaveFileUploader } from './arweave-file-uploader';
 
 export function ArweaveUploadExample() {
   const handleUploadComplete = (result: any) => {
-    console.log('Upload completed:', result);
+    // no console in browser; handle via UI if needed
   };
 
   return (

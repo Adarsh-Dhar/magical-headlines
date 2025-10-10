@@ -3,8 +3,7 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorProgram } from './use-anchor-program'
 import { useToast } from './use-toast'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export interface CommitRollupParams {
   market: PublicKey
@@ -79,7 +78,7 @@ export function useCommitRollup() {
         transactionSignature: signature,
       }
     } catch (error) {
-      console.error('Error committing rollup:', error)
+      
       toast({
         title: 'Error',
         description: `Failed to commit rollup: ${error.message}`,

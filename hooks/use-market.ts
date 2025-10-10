@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorProgram } from './use-anchor-program'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export type CurveType = 'linear' | 'exponential' | 'logarithmic'
 
@@ -60,7 +59,7 @@ export function useMarket(marketAddress: PublicKey | null) {
         bump: accountData.bump,
       })
     } catch (err) {
-      console.error('Error fetching market:', err)
+      
       setError(err instanceof Error ? err.message : 'Failed to fetch market')
       setData(null)
     } finally {
@@ -99,7 +98,7 @@ export function useMarketByNewsAccount(newsAccount: PublicKey | null) {
       )
       setMarketAddress(address)
     } catch (error) {
-      console.error('Error deriving market address:', error)
+      
       setMarketAddress(null)
     }
   }, [newsAccount, program])
@@ -130,7 +129,7 @@ export function useAllMarkets() {
       // In a real implementation, you might use getProgramAccounts or an indexer
       setData([])
     } catch (err) {
-      console.error('Error fetching all markets:', err)
+      
       setError(err instanceof Error ? err.message : 'Failed to fetch markets')
       setData([])
     } finally {

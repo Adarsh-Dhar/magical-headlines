@@ -39,9 +39,7 @@ export function NewsPlatformExample() {
     if (!headline || !arweaveLink) return
 
     const result = await createNewsStory(headline, arweaveLink, initialSupply)
-    if (result) {
-      console.log('News published:', result.newsAccount.toString())
-    }
+    
   }
 
   const handleCreateMarket = async () => {
@@ -52,9 +50,7 @@ export function NewsPlatformExample() {
     const mint = new PublicKey('11111111111111111111111111111111') // Placeholder
 
     const result = await createMarket(selectedNewsAccount, mint, curveType)
-    if (result) {
-      console.log('Market created:', result.market.toString())
-    }
+    
   }
 
   const handleBuyTokens = async () => {
@@ -62,9 +58,7 @@ export function NewsPlatformExample() {
 
     const mint = new PublicKey('11111111111111111111111111111111') // Placeholder
     const result = await tradeTokens(selectedMarket, mint, tradeAmount, true)
-    if (result) {
-      console.log('Tokens bought:', result.transactionSignature)
-    }
+    
   }
 
   const handleSellTokens = async () => {
@@ -72,16 +66,12 @@ export function NewsPlatformExample() {
 
     const mint = new PublicKey('11111111111111111111111111111111') // Placeholder
     const result = await tradeTokens(selectedMarket, mint, tradeAmount, false)
-    if (result) {
-      console.log('Tokens sold:', result.transactionSignature)
-    }
+    
   }
 
   const handleSetupOracle = async () => {
     const result = await setupOracle()
-    if (result) {
-      console.log('Oracle setup:', result.oracle.toString())
-    }
+    
   }
 
   const handleAddAuthority = async () => {
@@ -89,9 +79,7 @@ export function NewsPlatformExample() {
 
     const authority = new PublicKey(oracleAuthority)
     const result = await addOracleAuthority(selectedOracle, authority)
-    if (result) {
-      console.log('Authority added:', result.whitelist.toString())
-    }
+    
   }
 
   const handleUpdateSummary = async () => {
@@ -99,9 +87,7 @@ export function NewsPlatformExample() {
 
     const authority = new PublicKey(oracleAuthority)
     const result = await updateSummary(selectedNewsAccount, authority, summaryLink)
-    if (result) {
-      console.log('Summary updated:', result.transactionSignature)
-    }
+    
   }
 
   const marketStats = getMarketStats()

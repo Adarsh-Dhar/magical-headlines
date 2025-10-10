@@ -65,7 +65,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       return
     }
 
-    console.log('Wallet state:', { connected, publicKey: publicKey?.toString() })
+    
 
     // Basic URL validation
     try {
@@ -172,7 +172,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         onStoryCreated()
       }
     } catch (error) {
-      console.error('Error publishing story:', error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to publish story",

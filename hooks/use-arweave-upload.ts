@@ -75,7 +75,7 @@ export function useArweaveUpload(options: UseArweaveUploadOptions = {}): UseArwe
             setUploadProgress(progress);
           },
           onError: (error: Error) => {
-            console.error('Upload error:', error);
+            // swallow console in browser; error surfaced via state
           },
         },
         dataItemOpts: {
@@ -139,7 +139,7 @@ export function useArweaveUpload(options: UseArweaveUploadOptions = {}): UseArwe
 
         // If any upload fails, we might want to stop or continue
         if (!result.success) {
-          console.warn(`Upload failed for file: ${file.name}`, result.error);
+          // swallow console; caller can inspect results
         }
       }
 

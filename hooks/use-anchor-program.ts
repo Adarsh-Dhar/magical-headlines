@@ -1,13 +1,11 @@
 import { useMemo } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { AnchorProvider, Program } from '@coral-xyz/anchor'
-import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 // Import the generated types
 import { NewsPlatform } from '../contract/target/types/news_platform'
-
-const PROGRAM_ID = new PublicKey('7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf')
+import { PROGRAM_ID } from './program-id'
 
 export function useAnchorProgram() {
   const { connection } = useConnection()
@@ -30,9 +28,9 @@ export function useAnchorProgram() {
       )
 
       const idl = require('../contract/target/idl/news_platform.json')
-      return new Program<NewsPlatform>(idl, provider)
+      return new Program<NewsPlatform>(idl as any, PROGRAM_ID as any, provider as any)
     } catch (error) {
-      console.error('Error creating anchor program:', error)
+      
       return null
     }
   }, [connection, wallet])

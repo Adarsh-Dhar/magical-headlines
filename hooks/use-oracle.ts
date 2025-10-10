@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorProgram } from './use-anchor-program'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export interface OracleData {
   admin: PublicKey
@@ -34,7 +33,7 @@ export function useOracle(oracleAddress: PublicKey | null) {
         bump: accountData.bump,
       })
     } catch (err) {
-      console.error('Error fetching oracle:', err)
+      
       setError(err instanceof Error ? err.message : 'Failed to fetch oracle')
       setData(null)
     } finally {
@@ -73,7 +72,7 @@ export function useMainOracle() {
       )
       setOracleAddress(address)
     } catch (error) {
-      console.error('Error deriving oracle address:', error)
+      
       setOracleAddress(null)
     }
   }, [program])

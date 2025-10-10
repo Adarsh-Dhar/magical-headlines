@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { TurboFactory, ArweaveSigner } from '@ardrive/turbo-sdk'
+import fs from 'fs'
+import path from 'path'
 
 export interface ArweaveUploadRequest {
   content: string
@@ -26,31 +29,57 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // For now, we'll simulate a successful upload
-      // In production, you would implement proper Arweave upload
-      const mockId = `mock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      
-      // Create default tags
+      // Prefer loading JWK from local key file; fallback to env variable
+      const keyFilePath = path.join(
+        process.cwd(),
+        'arweave-key-xKXw5T4YdKwRCatwj-TDr0Imv1FP-Ogx3F2wD07mcQc.json'
+      )
+
+      let jwkString: string | undefined
+      try {
+        jwkString = await fs.promises.readFile(keyFilePath, 'utf8')
+      } catch (_) {
+        jwkString = process.env.ARWEAVE_JWK
+      }
+
+      if (!jwkString) {
+        return NextResponse.json(
+          { success: false, error: 'Missing Arweave JWK (key file or ARWEAVE_JWK env)' },
+          { status: 500 }
+        )
+      }
+
+      // Create signer and turbo client
+      const signer = new ArweaveSigner(JSON.parse(jwkString))
+      const turbo = TurboFactory.authenticated({ signer })
+
+      // Merge default tags with provided tags
       const defaultTags = [
         { name: 'Content-Type', value: 'application/json' },
         { name: 'App-Name', value: 'TradeTheNews' },
         { name: 'Content-Type-News', value: 'news-article' },
         { name: 'Upload-Timestamp', value: Date.now().toString() },
         ...(walletAddress ? [{ name: 'Wallet-Address', value: walletAddress }] : []),
-        ...tags,
       ]
+      const allTags = [...defaultTags, ...tags]
 
-      // Log the upload details for debugging
-      console.log('Arweave upload simulation:', {
-        contentLength: content.length,
-        tags: defaultTags,
-        walletAddress,
+      const contentBuffer = Buffer.from(content, 'utf8')
+
+      const result = await turbo.uploadFile({
+        fileStreamFactory: () => {
+          const { Readable } = require('stream')
+          return Readable.from(contentBuffer)
+        },
+        fileSizeFactory: () => contentBuffer.byteLength,
+        dataItemOpts: {
+          tags: allTags,
+        },
       })
 
       return NextResponse.json({
         success: true,
-        id: mockId,
-        url: `https://arweave.net/${mockId}`,
+        id: result.id,
+        url: `https://arweave.net/${result.id}`,
       })
 
     } catch (uploadError) {

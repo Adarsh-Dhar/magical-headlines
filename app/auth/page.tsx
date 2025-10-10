@@ -26,22 +26,15 @@ export default function AuthPage() {
   // Log user information when component mounts or session changes
   useEffect(() => {
     if (status === "loading") {
-      console.log("Session is loading...")
       return
     }
 
     if (status === "authenticated" && session?.user) {
-      console.log("User is authenticated!")
-      console.log("User email:", session.user.email)
-      console.log("User name:", session.user.name)
-      console.log("User ID:", session.user.id)
-      console.log("Wallet address:", session.user.walletAddress)
-      console.log("Full session data:", session)
       
       // Redirect authenticated users to home page
       router.push("/")
     } else if (status === "unauthenticated") {
-      console.log("User is not authenticated")
+      
     }
   }, [session, status, router])
 
@@ -70,11 +63,9 @@ export default function AuthPage() {
       if (result?.ok) {
         router.push("/")
       } else {
-        console.error("Sign in failed:", result?.error)
         alert(`Sign in failed: ${result?.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error("Sign in error:", error)
       alert(`Sign in error: ${error}`)
     } finally {
       setIsLoading(false)
@@ -106,11 +97,9 @@ export default function AuthPage() {
       if (result?.ok) {
         router.push("/")
       } else {
-        console.error("Wallet sign in failed:", result?.error)
         alert(`Wallet sign in failed: ${result?.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error("Wallet sign in error:", error)
       alert(`Wallet sign in error: ${error}`)
     } finally {
       setIsLoading(false)

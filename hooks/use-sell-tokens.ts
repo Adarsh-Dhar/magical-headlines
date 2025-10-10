@@ -4,8 +4,7 @@ import { PublicKey, SystemProgram } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useAnchorProgram } from './use-anchor-program'
 import { useToast } from './use-toast'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export interface SellTokensParams {
   market: PublicKey
@@ -103,7 +102,7 @@ export function useSellTokens() {
         newSupply: marketAccount.currentSupply.toNumber() - amount,
       }
     } catch (error) {
-      console.error('Error selling tokens:', error)
+      
       toast({
         title: 'Error',
         description: `Failed to sell tokens: ${error.message}`,

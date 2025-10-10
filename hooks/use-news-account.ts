@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorProgram } from './use-anchor-program'
-
-const PROGRAM_ID = new PublicKey('EmdcHGkyoK3ctqJchHbw3fBdTLiP6yXZQeNBWBhcfXzD')
+import { PROGRAM_ID } from './program-id'
 
 export interface NewsAccountData {
   authority: PublicKey
@@ -44,7 +43,7 @@ export function useNewsAccount(newsAccountAddress: PublicKey | null) {
         bump: accountData.bump,
       })
     } catch (err) {
-      console.error('Error fetching news account:', err)
+      
       setError(err instanceof Error ? err.message : 'Failed to fetch news account')
       setData(null)
     } finally {
@@ -83,7 +82,7 @@ export function useNewsAccountByAuthor(author: PublicKey | null) {
       )
       setNewsAccountAddress(address)
     } catch (error) {
-      console.error('Error deriving news account address:', error)
+      
       setNewsAccountAddress(null)
     }
   }, [author, program])
@@ -114,7 +113,7 @@ export function useAllNewsAccounts() {
       // In a real implementation, you might use getProgramAccounts or an indexer
       setData([])
     } catch (err) {
-      console.error('Error fetching all news accounts:', err)
+      
       setError(err instanceof Error ? err.message : 'Failed to fetch news accounts')
       setData([])
     } finally {
