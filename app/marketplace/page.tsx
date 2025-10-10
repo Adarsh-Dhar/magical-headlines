@@ -3,9 +3,10 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 interface Story {
   id: string
@@ -50,6 +51,7 @@ interface MarketplaceResponse {
 }
 
 export default function MarketplacePage() {
+  const { data: session } = useSession()
   const [stories, setStories] = useState<Story[]>([])
   const [userStories, setUserStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,6 +114,27 @@ export default function MarketplacePage() {
       
       if (!response.ok) {
         throw new Error('Failed to add story to market')
+      }
+      
+      // Refresh both lists
+      await Promise.all([fetchMarketplaceStories(), fetchUserStories()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    }
+  }
+
+  const removeFromMarket = async (storyId: string) => {
+    try {
+      const response = await fetch(`/api/story/marketplace/${storyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ onMarket: false })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove story from market')
       }
       
       // Refresh both lists
@@ -309,7 +332,20 @@ export default function MarketplacePage() {
                           <span className="text-muted-foreground">${(marketCap / 1000).toFixed(1)}K</span>
                         </td>
                         <td className="p-4 text-right">
-                          <Button size="sm">Trade</Button>
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button size="sm">Trade</Button>
+                            {session?.user?.id && story.submitter && session.user.id === story.submitter.id && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => removeFromMarket(story.id)}
+                                className="flex items-center gap-1"
+                              >
+                                <MinusIcon className="w-3 h-3" />
+                                Remove
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
