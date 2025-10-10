@@ -22,7 +22,17 @@ export async function middleware(request: NextRequest) {
   }
 
   // Allow GET requests to /api/story (viewing stories)
-  if (pathname === "/api/story" && request.method === "GET") {
+  if (pathname.startsWith("/api/story") && request.method === "GET") {
+    // For /api/story/marketplace/me, require authentication
+    if (pathname === "/api/story/marketplace/me") {
+      const token = await getToken({ req: request })
+      if (!token) {
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 401 }
+        )
+      }
+    }
     return NextResponse.next()
   }
 

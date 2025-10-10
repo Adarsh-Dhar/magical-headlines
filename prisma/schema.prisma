@@ -104,6 +104,8 @@ model Story {
   tags  Tag[]
   token Token? // A story has one corresponding token
 
+  onMarket    Boolean   @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
