@@ -16,6 +16,10 @@ const navItems = [
 export function Navigation() {
   const pathname = usePathname()
 
+  // Render wallet button only on client after mount to prevent hydration mismatch
+  const [mounted, setMounted] = (require('react') as typeof import('react')).useState(false)
+  ;(require('react') as typeof import('react')).useEffect(() => setMounted(true), [])
+
   return (
     <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
@@ -42,7 +46,7 @@ export function Navigation() {
             })}
           </div>
 
-          <WalletMultiButton />
+          {mounted ? <WalletMultiButton /> : null}
         </div>
       </div>
     </nav>

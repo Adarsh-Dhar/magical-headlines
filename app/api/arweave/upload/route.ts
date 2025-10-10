@@ -3,6 +3,9 @@ import { TurboFactory, ArweaveSigner } from '@ardrive/turbo-sdk'
 import fs from 'fs'
 import path from 'path'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export interface ArweaveUploadRequest {
   content: string
   tags?: Array<{ name: string; value: string }>
@@ -18,6 +21,7 @@ export interface ArweaveUploadResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[arweave api] request received')
     const body: ArweaveUploadRequest = await request.json()
     const { content, tags = [], walletAddress } = body
 
@@ -65,17 +69,23 @@ export async function POST(request: NextRequest) {
 
       const contentBuffer = Buffer.from(content, 'utf8')
 
-      const result = await turbo.uploadFile({
-        fileStreamFactory: () => {
-          const { Readable } = require('stream')
-          return Readable.from(contentBuffer)
-        },
-        fileSizeFactory: () => contentBuffer.byteLength,
-        dataItemOpts: {
-          tags: allTags,
-        },
-      })
+      // Enforce a 20s timeout on the upload to avoid hanging
+      console.log('[arweave api] starting upload')
+      const result = await Promise.race([
+        turbo.uploadFile({
+          fileStreamFactory: () => {
+            const { Readable } = require('stream')
+            return Readable.from(contentBuffer)
+          },
+          fileSizeFactory: () => contentBuffer.byteLength,
+          dataItemOpts: {
+            tags: allTags,
+          },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timed out')), 20000)),
+      ]) as { id: string }
 
+      console.log('[arweave api] upload complete')
       return NextResponse.json({
         success: true,
         id: result.id,
