@@ -18,9 +18,14 @@ const createStorySchema = z.object({
 // POST /api/story - Create a new story
 export async function POST(request: NextRequest) {
   try {
+    console.log('[API] Story creation request received')
+    
     // Check authentication
     const session = await getServerSession(authOptions)
+    console.log('[API] Session check:', { hasSession: !!session, userId: session?.user?.id })
+    
     if (!session?.user?.id) {
+      console.log('[API] No session found, returning 401')
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -46,14 +51,27 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate request body
     const body = await request.json()
+    console.log('[API] Request body received:', { 
+      headline: body.headline, 
+      hasContent: !!body.content, 
+      originalUrl: body.originalUrl,
+      hasArweaveUrl: !!body.arweaveUrl,
+      hasArweaveId: !!body.arweaveId,
+      hasOnchainSignature: !!body.onchainSignature,
+      tagsCount: body.tags?.length || 0
+    })
+    
     const validation = createStorySchema.safeParse(body)
     
     if (!validation.success) {
+      console.log('[API] Validation failed:', validation.error.errors)
       return NextResponse.json(
         { error: "Invalid input", details: validation.error.errors },
         { status: 400 }
       )
     }
+    
+    console.log('[API] Validation passed, proceeding with story creation')
 
     const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, tags } = validation.data
 
@@ -78,6 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create story with all the new fields
+    console.log('[API] Creating story in database...')
     const story = await prisma.story.create({
       data: {
         headline,
@@ -101,6 +120,7 @@ export async function POST(request: NextRequest) {
         token: true
       }
     })
+    console.log('[API] Story created successfully:', story.id)
 
     // Create associated token
     await prisma.token.create({
@@ -150,6 +170,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log('[API] Returning complete story:', completeStory.id)
     return NextResponse.json(completeStory, { status: 201 })
 
   } catch (error) {

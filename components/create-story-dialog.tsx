@@ -82,6 +82,10 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       return
     }
 
+    // Make URL unique by adding timestamp to avoid conflicts
+    const uniqueUrl = `${formData.originalUrl}?t=${Date.now()}`
+    console.log('[CreateStoryDialog] formData', formData)
+
     setLoading(true)
 
     try {
@@ -101,57 +105,92 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       // Run Arweave upload with a client-side timeout so the UI never stalls
-      // console.debug('[CreateStoryDialog] starting Arweave upload')
-      // const arweaveTimeoutMs = 20000
-      // const wrappedUpload = publishToArweave(
-      //   newsContent,
-      //   [
-      //     { name: 'Original-URL', value: formData.originalUrl },
-      //     { name: 'Story-Type', value: 'news-trading' },
-      //   ],
-      //   publicKey?.toString()
-      // ).catch((e: any) => {
-      //   console.warn('[CreateStoryDialog] Arweave upload failed early:', e)
-      //   return { success: false, error: e instanceof Error ? e.message : String(e) }
-      // })
-
-      // const arweaveResult: any = await Promise.race([
-      //   wrappedUpload,
-      //   new Promise<ReturnType<typeof publishToArweave>>(resolve =>
-      //     setTimeout(() => {
-      //       console.warn('[CreateStoryDialog] Arweave upload timed out; proceeding with on-chain publish')
-      //       resolve({ success: true, arweaveId: 'timeout', arweaveUrl: 'https://arweave.net/timeout', newsId: `news-${Date.now()}` } as any)
-      //     }, arweaveTimeoutMs)
-      //   ),
-      // ])
-
-      // if (!arweaveResult.success) {
-      //   console.warn('[CreateStoryDialog] Arweave upload reported failure; proceeding with on-chain publish')
-      // }
-
-      // console.log('[CreateStoryDialog] arweaveResult', arweaveResult)
-
-      // if (!('arweaveUrl' in arweaveResult) || !arweaveResult.arweaveUrl) {
-      //   console.warn('[CreateStoryDialog] Missing arweaveUrl; using placeholder to proceed')
-      //   ;(arweaveResult as any).arweaveUrl = 'https://arweave.net/placeholder'
-      // }
-
-      // setArweaveResult({
-      //   arweaveId: (arweaveResult as any).arweaveId,
-      //   arweaveUrl: (arweaveResult as any).arweaveUrl,
-      // })
-      const txSignature = await publishOnchain({
-        headline: formData.headline,
-        arweaveLink: "https://dltxrkwbyxwpylxnr23hncajh36oyhao22bmlaxcnh7r4onz2mzq.arweave.net/Gud4qsHF7Pwu7Y62dogJPvzsHA7WgsWC4mn_Hjm50zM",
-        initialSupply: 1000,
-        nonce: Date.now(),
+      console.debug('[CreateStoryDialog] starting Arweave upload')
+      const arweaveTimeoutMs = 20000
+      const wrappedUpload = publishToArweave(
+        newsContent,
+        [
+          { name: 'Original-URL', value: formData.originalUrl },
+          { name: 'Story-Type', value: 'news-trading' },
+        ],
+        publicKey?.toString()
+      ).catch((e: any) => {
+        console.warn('[CreateStoryDialog] Arweave upload failed early:', e)
+        return { success: false, error: e instanceof Error ? e.message : String(e) }
       })
 
-      if (!txSignature) {
-        throw new Error('Failed to publish onchain')
+      const arweaveResult: any = await Promise.race([
+        wrappedUpload,
+        new Promise<ReturnType<typeof publishToArweave>>(resolve =>
+          setTimeout(() => {
+            console.warn('[CreateStoryDialog] Arweave upload timed out; proceeding with on-chain publish')
+            resolve({ success: true, arweaveId: 'timeout', arweaveUrl: 'https://arweave.net/timeout', newsId: `news-${Date.now()}` } as any)
+          }, arweaveTimeoutMs)
+        ),
+      ])
+
+      if (!arweaveResult.success) {
+        console.warn('[CreateStoryDialog] Arweave upload reported failure; proceeding with on-chain publish')
       }
 
+      console.log('[CreateStoryDialog] arweaveResult', arweaveResult)
+
+      // Ensure arweaveResult has the expected structure
+      const safeArweaveResult = {
+        arweaveId: arweaveResult?.arweaveId || 'placeholder-id',
+        arweaveUrl: arweaveResult?.arweaveUrl || 'https://arweave.net/placeholder'
+      }
+
+      if (!arweaveResult?.arweaveUrl) {
+        console.warn('[CreateStoryDialog] Missing arweaveUrl; using placeholder to proceed')
+      }
+
+      setArweaveResult({
+        arweaveId: safeArweaveResult.arweaveId,
+        arweaveUrl: safeArweaveResult.arweaveUrl,
+      })
+      console.log('[CreateStoryDialog] calling publishOnchain')
+      
+      let txSignature: string | undefined
+      try {
+        // Add timeout to onchain call
+        const onchainTimeoutMs = 30000 // 30 seconds
+        txSignature = await Promise.race([
+          publishOnchain({
+            headline: formData.headline,
+            arweaveLink: safeArweaveResult.arweaveUrl,
+            initialSupply: 1000,
+            nonce: Date.now(),
+          }),
+          new Promise<string>((_, reject) => 
+            setTimeout(() => reject(new Error('Onchain transaction timed out')), onchainTimeoutMs)
+          )
+        ]) as string
+
+        console.log('[CreateStoryDialog] txSignature', txSignature)
+
+        if (!txSignature) {
+          throw new Error('Failed to publish onchain - no signature returned')
+        }
+      } catch (onchainError) {
+        console.error('[CreateStoryDialog] Onchain publish failed:', onchainError)
+        throw new Error(`Onchain publish failed: ${onchainError instanceof Error ? onchainError.message : String(onchainError)}`)
+      }
+
+      console.log('[CreateStoryDialog] Onchain transaction completed successfully, proceeding to database save')
+      
       // Save to database only after successful onchain transaction
+      console.log('[CreateStoryDialog] saving to database')
+      console.log('[CreateStoryDialog] database payload:', {
+        headline: formData.headline,
+        content: formData.content,
+        originalUrl: uniqueUrl,
+        arweaveUrl: arweaveResult.arweaveUrl,
+        arweaveId: arweaveResult.arweaveId,
+        onchainSignature: txSignature,
+        tags: formData.tags,
+      })
+      
       const response = await fetch('/api/story', {
         method: 'POST',
         headers: {
@@ -160,25 +199,39 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         body: JSON.stringify({
           headline: formData.headline,
           content: formData.content,
-          originalUrl: formData.originalUrl,
-          arweaveUrl: (arweaveResult as any).arweaveUrl || '',
-          arweaveId: (arweaveResult as any).arweaveId || '',
+          originalUrl: uniqueUrl, // Using the unique URL to avoid conflicts
+          arweaveUrl: safeArweaveResult.arweaveUrl,
+          arweaveId: safeArweaveResult.arweaveId,
           onchainSignature: txSignature,
           tags: formData.tags,
         }),
       })
 
+      console.log('[CreateStoryDialog] response status:', response.status)
+      console.log('[CreateStoryDialog] response ok:', response.ok)
+
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to save story to database')
+        console.error('[CreateStoryDialog] Database save failed:', errorData)
+        
+        // Handle specific error cases
+        if (response.status === 409) {
+          throw new Error('A story with this URL already exists. Please try a different URL.')
+        } else {
+          throw new Error(errorData.error || 'Failed to save story to database')
+        }
       }
 
+      console.log('[CreateStoryDialog] Database save successful')
+
+      console.log('[CreateStoryDialog] showing success toast')
       toast({
         title: "Success",
         description: "Story published successfully on both Arweave and blockchain!",
       })
 
       // Reset form
+      console.log('[CreateStoryDialog] resetting form and closing dialog')
       setFormData({
         headline: "",
         content: "",
@@ -191,6 +244,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
       // Refresh stories list
       if (onStoryCreated) {
+        console.log('[CreateStoryDialog] calling onStoryCreated callback')
         onStoryCreated()
       }
     } catch (error) {
@@ -200,6 +254,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         variant: "destructive",
       })
     } finally {
+      console.log('[CreateStoryDialog] finally block - setting loading to false')
       setLoading(false)
     }
   }
