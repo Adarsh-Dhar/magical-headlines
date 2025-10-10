@@ -191,6 +191,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10")
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
+    const sortBy = searchParams.get("sortBy") || "createdAt"
+    const sortOrder = searchParams.get("sortOrder") || "desc"
 
     // Build where clause
     const where: any = {}
@@ -206,6 +208,23 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.headline = {
         contains: search
+      }
+    }
+
+    // Build orderBy clause
+    let orderBy: any = {}
+    
+    if (sortBy === "price" || sortBy === "volume24h" || sortBy === "marketCap") {
+      // Sort by token properties
+      orderBy = {
+        token: {
+          [sortBy]: sortOrder
+        }
+      }
+    } else {
+      // Sort by story properties
+      orderBy = {
+        [sortBy]: sortOrder
       }
     }
 
@@ -228,9 +247,7 @@ export async function GET(request: NextRequest) {
           tags: true,
           token: true
         },
-        orderBy: {
-          createdAt: "desc"
-        },
+        orderBy,
         skip,
         take: limit
       }),

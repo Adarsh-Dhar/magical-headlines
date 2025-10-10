@@ -104,7 +104,7 @@ export function useContract() {
           description: "Created with Anchor"
         },
         instructions: NEWS_PLATFORM_IDL.instructions || [],
-        accounts: [], // Empty accounts array to avoid the size error
+        accounts: NEWS_PLATFORM_IDL.accounts || [], // Include accounts from IDL
         events: NEWS_PLATFORM_IDL.events || [],
         errors: NEWS_PLATFORM_IDL.errors || [],
         types: NEWS_PLATFORM_IDL.types || []
@@ -296,6 +296,33 @@ export function useContract() {
     [program, walletAdapter.publicKey]
   );
 
+  const getAllNewsTokens = useCallback(
+    async (params: { offset: number; limit: number }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      return await program.methods
+        .getAllNewsTokens(params.offset, params.limit)
+        .accounts({
+          requester: walletAdapter.publicKey,
+        })
+        .rpc();
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  const getNewsByAuthor = useCallback(
+    async (params: { newsAccount: PublicKey }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      return await program.methods
+        .getNewsByAuthor()
+        .accounts({
+          newsAccount: params.newsAccount,
+          requester: walletAdapter.publicKey,
+        })
+        .rpc();
+    },
+    [program, walletAdapter.publicKey]
+  );
+
   return {
     program,
     // instruction wrappers
@@ -309,6 +336,8 @@ export function useContract() {
     initializeOracle,
     addAuthority,
     updateSummaryLink,
+    getAllNewsTokens,
+    getNewsByAuthor,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,
