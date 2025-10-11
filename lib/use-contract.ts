@@ -322,7 +322,7 @@ export function useContract() {
 
       // Debug: Check market account state
       try {
-        const marketAccount = await program.account.market.fetch(params.market);
+        const marketAccount = await (program.account as any).market.fetch(params.market);
         console.log('[useContract] Market account state:', {
           currentSupply: marketAccount.currentSupply.toString(),
           solReserves: marketAccount.solReserves.toString(),
@@ -354,9 +354,10 @@ export function useContract() {
             .rpc();
         } catch (error) {
           lastError = error;
-          console.log(`Buy transaction attempt failed (${4 - retries}/3):`, error.message);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.log(`Buy transaction attempt failed (${4 - retries}/3):`, errorMessage);
           
-          if (error.message.includes('Blockhash not found') && retries > 1) {
+          if (errorMessage.includes('Blockhash not found') && retries > 1) {
             console.log('Retrying due to blockhash error...');
             retries--;
             // Wait a bit before retrying
@@ -560,11 +561,12 @@ export function useContract() {
     async (marketAddress: PublicKey, amount: number) => {
       if (!program) throw new Error("Program not ready");
       try {
-        const marketAccount = await program.account.market.fetch(marketAddress);
+        const marketAccount = await (program.account as any).market.fetch(marketAddress);
         console.log('Market state:', {
           currentSupply: marketAccount.currentSupply.toString(),
           solReserves: marketAccount.solReserves.toString(),
           curveType: marketAccount.curveType,
+          isDelegated: marketAccount.isDelegated,
         });
         
         // Use the same calculation as the contract's exponential curve
@@ -599,6 +601,49 @@ export function useContract() {
     [program]
   );
 
+  // Get market delegation status
+  const getMarketDelegationStatus = useCallback(
+    async (marketAddress: PublicKey) => {
+      if (!program) throw new Error("Program not ready");
+      try {
+        const marketAccount = await (program.account as any).market.fetch(marketAddress);
+        return {
+          isDelegated: marketAccount.isDelegated,
+          rollupAuthority: marketAccount.rollupAuthority,
+          currentSupply: marketAccount.currentSupply,
+          totalVolume: marketAccount.totalVolume,
+        };
+      } catch (error) {
+        console.error('Error fetching market delegation status:', error);
+        throw error;
+      }
+    },
+    [program]
+  );
+
+  // Listen for delegation events
+  const listenForDelegationEvents = useCallback(
+    (onMarketAutoDelegated?: (event: any) => void, onStateCommitRecommended?: (event: any) => void) => {
+      if (!program) return null;
+      
+      const listener = program.addEventListener('MarketAutoDelegated', (event) => {
+        console.log('Market auto-delegated:', event);
+        if (onMarketAutoDelegated) onMarketAutoDelegated(event);
+      });
+      
+      const commitListener = program.addEventListener('StateCommitRecommended', (event) => {
+        console.log('State commit recommended:', event);
+        if (onStateCommitRecommended) onStateCommitRecommended(event);
+      });
+      
+      return () => {
+        program.removeEventListener(listener);
+        program.removeEventListener(commitListener);
+      };
+    },
+    [program]
+  );
+
   return {
     program,
     // instruction wrappers
@@ -616,6 +661,9 @@ export function useContract() {
     fetchNewsAccount,
     findActualNewsAccount,
     estimateBuyCost,
+    // delegation functions
+    getMarketDelegationStatus,
+    listenForDelegationEvents,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,

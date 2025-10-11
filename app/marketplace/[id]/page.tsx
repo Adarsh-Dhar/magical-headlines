@@ -55,7 +55,7 @@ export default function StoryDetailPage() {
   const { connected, publicKey } = useWallet()
   const { connection } = useConnection()
   const contract = useContract()
-  const { buy, sell, pdas, findActualNewsAccount, estimateBuyCost } = contract || {}
+  const { buy, sell, pdas, findActualNewsAccount, estimateBuyCost, getMarketDelegationStatus, listenForDelegationEvents } = contract || {}
   
   // Debug contract availability
   useEffect(() => {
@@ -81,6 +81,21 @@ export default function StoryDetailPage() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null)
   const [isRequestingAirdrop, setIsRequestingAirdrop] = useState(false)
+  
+  // Delegation status and events
+  const [delegationStatus, setDelegationStatus] = useState<{
+    isDelegated: boolean;
+    rollupAuthority: string | null;
+    currentSupply: number;
+    totalVolume: number;
+  } | null>(null)
+  const [delegationEvents, setDelegationEvents] = useState<{
+    autoDelegated: boolean;
+    commitRecommended: boolean;
+  }>({
+    autoDelegated: false,
+    commitRecommended: false,
+  })
 
   useEffect(() => {
     if (storyId) {
@@ -103,6 +118,58 @@ export default function StoryDetailPage() {
     
     fetchWalletBalance()
   }, [publicKey, connection])
+
+  // Fetch delegation status when story loads
+  useEffect(() => {
+    const fetchDelegationStatus = async () => {
+      if (story?.authorAddress && story?.nonce && getMarketDelegationStatus && pdas) {
+        try {
+          const authorAddress = new PublicKey(story.authorAddress)
+          const nonce = parseInt(story.nonce)
+          const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+          const marketPda = pdas.findMarketPda(newsAccountPubkey)
+          
+          const status = await getMarketDelegationStatus(marketPda)
+          setDelegationStatus({
+            isDelegated: status.isDelegated,
+            rollupAuthority: status.rollupAuthority?.toString() || null,
+            currentSupply: Number(status.currentSupply),
+            totalVolume: Number(status.totalVolume),
+          })
+        } catch (error) {
+          console.error('Error fetching delegation status:', error)
+        }
+      }
+    }
+    
+    fetchDelegationStatus()
+  }, [story?.authorAddress, story?.nonce, getMarketDelegationStatus, pdas])
+
+  // Set up event listeners for delegation events
+  useEffect(() => {
+    if (!listenForDelegationEvents) return
+
+    const cleanup = listenForDelegationEvents(
+      (event) => {
+        console.log('Market auto-delegated event received:', event)
+        setDelegationEvents(prev => ({ ...prev, autoDelegated: true }))
+        // Refresh delegation status
+        if (story?.authorAddress && story?.nonce && getMarketDelegationStatus && pdas) {
+          const authorAddress = new PublicKey(story.authorAddress)
+          const nonce = parseInt(story.nonce)
+          const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+          const marketPda = pdas.findMarketPda(newsAccountPubkey)
+          getMarketDelegationStatus(marketPda).then(setDelegationStatus).catch(console.error)
+        }
+      },
+      (event) => {
+        console.log('State commit recommended event received:', event)
+        setDelegationEvents(prev => ({ ...prev, commitRecommended: true }))
+      }
+    )
+
+    return cleanup || undefined
+  }, [listenForDelegationEvents, story?.authorAddress, story?.nonce, getMarketDelegationStatus, pdas])
 
   // Estimate buy cost when amount changes
   useEffect(() => {
@@ -624,6 +691,46 @@ export default function StoryDetailPage() {
                   </div>
                   
                   <div className="pt-4 border-t space-y-4">
+                    {/* Delegation Status */}
+                    {delegationStatus && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                            Trading Status
+                          </span>
+                          <Badge variant={delegationStatus.isDelegated ? "default" : "secondary"}>
+                            {delegationStatus.isDelegated ? "⚡ High-Speed" : "🐌 Base Layer"}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                          <p>Supply: {delegationStatus.currentSupply}/100 tokens</p>
+                          <p>Volume: {(delegationStatus.totalVolume / 1e9).toFixed(4)} SOL</p>
+                          {delegationStatus.isDelegated && (
+                            <p>Authority: {delegationStatus.rollupAuthority?.slice(0, 8)}...</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delegation Events */}
+                    {delegationEvents.autoDelegated && (
+                      <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                          <span>⚡</span>
+                          <span>Market upgraded to high-speed trading!</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {delegationEvents.commitRecommended && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-300">
+                          <span>💾</span>
+                          <span>State commit recommended for this market</span>
+                        </div>
+                      </div>
+                    )}
+
                     {!connected ? (
                       <div className="text-center py-4">
                         <WalletIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
@@ -702,6 +809,9 @@ export default function StoryDetailPage() {
                           <p>Buy Function: {typeof buy === 'function' ? 'Available' : 'None'}</p>
                           <p>Sell Function: {typeof sell === 'function' ? 'Available' : 'None'}</p>
                           <p>PDA Helpers: {pdas ? 'Available' : 'None'}</p>
+                          <p>Delegation Status: {delegationStatus ? (delegationStatus.isDelegated ? 'Delegated' : 'Not Delegated') : 'Loading...'}</p>
+                          <p>Auto-Delegated Event: {delegationEvents.autoDelegated ? 'Yes' : 'No'}</p>
+                          <p>Commit Recommended: {delegationEvents.commitRecommended ? 'Yes' : 'No'}</p>
                           <p>Buy Amount: {buyAmount || 'Empty'}</p>
                           <p>Sell Amount: {sellAmount || 'Empty'}</p>
                           <p>Is Trading: {isTrading ? 'Yes' : 'No'}</p>
