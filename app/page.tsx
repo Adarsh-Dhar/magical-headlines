@@ -17,50 +17,27 @@ export default function HomePage() {
   useEffect(() => {
     const fetchNewsTokens = async () => {
       if (!connected || !publicKey || !program) {
-        console.log("Wallet not connected or program not ready, skipping news tokens fetch");
         return;
       }
 
       try {
-        console.log("Fetching all news tokens...");
         
         // Check if program and account namespace exist
         if (!program || !program.account) {
-          console.error("Program or account namespace not available");
           return;
         }
         
         // Try to access newsAccount with proper error handling
         const newsAccountNamespace = (program.account as any).newsAccount;
         if (!newsAccountNamespace || typeof newsAccountNamespace.all !== 'function') {
-          console.error("newsAccount namespace not available or all method not found");
-          console.log("Available account types:", Object.keys(program.account || {}));
           return;
         }
         
         // Fetch all news accounts from the blockchain
         const accounts = await newsAccountNamespace.all();
-        console.log("News tokens accounts:", accounts);
-        console.log(`Found ${accounts.length} news accounts`);
         
-        // Log each account's data
-        accounts.forEach((account: any, index: number) => {
-          console.log(`Account ${index + 1}:`, {
-            publicKey: account.publicKey.toString(),
-            headline: account.account.headline,
-            author: account.account.authority.toString(),
-            arweaveLink: account.account.arweaveLink,
-            summaryLink: account.account.summaryLink,
-            mint: account.account.mint.toString(),
-            publishedAt: new Date(account.account.publishedAt * 1000).toISOString(),
-            bump: account.account.bump,
-          });
-        });
         
       } catch (error) {
-        console.error("Error fetching news tokens:", error);
-        console.log("Program object:", program);
-        console.log("Program account namespace:", program?.account);
       }
     };
 

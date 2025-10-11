@@ -103,14 +103,12 @@ export default function MarketplacePage() {
               prices[story.id] = price
             }
           } catch (error) {
-            console.error(`Error calculating price for story ${story.id}:`, error)
           }
         }
       }
       
       setRealTimePrices(prices)
     } catch (error) {
-      console.error('Error calculating real-time prices:', error)
     } finally {
       setPricesLoading(false)
     }
@@ -152,7 +150,6 @@ export default function MarketplacePage() {
       )
       setUserStories(userStories)
     } catch (err) {
-      console.error('Error fetching user stories:', err)
       setUserStories([])
     } finally {
       setUserStoriesLoading(false)
@@ -163,7 +160,6 @@ export default function MarketplacePage() {
     try {
       // For now, just refresh the data since we don't have an update endpoint
       // TODO: Implement API endpoint for updating onMarket status
-      console.log('Add to market functionality not yet implemented')
       await Promise.all([fetchMarketplaceStories(), fetchUserStories()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -174,7 +170,6 @@ export default function MarketplacePage() {
     try {
       // For now, just refresh the data since we don't have an update endpoint
       // TODO: Implement API endpoint for updating onMarket status
-      console.log('Remove from market functionality not yet implemented')
       await Promise.all([fetchMarketplaceStories(), fetchUserStories()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')

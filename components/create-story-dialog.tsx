@@ -69,18 +69,15 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     
     // Validate nonce is within safe integer range
     if (nonce > Number.MAX_SAFE_INTEGER) {
-      console.warn('[CreateStoryDialog] Generated nonce exceeds safe integer, using fallback')
       const fallbackNonce = Math.floor(Math.random() * 1000000000)
       usedNoncesRef.current.add(fallbackNonce)
       setUsedNonces(prev => new Set(prev).add(fallbackNonce))
-      console.log('[CreateStoryDialog] Using fallback nonce:', fallbackNonce)
       return fallbackNonce
     }
     
     // Mark nonce as used immediately in ref (synchronous)
     usedNoncesRef.current.add(nonce)
     setUsedNonces(prev => new Set(prev).add(nonce))
-    console.log('[CreateStoryDialog] Generated unique nonce:', nonce, 'Counter:', counter, 'Safe integer check:', nonce <= Number.MAX_SAFE_INTEGER)
     return nonce
   }
 
@@ -89,7 +86,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     
     // Prevent multiple simultaneous submissions
     if (isSubmitting || loading) {
-      console.log('[CreateStoryDialog] Submission already in progress, ignoring duplicate request')
       return
     }
     
@@ -191,7 +187,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
     // Make URL unique by adding timestamp to avoid conflicts
     const uniqueUrl = `${formData.originalUrl}?t=${Date.now()}`
-    console.log('[CreateStoryDialog] formData', formData)
 
     // Set both loading states to prevent duplicate submissions
     setLoading(true)
@@ -214,7 +209,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       // Run Arweave upload with a client-side timeout so the UI never stalls
-      console.debug('[CreateStoryDialog] starting Arweave upload')
       const arweaveTimeoutMs = 20000
       const wrappedUpload = publishToArweave(
         newsContent,
@@ -224,7 +218,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         ],
         publicKey?.toString()
       ).catch((e: any) => {
-        console.warn('[CreateStoryDialog] Arweave upload failed early:', e)
         return { success: false, error: e instanceof Error ? e.message : String(e) }
       })
 
@@ -232,17 +225,14 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         wrappedUpload,
         new Promise<ReturnType<typeof publishToArweave>>(resolve =>
           setTimeout(() => {
-            console.warn('[CreateStoryDialog] Arweave upload timed out; proceeding with on-chain publish')
             resolve({ success: true, arweaveId: 'timeout', arweaveUrl: 'https://arweave.net/timeout', newsId: `news-${Date.now()}` } as any)
           }, arweaveTimeoutMs)
         ),
       ])
 
       if (!arweaveResult.success) {
-        console.warn('[CreateStoryDialog] Arweave upload reported failure; proceeding with on-chain publish')
       }
 
-      console.log('[CreateStoryDialog] arweaveResult', arweaveResult)
 
       // Ensure arweaveResult has the expected structure
       const safeArweaveResult = {
@@ -251,20 +241,15 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       if (!arweaveResult?.arweaveUrl) {
-        console.warn('[CreateStoryDialog] Missing arweaveUrl; using placeholder to proceed')
       }
 
       setArweaveResult({
         arweaveId: safeArweaveResult.arweaveId,
         arweaveUrl: safeArweaveResult.arweaveUrl,
       })
-      console.log('[CreateStoryDialog] calling publishOnchain')
       
       // Generate unique nonce for this transaction
       const uniqueNonce = generateUniqueNonce()
-      console.log('[CreateStoryDialog] Using nonce:', uniqueNonce)
-      console.log('[CreateStoryDialog] Nonce type:', typeof uniqueNonce)
-      console.log('[CreateStoryDialog] Nonce is safe integer:', Number.isSafeInteger(uniqueNonce))
       
       let txSignature: string | undefined
       try {
@@ -283,19 +268,16 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           )
         ]) as string
 
-        console.log('[CreateStoryDialog] txSignature', txSignature)
 
         if (!txSignature) {
           throw new Error('Failed to publish onchain - no signature returned')
         }
       } catch (onchainError) {
-        console.error('[CreateStoryDialog] Onchain publish failed:', onchainError)
         
         // Handle specific error cases with detailed error messages
         const errorMessage = onchainError instanceof Error ? onchainError.message : String(onchainError)
         
         if (errorMessage.includes('already been processed')) {
-          console.warn('[CreateStoryDialog] Transaction already processed, continuing with database save only')
           // Set a placeholder signature for database save
           txSignature = 'already-processed-' + Date.now()
         } else if (errorMessage.includes('timed out')) {
@@ -320,19 +302,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       const isBlockchainSkipped = txSignature.startsWith('already-processed-')
-      console.log('[CreateStoryDialog] Onchain transaction', isBlockchainSkipped ? 'skipped (already processed)' : 'completed successfully', ', proceeding to database save')
       
       // Save to database only after successful onchain transaction
-      console.log('[CreateStoryDialog] saving to database')
-      console.log('[CreateStoryDialog] database payload:', {
-        headline: formData.headline,
-        content: formData.content,
-        originalUrl: uniqueUrl,
-        arweaveUrl: arweaveResult.arweaveUrl,
-        arweaveId: arweaveResult.arweaveId,
-        onchainSignature: txSignature,
-        tags: formData.tags,
-      })
       
       const response = await fetch('/api/story', {
         method: 'POST',
@@ -352,12 +323,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         }),
       })
 
-      console.log('[CreateStoryDialog] response status:', response.status)
-      console.log('[CreateStoryDialog] response ok:', response.ok)
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('[CreateStoryDialog] Database save failed:', errorData)
         
         // Handle specific error cases
         if (response.status === 409) {
@@ -367,9 +335,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         }
       }
 
-      console.log('[CreateStoryDialog] Database save successful')
 
-      console.log('[CreateStoryDialog] showing success toast')
       toast({
         title: "Success",
         description: isBlockchainSkipped 
@@ -378,7 +344,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
 
       // Reset form
-      console.log('[CreateStoryDialog] resetting form and closing dialog')
       setFormData({
         headline: "",
         content: "",
@@ -394,7 +359,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
       // Refresh stories list
       if (onStoryCreated) {
-        console.log('[CreateStoryDialog] calling onStoryCreated callback')
         onStoryCreated()
       }
     } catch (error) {
@@ -404,7 +368,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         variant: "destructive",
       })
     } finally {
-      console.log('[CreateStoryDialog] finally block - setting loading to false')
       setLoading(false)
       setIsSubmitting(false)
     }

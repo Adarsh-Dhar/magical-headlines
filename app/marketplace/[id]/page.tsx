@@ -59,13 +59,6 @@ export default function StoryDetailPage() {
   
   // Debug contract availability
   useEffect(() => {
-    console.log('Contract hook result:', {
-      contract: !!contract,
-      buy: typeof buy,
-      sell: typeof sell,
-      pdas: !!pdas,
-      pdasKeys: pdas ? Object.keys(pdas) : []
-    })
   }, [contract, buy, sell, pdas])
   
   const [story, setStory] = useState<Story | null>(null)
@@ -111,7 +104,6 @@ export default function StoryDetailPage() {
           const balance = await connection.getBalance(publicKey)
           setWalletBalance(balance / 1e9) // Convert lamports to SOL
         } catch (error) {
-          console.error('Error fetching wallet balance:', error)
         }
       }
     }
@@ -137,7 +129,6 @@ export default function StoryDetailPage() {
             totalVolume: Number(status.totalVolume),
           })
         } catch (error) {
-          console.error('Error fetching delegation status:', error)
         }
       }
     }
@@ -151,7 +142,6 @@ export default function StoryDetailPage() {
 
     const cleanup = listenForDelegationEvents(
       (event) => {
-        console.log('Market auto-delegated event received:', event)
         setDelegationEvents(prev => ({ ...prev, autoDelegated: true }))
         // Refresh delegation status
         if (story?.authorAddress && story?.nonce && getMarketDelegationStatus && pdas) {
@@ -159,11 +149,10 @@ export default function StoryDetailPage() {
           const nonce = parseInt(story.nonce)
           const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
           const marketPda = pdas.findMarketPda(newsAccountPubkey)
-          getMarketDelegationStatus(marketPda).then(setDelegationStatus).catch(console.error)
+          getMarketDelegationStatus(marketPda).then(setDelegationStatus).catch(() => {})
         }
       },
       (event) => {
-        console.log('State commit recommended event received:', event)
         setDelegationEvents(prev => ({ ...prev, commitRecommended: true }))
       }
     )
@@ -179,28 +168,18 @@ export default function StoryDetailPage() {
           const amount = parseInt(buyAmount)
           if (amount > 0) {
             // Derive the news account PDA using author address and nonce
-            console.log('Deriving news account from author and nonce:', {
-              authorAddress: story.authorAddress,
-              nonce: story.nonce
-            })
             const authorAddress = new PublicKey(story.authorAddress)
             const nonce = parseInt(story.nonce)
             const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
             const marketPda = pdas.findMarketPda(newsAccountPubkey)
             
-            console.log('Derived PDAs:', {
-              newsAccount: newsAccountPubkey.toString(),
-              market: marketPda.toString()
-            })
             
             if (marketPda) {
               const cost = await estimateBuyCost(marketPda, amount)
-              console.log(`Estimated cost for ${amount} tokens: ${cost} SOL`)
               setEstimatedCost(cost)
             }
           }
         } catch (error) {
-          console.error('Error estimating cost:', error)
           setEstimatedCost(null)
         }
       } else {
@@ -216,10 +195,8 @@ export default function StoryDetailPage() {
     
     setIsRequestingAirdrop(true)
     try {
-      console.log('Requesting airdrop for:', publicKey.toString())
       const signature = await connection.requestAirdrop(publicKey, 1e9) // 1 SOL
       await connection.confirmTransaction(signature)
-      console.log('Airdrop successful:', signature)
       
       // Refresh wallet balance
       const balance = await connection.getBalance(publicKey)
@@ -227,7 +204,6 @@ export default function StoryDetailPage() {
       
       setTradingSuccess('Airdrop successful! You now have 1 SOL for testing.')
     } catch (error) {
-      console.error('Airdrop failed:', error)
       setTradingError('Airdrop failed. Please try again.')
     } finally {
       setIsRequestingAirdrop(false)
@@ -254,7 +230,6 @@ export default function StoryDetailPage() {
   }
 
   const handleBuy = async () => {
-    console.log('Buy button clicked')
     
     if (!story?.token) {
       setTradingError('Story has no token available for trading')
@@ -282,7 +257,6 @@ export default function StoryDetailPage() {
       setTradingError(null)
       setTradingSuccess(null)
 
-      console.log('Starting buy transaction...', { amount, storyId: story.id })
 
       // Check if we have the required onchain data
       if (!story.authorAddress || !story.nonce) {
@@ -302,54 +276,32 @@ export default function StoryDetailPage() {
       if (findActualNewsAccount) {
         try {
           newsPda = await findActualNewsAccount(authorAddress, nonce)
-          console.log('Found actual news account:', newsPda.toString())
         } catch (error) {
-          console.error('Error finding actual news account:', error)
           // Fallback to derived address
           newsPda = pdas.findNewsPda(authorAddress, nonce)
-          console.log('Using derived news account:', newsPda.toString())
         }
       } else {
         newsPda = pdas.findNewsPda(authorAddress, nonce)
-        console.log('Using derived news account (no findActualNewsAccount):', newsPda.toString())
       }
       
       const marketPda = pdas.findMarketPda(newsPda)
       const mintPda = pdas.findMintPda(newsPda)
 
-      console.log('PDAs derived:', { 
-        newsPda: newsPda.toString(), 
-        marketPda: marketPda.toString(), 
-        mintPda: mintPda.toString() 
-      })
       
-      console.log('Story data:', {
-        authorAddress: story.authorAddress,
-        nonce: story.nonce,
-        onchainSignature: story.onchainSignature
-      })
       
-      // Debug: Let's see what the actual news account address should be
-      const expectedNewsPda = pdas.findNewsPda(authorAddress, nonce)
-      console.log('Expected news PDA:', expectedNewsPda.toString())
-      console.log('Derived news PDA:', newsPda.toString())
-      console.log('Are they equal?', expectedNewsPda.equals(newsPda))
 
       if (typeof buy !== 'function') {
         throw new Error('Buy function is not available')
       }
 
-      console.log('Attempting buy with amount:', amount)
       
       // Calculate estimated cost before transaction
       const estimatedCost = await estimateBuyCost(marketPda, amount)
-      console.log(`Estimated cost for ${amount} tokens: ${estimatedCost} SOL`)
       
       // Check wallet balance
       if (publicKey) {
         const balance = await connection.getBalance(publicKey)
         const balanceSOL = balance / 1e9
-        console.log(`Current wallet balance: ${balance} lamports = ${balanceSOL} SOL`)
         
         // Validate sufficient funds
         if (estimatedCost && estimatedCost > balanceSOL) {
@@ -364,21 +316,17 @@ export default function StoryDetailPage() {
         amount: amount
       })
 
-      console.log('Buy transaction successful:', signature)
       setTradingSuccess(`Successfully bought ${amount} tokens! Transaction: ${signature}`)
       setBuyAmount("")
       
       // Refresh story data to get updated token info
       await fetchStory()
     } catch (err) {
-      console.error('Buy transaction failed:', err)
       
       // Log transaction details if available
       if (err && typeof err === 'object' && 'transactionLogs' in err) {
-        console.log('Transaction logs:', (err as any).transactionLogs)
       }
       if (err && typeof err === 'object' && 'programErrorStack' in err) {
-        console.log('Program error stack:', (err as any).programErrorStack)
       }
       
       // Provide more helpful error messages
@@ -401,7 +349,6 @@ export default function StoryDetailPage() {
   }
 
   const handleSell = async () => {
-    console.log('Sell button clicked')
     
     if (!story?.token) {
       setTradingError('Story has no token available for trading')
@@ -429,7 +376,6 @@ export default function StoryDetailPage() {
       setTradingError(null)
       setTradingSuccess(null)
 
-      console.log('Starting sell transaction...', { amount, storyId: story.id })
 
       // Check if we have the required onchain data
       if (!story.authorAddress || !story.nonce) {
@@ -449,38 +395,19 @@ export default function StoryDetailPage() {
       if (findActualNewsAccount) {
         try {
           newsPda = await findActualNewsAccount(authorAddress, nonce)
-          console.log('Found actual news account (sell):', newsPda.toString())
         } catch (error) {
-          console.error('Error finding actual news account (sell):', error)
           // Fallback to derived address
           newsPda = pdas.findNewsPda(authorAddress, nonce)
-          console.log('Using derived news account (sell):', newsPda.toString())
         }
       } else {
         newsPda = pdas.findNewsPda(authorAddress, nonce)
-        console.log('Using derived news account (sell, no findActualNewsAccount):', newsPda.toString())
       }
       
       const marketPda = pdas.findMarketPda(newsPda)
       const mintPda = pdas.findMintPda(newsPda)
 
-      console.log('PDAs derived (sell):', { 
-        newsPda: newsPda.toString(), 
-        marketPda: marketPda.toString(), 
-        mintPda: mintPda.toString() 
-      })
       
-      console.log('Story data (sell):', {
-        authorAddress: story.authorAddress,
-        nonce: story.nonce,
-        onchainSignature: story.onchainSignature
-      })
       
-      // Debug: Let's see what the actual news account address should be
-      const expectedNewsPda = pdas.findNewsPda(authorAddress, nonce)
-      console.log('Expected news PDA (sell):', expectedNewsPda.toString())
-      console.log('Derived news PDA (sell):', newsPda.toString())
-      console.log('Are they equal (sell)?', expectedNewsPda.equals(newsPda))
 
       if (typeof sell !== 'function') {
         throw new Error('Sell function is not available')
@@ -488,7 +415,6 @@ export default function StoryDetailPage() {
 
       // Calculate estimated refund before transaction
       const estimatedRefund = await estimateBuyCost(marketPda, amount) // Same calculation for sell refund
-      console.log(`Estimated refund for ${amount} tokens: ${estimatedRefund} SOL`)
 
       const signature = await sell({
         market: marketPda,
@@ -497,14 +423,12 @@ export default function StoryDetailPage() {
         amount: amount
       })
 
-      console.log('Sell transaction successful:', signature)
       setTradingSuccess(`Successfully sold ${amount} tokens! Transaction: ${signature}`)
       setSellAmount("")
       
       // Refresh story data to get updated token info
       await fetchStory()
     } catch (err) {
-      console.error('Sell transaction failed:', err)
       setTradingError(err instanceof Error ? err.message : 'Failed to sell tokens')
     } finally {
       setIsTrading(false)

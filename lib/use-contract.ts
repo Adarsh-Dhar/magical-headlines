@@ -113,7 +113,6 @@ export function useContract() {
       const program = new Program(minimalIdl as Idl, provider) as Program;
       return program;
     } catch (error) {
-      console.error('Program creation failed:', error);
       return null;
     }
   }, [connection, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
@@ -160,7 +159,6 @@ export function useContract() {
       // Ensure nonce is a safe integer and convert to string for anchor.BN
       const safeNonce = Number.isSafeInteger(params.nonce) ? params.nonce : Math.floor(Math.random() * 1000000000);
       const nonceBn = new anchor.BN(safeNonce.toString());
-      console.log('[useContract] Using nonce:', safeNonce, 'as BN:', nonceBn.toString());
       
       // Validate nonce is unique by checking if news account already exists
       const newsPda = findNewsPda(author, nonceBn);
@@ -176,7 +174,6 @@ export function useContract() {
         }
       } catch (error) {
         // Account doesn't exist, which is what we want
-        console.log('[useContract] News account does not exist, proceeding with creation');
       }
 
       const metadataProgram = TOKEN_METADATA_PROGRAM_ID;
@@ -187,13 +184,6 @@ export function useContract() {
         owner: author,
       });
 
-      console.log('[useContract] Publishing news with accounts:', {
-        newsAccount: newsPda.toString(),
-        mint: mintPda.toString(),
-        market: marketPda.toString(),
-        author: author.toString(),
-        authorTokenAccount: authorTokenAccount.toString()
-      });
 
       const signature = await program.methods
         .publishNews(
@@ -218,12 +208,6 @@ export function useContract() {
         .rpc();
 
       // Verify the transaction was successful by checking account states
-      console.log('[useContract] Verifying transaction success...');
-      console.log('[useContract] Verification PDAs:', {
-        newsPda: newsPda.toString(),
-        mintPda: mintPda.toString(),
-        marketPda: marketPda.toString()
-      });
       
       try {
         // Wait for confirmation
@@ -235,13 +219,7 @@ export function useContract() {
           if (!accountInfo) {
             throw new Error("News account was not created");
           }
-          console.log('[useContract] News account exists:', {
-            address: newsPda.toString(),
-            lamports: accountInfo.lamports,
-            owner: accountInfo.owner.toString()
-          });
         } catch (error) {
-          console.error('[useContract] News account verification failed:', error);
           throw new Error(`News account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
         }
         
@@ -256,16 +234,10 @@ export function useContract() {
             throw new Error("Mint account was not created");
           }
           
-          console.log('[useContract] Mint account exists:', {
-            address: mintPda.toString(),
-            lamports: mintAccountInfo.lamports,
-            owner: mintAccountInfo.owner.toString()
-          });
           
           // For now, we'll just verify the account exists
           // The supply verification can be done later when we have proper account parsing
         } catch (error) {
-          console.error('[useContract] Mint account verification failed:', error);
           throw new Error(`Mint account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
         }
         
@@ -276,21 +248,13 @@ export function useContract() {
             throw new Error("Market account was not created");
           }
           
-          console.log('[useContract] Market account exists:', {
-            address: marketPda.toString(),
-            lamports: marketAccountInfo.lamports,
-            owner: marketAccountInfo.owner.toString()
-          });
         } catch (error) {
-          console.error('[useContract] Market account verification failed:', error);
           throw new Error(`Market account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
         }
         
-        console.log('[useContract] Transaction verification successful');
         return signature;
         
       } catch (verificationError) {
-        console.error('[useContract] Transaction verification failed:', verificationError);
         throw new Error(`Transaction verification failed: ${verificationError instanceof Error ? verificationError.message : String(verificationError)}`);
       }
     },
@@ -309,28 +273,11 @@ export function useContract() {
         owner: buyer,
       });
       
-      console.log('[useContract] Buy accounts:', {
-        market: params.market.toString(),
-        mint: params.mint.toString(),
-        newsAccount: params.newsAccount.toString(),
-        buyer: buyer.toString(),
-        buyerTokenAccount: buyerTokenAccount.toString(),
-        tokenProgram: TOKEN_PROGRAM_ID.toString(),
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
-        systemProgram: SystemProgram.programId.toString(),
-      });
 
       // Debug: Check market account state
       try {
         const marketAccount = await (program.account as any).market.fetch(params.market);
-        console.log('[useContract] Market account state:', {
-          currentSupply: marketAccount.currentSupply.toString(),
-          solReserves: marketAccount.solReserves.toString(),
-          curveType: marketAccount.curveType,
-          isDelegated: marketAccount.isDelegated,
-        });
       } catch (error) {
-        console.error('[useContract] Error fetching market account:', error);
       }
       
       // Retry logic for blockhash issues
@@ -355,10 +302,8 @@ export function useContract() {
         } catch (error) {
           lastError = error;
           const errorMessage = error instanceof Error ? error.message : String(error);
-          console.log(`Buy transaction attempt failed (${4 - retries}/3):`, errorMessage);
           
           if (errorMessage.includes('Blockhash not found') && retries > 1) {
-            console.log('Retrying due to blockhash error...');
             retries--;
             // Wait a bit before retrying
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -525,7 +470,6 @@ export function useContract() {
         }
         return accountInfo;
       } catch (error) {
-        console.error('Error fetching news account:', error);
         throw error;
       }
     },
@@ -541,16 +485,12 @@ export function useContract() {
         const accountInfo = await connection.getAccountInfo(derivedNewsPda);
         
         if (accountInfo) {
-          console.log('Found news account at derived address:', derivedNewsPda.toString());
           return derivedNewsPda;
         } else {
-          console.log('No news account found at derived address:', derivedNewsPda.toString());
           // For now, just return the derived address and let the contract handle the validation
-          console.log('No news account found at derived address, using derived address');
           return derivedNewsPda;
         }
       } catch (error) {
-        console.error('Error finding news account:', error);
         throw error;
       }
     },
@@ -562,19 +502,12 @@ export function useContract() {
       if (!program) throw new Error("Program not ready");
       try {
         const marketAccount = await (program.account as any).market.fetch(marketAddress);
-        console.log('Market state:', {
-          currentSupply: marketAccount.currentSupply.toString(),
-          solReserves: marketAccount.solReserves.toString(),
-          curveType: marketAccount.curveType,
-          isDelegated: marketAccount.isDelegated,
-        });
         
         // Use the same calculation as the contract's exponential curve
         const basePrice = 1000000; // 0.001 SOL in lamports (1,000,000 lamports)
         const currentSupply = Number(marketAccount.currentSupply);
         let totalCost = 0;
         
-        console.log(`Calculating cost for ${amount} tokens with current supply: ${currentSupply}`);
         
         for (let i = 0; i < amount; i++) {
           const supply = currentSupply + i;
@@ -582,19 +515,15 @@ export function useContract() {
           const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
           const price = Math.floor((basePrice * multiplier) / 10000);
           totalCost += price;
-          console.log(`Token ${i + 1}: supply=${supply}, multiplier=${multiplier}, price=${price} lamports`);
         }
         
         const costInSOL = totalCost / 1e9;
-        console.log(`Total cost: ${totalCost} lamports = ${costInSOL} SOL`);
         
         return costInSOL;
       } catch (error) {
-        console.error('Error estimating buy cost:', error);
         // Return a fallback calculation if market account fetch fails
         const basePrice = 1000000; // 0.001 SOL in lamports
         const fallbackCost = (basePrice * amount) / 1e9; // Simple linear fallback
-        console.log(`Using fallback cost calculation: ${fallbackCost} SOL`);
         return fallbackCost;
       }
     },
@@ -614,7 +543,6 @@ export function useContract() {
           totalVolume: marketAccount.totalVolume,
         };
       } catch (error) {
-        console.error('Error fetching market delegation status:', error);
         throw error;
       }
     },
@@ -627,12 +555,10 @@ export function useContract() {
       if (!program) return null;
       
       const listener = program.addEventListener('MarketAutoDelegated', (event) => {
-        console.log('Market auto-delegated:', event);
         if (onMarketAutoDelegated) onMarketAutoDelegated(event);
       });
       
       const commitListener = program.addEventListener('StateCommitRecommended', (event) => {
-        console.log('State commit recommended:', event);
         if (onStateCommitRecommended) onStateCommitRecommended(event);
       });
       
