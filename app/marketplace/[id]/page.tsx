@@ -42,6 +42,9 @@ interface Story {
     priceChange24h: number
     volume24h: number
     marketCap: number
+    newsAccount?: string
+    mint?: string
+    market?: string
   } | null
 }
 
@@ -104,16 +107,28 @@ export default function StoryDetailPage() {
   // Estimate buy cost when amount changes
   useEffect(() => {
     const estimateCost = async () => {
-      if (buyAmount && estimateBuyCost && story?.token?.newsAccount) {
+      if (buyAmount && estimateBuyCost && story?.authorAddress && story?.nonce && pdas) {
         try {
           const amount = parseInt(buyAmount)
-          if (amount > 0 && story.token.newsAccount) {
-            // Convert string to PublicKey with validation
-            console.log('Converting newsAccount to PublicKey:', story.token.newsAccount)
-            const newsAccountPubkey = new PublicKey(story.token.newsAccount)
-            const marketPda = pdas?.findMarketPda(newsAccountPubkey)
+          if (amount > 0) {
+            // Derive the news account PDA using author address and nonce
+            console.log('Deriving news account from author and nonce:', {
+              authorAddress: story.authorAddress,
+              nonce: story.nonce
+            })
+            const authorAddress = new PublicKey(story.authorAddress)
+            const nonce = parseInt(story.nonce)
+            const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+            const marketPda = pdas.findMarketPda(newsAccountPubkey)
+            
+            console.log('Derived PDAs:', {
+              newsAccount: newsAccountPubkey.toString(),
+              market: marketPda.toString()
+            })
+            
             if (marketPda) {
               const cost = await estimateBuyCost(marketPda, amount)
+              console.log(`Estimated cost for ${amount} tokens: ${cost} SOL`)
               setEstimatedCost(cost)
             }
           }
@@ -127,7 +142,7 @@ export default function StoryDetailPage() {
     }
     
     estimateCost()
-  }, [buyAmount, estimateBuyCost, story?.token?.newsAccount, pdas])
+  }, [buyAmount, estimateBuyCost, story?.authorAddress, story?.nonce, pdas])
 
   const requestAirdrop = async () => {
     if (!publicKey) return
@@ -258,13 +273,21 @@ export default function StoryDetailPage() {
       }
 
       console.log('Attempting buy with amount:', amount)
-      console.log('Buyer wallet balance check needed - make sure you have enough SOL')
+      
+      // Calculate estimated cost before transaction
+      const estimatedCost = await estimateBuyCost(marketPda, amount)
+      console.log(`Estimated cost for ${amount} tokens: ${estimatedCost} SOL`)
       
       // Check wallet balance
       if (publicKey) {
         const balance = await connection.getBalance(publicKey)
         const balanceSOL = balance / 1e9
         console.log(`Current wallet balance: ${balance} lamports = ${balanceSOL} SOL`)
+        
+        // Validate sufficient funds
+        if (estimatedCost && estimatedCost > balanceSOL) {
+          throw new Error(`Insufficient funds. You need ${estimatedCost.toFixed(6)} SOL but only have ${balanceSOL.toFixed(4)} SOL`)
+        }
       }
       
       const signature = await buy({
@@ -284,23 +307,24 @@ export default function StoryDetailPage() {
       console.error('Buy transaction failed:', err)
       
       // Log transaction details if available
-      if (err.transactionLogs) {
-        console.log('Transaction logs:', err.transactionLogs)
+      if (err && typeof err === 'object' && 'transactionLogs' in err) {
+        console.log('Transaction logs:', (err as any).transactionLogs)
       }
-      if (err.programErrorStack) {
-        console.log('Program error stack:', err.programErrorStack)
+      if (err && typeof err === 'object' && 'programErrorStack' in err) {
+        console.log('Program error stack:', (err as any).programErrorStack)
       }
       
       // Provide more helpful error messages
       let errorMessage = 'Failed to buy tokens'
-      if (err.message.includes('Blockhash not found')) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      if (errorMsg.includes('Blockhash not found')) {
         errorMessage = 'Transaction timed out. Please try again.'
-      } else if (err.message.includes('InsufficientFunds')) {
+      } else if (errorMsg.includes('InsufficientFunds')) {
         errorMessage = 'Insufficient funds for this transaction.'
-      } else if (err.message.includes('owner does not match')) {
+      } else if (errorMsg.includes('owner does not match')) {
         errorMessage = 'Token authority mismatch. Please refresh and try again.'
-      } else if (err.message) {
-        errorMessage = err.message
+      } else if (errorMsg) {
+        errorMessage = errorMsg
       }
       
       setTradingError(errorMessage)
@@ -394,6 +418,10 @@ export default function StoryDetailPage() {
       if (typeof sell !== 'function') {
         throw new Error('Sell function is not available')
       }
+
+      // Calculate estimated refund before transaction
+      const estimatedRefund = await estimateBuyCost(marketPda, amount) // Same calculation for sell refund
+      console.log(`Estimated refund for ${amount} tokens: ${estimatedRefund} SOL`)
 
       const signature = await sell({
         market: marketPda,

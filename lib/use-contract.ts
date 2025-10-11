@@ -567,8 +567,8 @@ export function useContract() {
           curveType: marketAccount.curveType,
         });
         
-        // Simple estimation based on exponential curve
-        const basePrice = 1000000; // 0.001 SOL in lamports
+        // Use the same calculation as the contract's exponential curve
+        const basePrice = 1000000; // 0.001 SOL in lamports (1,000,000 lamports)
         const currentSupply = Number(marketAccount.currentSupply);
         let totalCost = 0;
         
@@ -576,8 +576,9 @@ export function useContract() {
         
         for (let i = 0; i < amount; i++) {
           const supply = currentSupply + i;
-          const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x
-          const price = (basePrice * multiplier) / 10000;
+          // Use the same calculation as the contract: base_price * (1 + supply/10000)
+          const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
+          const price = Math.floor((basePrice * multiplier) / 10000);
           totalCost += price;
           console.log(`Token ${i + 1}: supply=${supply}, multiplier=${multiplier}, price=${price} lamports`);
         }
@@ -588,7 +589,11 @@ export function useContract() {
         return costInSOL;
       } catch (error) {
         console.error('Error estimating buy cost:', error);
-        return null;
+        // Return a fallback calculation if market account fetch fails
+        const basePrice = 1000000; // 0.001 SOL in lamports
+        const fallbackCost = (basePrice * amount) / 1e9; // Simple linear fallback
+        console.log(`Using fallback cost calculation: ${fallbackCost} SOL`);
+        return fallbackCost;
       }
     },
     [program]

@@ -7,6 +7,8 @@ import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } 
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import { useContract } from "@/lib/use-contract"
+import { PublicKey } from "@solana/web3.js"
 
 interface Story {
   id: string
@@ -16,6 +18,8 @@ interface Story {
   arweaveUrl: string
   arweaveId: string
   onchainSignature: string
+  authorAddress?: string
+  nonce?: string
   onMarket: boolean
   createdAt: string
   updatedAt: string
@@ -35,6 +39,9 @@ interface Story {
     priceChange24h: number
     volume24h: number
     marketCap: number
+    newsAccount?: string
+    mint?: string
+    market?: string
   } | null
 }
 
@@ -52,17 +59,62 @@ interface MarketplaceResponse {
 
 export default function MarketplacePage() {
   const { data: session } = useSession()
+  const contract = useContract()
+  const { estimateBuyCost, pdas } = contract || {}
   const [stories, setStories] = useState<Story[]>([])
   const [userStories, setUserStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [userStoriesLoading, setUserStoriesLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'marketplace' | 'my-stories'>('marketplace')
+  const [realTimePrices, setRealTimePrices] = useState<Record<string, number>>({})
+  const [pricesLoading, setPricesLoading] = useState(false)
 
   useEffect(() => {
     fetchMarketplaceStories()
     fetchUserStories()
   }, [])
+
+  // Calculate real-time prices when stories are loaded
+  useEffect(() => {
+    if (stories.length > 0 && typeof estimateBuyCost === 'function' && pdas) {
+      calculateRealTimePrices()
+    }
+  }, [stories, estimateBuyCost, pdas])
+
+  const calculateRealTimePrices = async () => {
+    if (!estimateBuyCost || !pdas) return
+    
+    setPricesLoading(true)
+    const prices: Record<string, number> = {}
+    
+    try {
+      for (const story of stories) {
+        if (story.authorAddress && story.nonce) {
+          try {
+            const authorAddress = new PublicKey(story.authorAddress)
+            const nonce = parseInt(story.nonce)
+            const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+            const marketPda = pdas.findMarketPda(newsAccountPubkey)
+            
+            // Calculate price for 1 token
+            const price = await estimateBuyCost(marketPda, 1)
+            if (price !== null) {
+              prices[story.id] = price
+            }
+          } catch (error) {
+            console.error(`Error calculating price for story ${story.id}:`, error)
+          }
+        }
+      }
+      
+      setRealTimePrices(prices)
+    } catch (error) {
+      console.error('Error calculating real-time prices:', error)
+    } finally {
+      setPricesLoading(false)
+    }
+  }
 
   const fetchMarketplaceStories = async () => {
     try {
@@ -186,6 +238,18 @@ export default function MarketplacePage() {
                 <RefreshCwIcon className={`w-4 h-4 ${(loading || userStoriesLoading) ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
+              {activeTab === 'marketplace' && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={calculateRealTimePrices}
+                  disabled={pricesLoading || !contract}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCwIcon className={`w-4 h-4 ${pricesLoading ? 'animate-spin' : ''}`} />
+                  Update Prices
+                </Button>
+              )}
               <Link href="/">
                 <Button className="flex items-center gap-2">
                   <PlusIcon className="w-4 h-4" />
@@ -270,9 +334,11 @@ export default function MarketplacePage() {
                   <tbody>
                   {stories.map((story) => {
                     const token = story.token
+                    // Use real-time price if available, otherwise fallback to token data
+                    const realTimePrice = realTimePrices[story.id]
+                    const price = realTimePrice !== undefined ? realTimePrice : (token ? token.price : 0)
                     const isPriceUp = token ? token.priceChange24h > 0 : false
                     const priceChange = token ? Math.abs(token.priceChange24h) : 0
-                    const price = token ? token.price : 0
                     const volume = token ? token.volume24h : 0
                     const marketCap = token ? token.marketCap : 0
                     
@@ -296,7 +362,14 @@ export default function MarketplacePage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <span className="font-bold">${price.toFixed(2)}</span>
+                          <div className="flex flex-col items-end">
+                            <span className="font-bold">
+                              {realTimePrice !== undefined ? `${price.toFixed(6)} SOL` : `$${price.toFixed(2)}`}
+                            </span>
+                            {realTimePrice !== undefined && (
+                              <span className="text-xs text-muted-foreground">Real-time</span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4 text-right">
                           <span
