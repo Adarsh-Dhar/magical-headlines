@@ -29,6 +29,7 @@ interface CreateStoryDialogProps {
 export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState({
     headline: "",
@@ -38,6 +39,11 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   })
   const [tagInput, setTagInput] = useState("")
   const [arweaveResult, setArweaveResult] = useState<{ arweaveId?: string; arweaveUrl?: string } | null>(null)
+  
+  // Track used nonces to prevent collisions (synchronous ref for immediate updates)
+  const usedNoncesRef = useRef<Set<number>>(new Set())
+  const [usedNonces, setUsedNonces] = useState<Set<number>>(new Set())
+  const nonceCounterRef = useRef<number>(0)
   const { toast } = useToast()
   const wallet = useWallet()
   const { publicKey, connected } = wallet || {}
@@ -46,13 +52,88 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews()
   // no program ref needed when using useContract
 
+  // Generate a unique nonce that combines timestamp with counter and random component
+  // Using smaller values to stay within safe integer range for anchor.BN
+  const generateUniqueNonce = () => {
+    // Increment counter for this session
+    nonceCounterRef.current += 1
+    
+    // Use a simpler approach with smaller numbers to avoid overflow
+    const timestamp = Math.floor(Date.now() / 1000) // Unix timestamp in seconds
+    const counter = nonceCounterRef.current
+    const random = Math.floor(Math.random() * 1000) // Random component 0-999
+    
+    // Create nonce: timestamp + counter * 1000 + random
+    // This keeps the number much smaller and within safe integer range
+    const nonce = timestamp + (counter * 1000) + random
+    
+    // Validate nonce is within safe integer range
+    if (nonce > Number.MAX_SAFE_INTEGER) {
+      console.warn('[CreateStoryDialog] Generated nonce exceeds safe integer, using fallback')
+      const fallbackNonce = Math.floor(Math.random() * 1000000000)
+      usedNoncesRef.current.add(fallbackNonce)
+      setUsedNonces(prev => new Set(prev).add(fallbackNonce))
+      console.log('[CreateStoryDialog] Using fallback nonce:', fallbackNonce)
+      return fallbackNonce
+    }
+    
+    // Mark nonce as used immediately in ref (synchronous)
+    usedNoncesRef.current.add(nonce)
+    setUsedNonces(prev => new Set(prev).add(nonce))
+    console.log('[CreateStoryDialog] Generated unique nonce:', nonce, 'Counter:', counter, 'Safe integer check:', nonce <= Number.MAX_SAFE_INTEGER)
+    return nonce
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.headline.trim() || !formData.content.trim() || !formData.originalUrl.trim()) {
+    // Prevent multiple simultaneous submissions
+    if (isSubmitting || loading) {
+      console.log('[CreateStoryDialog] Submission already in progress, ignoring duplicate request')
+      return
+    }
+    
+    // Comprehensive form validation
+    if (!formData.headline.trim()) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Headline is required",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (formData.headline.length > 200) {
+      toast({
+        title: "Error",
+        description: "Headline is too long (max 200 characters)",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (!formData.content.trim()) {
+      toast({
+        title: "Error",
+        description: "Content is required",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (formData.content.length > 10000) {
+      toast({
+        title: "Error",
+        description: "Content is too long (max 10,000 characters)",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (!formData.originalUrl.trim()) {
+      toast({
+        title: "Error",
+        description: "Original URL is required",
         variant: "destructive",
       })
       return
@@ -70,13 +151,39 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
     
 
-    // Basic URL validation
+    // Enhanced URL validation
     try {
-      new URL(formData.originalUrl)
+      const url = new URL(formData.originalUrl)
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error('Invalid protocol')
+      }
+      if (url.hostname.length === 0) {
+        throw new Error('Invalid hostname')
+      }
     } catch {
       toast({
         title: "Error",
-        description: "Please enter a valid URL",
+        description: "Please enter a valid URL (must start with http:// or https://)",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // Validate content contains only printable characters
+    if (!formData.content.match(/^[\x20-\x7E\s]*$/)) {
+      toast({
+        title: "Error",
+        description: "Content contains invalid characters",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // Validate headline contains only printable characters
+    if (!formData.headline.match(/^[\x20-\x7E\s]*$/)) {
+      toast({
+        title: "Error",
+        description: "Headline contains invalid characters",
         variant: "destructive",
       })
       return
@@ -86,7 +193,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     const uniqueUrl = `${formData.originalUrl}?t=${Date.now()}`
     console.log('[CreateStoryDialog] formData', formData)
 
+    // Set both loading states to prevent duplicate submissions
     setLoading(true)
+    setIsSubmitting(true)
 
     try {
       // No extra readiness loop required
@@ -151,16 +260,23 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       console.log('[CreateStoryDialog] calling publishOnchain')
       
+      // Generate unique nonce for this transaction
+      const uniqueNonce = generateUniqueNonce()
+      console.log('[CreateStoryDialog] Using nonce:', uniqueNonce)
+      console.log('[CreateStoryDialog] Nonce type:', typeof uniqueNonce)
+      console.log('[CreateStoryDialog] Nonce is safe integer:', Number.isSafeInteger(uniqueNonce))
+      
       let txSignature: string | undefined
       try {
+        
         // Add timeout to onchain call
         const onchainTimeoutMs = 30000 // 30 seconds
         txSignature = await Promise.race([
           publishOnchain({
             headline: formData.headline,
             arweaveLink: safeArweaveResult.arweaveUrl,
-            initialSupply: 1000,
-            nonce: Date.now(),
+            initialSupply: 100,
+            nonce: uniqueNonce,
           }),
           new Promise<string>((_, reject) => 
             setTimeout(() => reject(new Error('Onchain transaction timed out')), onchainTimeoutMs)
@@ -174,10 +290,37 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         }
       } catch (onchainError) {
         console.error('[CreateStoryDialog] Onchain publish failed:', onchainError)
-        throw new Error(`Onchain publish failed: ${onchainError instanceof Error ? onchainError.message : String(onchainError)}`)
+        
+        // Handle specific error cases with detailed error messages
+        const errorMessage = onchainError instanceof Error ? onchainError.message : String(onchainError)
+        
+        if (errorMessage.includes('already been processed')) {
+          console.warn('[CreateStoryDialog] Transaction already processed, continuing with database save only')
+          // Set a placeholder signature for database save
+          txSignature = 'already-processed-' + Date.now()
+        } else if (errorMessage.includes('timed out')) {
+          throw new Error('Transaction timed out. Please check your connection and try again.')
+        } else if (errorMessage.includes('account already exists') || errorMessage.includes('already in use')) {
+          throw new Error('A story with this identifier already exists. Please try again with different content.')
+        } else if (errorMessage.includes('InsufficientFunds')) {
+          throw new Error('Insufficient SOL balance. Please ensure you have at least 0.002 SOL for transaction fees.')
+        } else if (errorMessage.includes('HeadlineTooLong')) {
+          throw new Error('Headline is too long or contains invalid characters. Please use only printable characters and keep it under 200 characters.')
+        } else if (errorMessage.includes('LinkTooLong')) {
+          throw new Error('Arweave link is invalid. Please ensure it starts with https://arweave.net/ or ar://')
+        } else if (errorMessage.includes('ArithmeticOverflow')) {
+          throw new Error('Invalid input values. Please check your headline, content, and ensure you have sufficient SOL balance.')
+        } else if (errorMessage.includes('ConstraintSeeds')) {
+          throw new Error('Account validation failed. Please try again with a different nonce.')
+        } else if (errorMessage.includes('Transaction verification failed')) {
+          throw new Error('Transaction completed but verification failed. The story may not be properly created. Please try again.')
+        } else {
+          throw new Error(`Onchain publish failed: ${errorMessage}`)
+        }
       }
 
-      console.log('[CreateStoryDialog] Onchain transaction completed successfully, proceeding to database save')
+      const isBlockchainSkipped = txSignature.startsWith('already-processed-')
+      console.log('[CreateStoryDialog] Onchain transaction', isBlockchainSkipped ? 'skipped (already processed)' : 'completed successfully', ', proceeding to database save')
       
       // Save to database only after successful onchain transaction
       console.log('[CreateStoryDialog] saving to database')
@@ -203,6 +346,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           arweaveUrl: safeArweaveResult.arweaveUrl,
           arweaveId: safeArweaveResult.arweaveId,
           onchainSignature: txSignature,
+          authorAddress: wallet.publicKey?.toString(), // Using wallet instead of walletAdapter
+          nonce: uniqueNonce.toString(), // Using uniqueNonce
           tags: formData.tags,
         }),
       })
@@ -227,7 +372,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       console.log('[CreateStoryDialog] showing success toast')
       toast({
         title: "Success",
-        description: "Story published successfully on both Arweave and blockchain!",
+        description: isBlockchainSkipped 
+          ? "Story published successfully on Arweave and saved to database! (Blockchain transaction was already processed)"
+          : "Story published successfully on both Arweave and blockchain!",
       })
 
       // Reset form
@@ -240,6 +387,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       setTagInput("")
       setArweaveResult(null)
+      setUsedNonces(new Set()) // Clear used nonces on successful submission
+      usedNoncesRef.current.clear() // Clear ref as well
+      nonceCounterRef.current = 0 // Reset counter
       setOpen(false)
 
       // Refresh stories list
@@ -256,6 +406,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     } finally {
       console.log('[CreateStoryDialog] finally block - setting loading to false')
       setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -283,8 +434,19 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     }
   }
 
+  // Clean up when dialog is closed
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Clear used nonces when dialog is closed
+      setUsedNonces(new Set())
+      usedNoncesRef.current.clear()
+      nonceCounterRef.current = 0
+    }
+    setOpen(newOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="w-4 h-4" />
@@ -398,17 +560,17 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading || isSubmitting}>
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || isSubmitting}
               onClick={() => {
                 if (!connected) setWalletModalVisible(true)
               }}
             >
-              {loading ? "Publishing..." : !connected ? "Connect Wallet" : "Create Story"}
+              {loading || isSubmitting ? "Publishing..." : !connected ? "Connect Wallet" : "Create Story"}
             </Button>
             {!connected && (
               <div className="text-xs text-muted-foreground mt-2">

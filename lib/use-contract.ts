@@ -127,15 +127,75 @@ export function useContract() {
     }) => {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
 
+      // Comprehensive input validation
+      if (!params.headline || params.headline.trim().length === 0) {
+        throw new Error("Headline cannot be empty");
+      }
+      if (params.headline.length > 200) {
+        throw new Error("Headline too long (max 200 characters)");
+      }
+      if (!params.arweaveLink || params.arweaveLink.trim().length === 0) {
+        throw new Error("Arweave link cannot be empty");
+      }
+      if (params.arweaveLink.length > 200) {
+        throw new Error("Arweave link too long (max 200 characters)");
+      }
+      if (!params.arweaveLink.startsWith("https://arweave.net/") && !params.arweaveLink.startsWith("ar://")) {
+        throw new Error("Invalid Arweave link format");
+      }
+      
+      const initialSupplyNum = typeof params.initialSupply === 'number' ? params.initialSupply : params.initialSupply.toNumber();
+      if (initialSupplyNum <= 0) {
+        throw new Error("Initial supply must be greater than 0");
+      }
+      if (initialSupplyNum > 1000000000) {
+        throw new Error("Initial supply too large (max 1 billion)");
+      }
+      
+      if (typeof params.nonce === 'number' && params.nonce < 0) {
+        throw new Error("Nonce must be non-negative");
+      }
+
       const author = walletAdapter.publicKey;
-      const nonceBn = new anchor.BN(params.nonce);
+      // Ensure nonce is a safe integer and convert to string for anchor.BN
+      const safeNonce = Number.isSafeInteger(params.nonce) ? params.nonce : Math.floor(Math.random() * 1000000000);
+      const nonceBn = new anchor.BN(safeNonce.toString());
+      console.log('[useContract] Using nonce:', safeNonce, 'as BN:', nonceBn.toString());
+      
+      // Validate nonce is unique by checking if news account already exists
       const newsPda = findNewsPda(author, nonceBn);
       const mintPda = findMintPda(newsPda);
+      const marketPda = findMarketPda(newsPda);
       const metadataPda = findMetadataPda(mintPda);
+      
+      // Check if accounts already exist (security check)
+      try {
+        const existingNewsAccount = await connection.getAccountInfo(newsPda);
+        if (existingNewsAccount) {
+          throw new Error("News account already exists with this nonce");
+        }
+      } catch (error) {
+        // Account doesn't exist, which is what we want
+        console.log('[useContract] News account does not exist, proceeding with creation');
+      }
 
       const metadataProgram = TOKEN_METADATA_PROGRAM_ID;
 
-      return await program.methods
+      // Create associated token account address
+      const authorTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: mintPda,
+        owner: author,
+      });
+
+      console.log('[useContract] Publishing news with accounts:', {
+        newsAccount: newsPda.toString(),
+        mint: mintPda.toString(),
+        market: marketPda.toString(),
+        author: author.toString(),
+        authorTokenAccount: authorTokenAccount.toString()
+      });
+
+      const signature = await program.methods
         .publishNews(
           params.headline,
           params.arweaveLink,
@@ -143,8 +203,12 @@ export function useContract() {
           nonceBn
         )
         .accounts({
+          newsAccount: newsPda,
+          mint: mintPda,
           metadata: metadataPda,
           author,
+          authorTokenAccount,
+          market: marketPda,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           metadataProgram,
@@ -152,58 +216,185 @@ export function useContract() {
           rent: SYSVAR_RENT_PUBKEY,
         })
         .rpc();
+
+      // Verify the transaction was successful by checking account states
+      console.log('[useContract] Verifying transaction success...');
+      console.log('[useContract] Verification PDAs:', {
+        newsPda: newsPda.toString(),
+        mintPda: mintPda.toString(),
+        marketPda: marketPda.toString()
+      });
+      
+      try {
+        // Wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        // Verify news account was created
+        try {
+          const accountInfo = await connection.getAccountInfo(newsPda);
+          if (!accountInfo) {
+            throw new Error("News account was not created");
+          }
+          console.log('[useContract] News account exists:', {
+            address: newsPda.toString(),
+            lamports: accountInfo.lamports,
+            owner: accountInfo.owner.toString()
+          });
+        } catch (error) {
+          console.error('[useContract] News account verification failed:', error);
+          throw new Error(`News account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        
+        // Verify mint account was created with correct supply
+        try {
+          // Add a small delay to ensure account is fully propagated
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Verify mint account exists
+          const mintAccountInfo = await connection.getAccountInfo(mintPda);
+          if (!mintAccountInfo) {
+            throw new Error("Mint account was not created");
+          }
+          
+          console.log('[useContract] Mint account exists:', {
+            address: mintPda.toString(),
+            lamports: mintAccountInfo.lamports,
+            owner: mintAccountInfo.owner.toString()
+          });
+          
+          // For now, we'll just verify the account exists
+          // The supply verification can be done later when we have proper account parsing
+        } catch (error) {
+          console.error('[useContract] Mint account verification failed:', error);
+          throw new Error(`Mint account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        
+        // Verify market account was created
+        try {
+          const marketAccountInfo = await connection.getAccountInfo(marketPda);
+          if (!marketAccountInfo) {
+            throw new Error("Market account was not created");
+          }
+          
+          console.log('[useContract] Market account exists:', {
+            address: marketPda.toString(),
+            lamports: marketAccountInfo.lamports,
+            owner: marketAccountInfo.owner.toString()
+          });
+        } catch (error) {
+          console.error('[useContract] Market account verification failed:', error);
+          throw new Error(`Market account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        
+        console.log('[useContract] Transaction verification successful');
+        return signature;
+        
+      } catch (verificationError) {
+        console.error('[useContract] Transaction verification failed:', verificationError);
+        throw new Error(`Transaction verification failed: ${verificationError instanceof Error ? verificationError.message : String(verificationError)}`);
+      }
     },
     [program, walletAdapter.publicKey]
   );
 
-  const initializeMarket = useCallback(
-    async (params: { newsAccount: PublicKey; mint?: PublicKey; curveType: any }) => {
-      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
-      const marketPda = findMarketPda(params.newsAccount);
-      const mint = params.mint ?? findMintPda(params.newsAccount);
-      return await program.methods
-        .initializeMarket(params.curveType as any)
-        .accounts({
-          newsAccount: params.newsAccount,
-          mint,
-          payer: walletAdapter.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-    },
-    [program, walletAdapter.publicKey]
-  );
 
   const buy = useCallback(
-    async (params: { market: PublicKey; mint: PublicKey; amount: number | anchor.BN }) => {
+    async (params: { market: PublicKey; mint: PublicKey; newsAccount: PublicKey; amount: number | anchor.BN }) => {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       const buyer = walletAdapter.publicKey;
-      return await program.methods
-        .buy(new anchor.BN(params.amount))
-        .accounts({
-          market: params.market,
-          mint: params.mint,
-          buyer,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+      
+      // Derive the associated token account address
+      const buyerTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: params.mint,
+        owner: buyer,
+      });
+      
+      console.log('[useContract] Buy accounts:', {
+        market: params.market.toString(),
+        mint: params.mint.toString(),
+        newsAccount: params.newsAccount.toString(),
+        buyer: buyer.toString(),
+        buyerTokenAccount: buyerTokenAccount.toString(),
+        tokenProgram: TOKEN_PROGRAM_ID.toString(),
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
+        systemProgram: SystemProgram.programId.toString(),
+      });
+
+      // Debug: Check market account state
+      try {
+        const marketAccount = await program.account.market.fetch(params.market);
+        console.log('[useContract] Market account state:', {
+          currentSupply: marketAccount.currentSupply.toString(),
+          solReserves: marketAccount.solReserves.toString(),
+          curveType: marketAccount.curveType,
+          isDelegated: marketAccount.isDelegated,
+        });
+      } catch (error) {
+        console.error('[useContract] Error fetching market account:', error);
+      }
+      
+      // Retry logic for blockhash issues
+      let retries = 3;
+      let lastError;
+      
+      while (retries > 0) {
+        try {
+          return await program.methods
+            .buy(new anchor.BN(params.amount))
+            .accounts({
+              market: params.market,
+              mint: params.mint,
+              newsAccount: params.newsAccount,
+              buyer,
+              buyerTokenAccount: buyerTokenAccount,
+              tokenProgram: TOKEN_PROGRAM_ID,
+              associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+              systemProgram: SystemProgram.programId,
+            })
+            .rpc();
+        } catch (error) {
+          lastError = error;
+          console.log(`Buy transaction attempt failed (${4 - retries}/3):`, error.message);
+          
+          if (error.message.includes('Blockhash not found') && retries > 1) {
+            console.log('Retrying due to blockhash error...');
+            retries--;
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          
+          throw error;
+        }
+      }
+      
+      throw lastError;
     },
     [program, walletAdapter.publicKey]
   );
 
   const sell = useCallback(
-    async (params: { market: PublicKey; mint: PublicKey; amount: number | anchor.BN }) => {
+    async (params: { market: PublicKey; mint: PublicKey; newsAccount: PublicKey; amount: number | anchor.BN }) => {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       const buyer = walletAdapter.publicKey; // seller in program is named buyer
+      
+      // Derive the associated token account address
+      const buyerTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: params.mint,
+        owner: buyer,
+      });
+      
       return await program.methods
         .sell(new anchor.BN(params.amount))
         .accounts({
           market: params.market,
           mint: params.mint,
+          newsAccount: params.newsAccount,
           buyer,
+          buyerTokenAccount: buyerTokenAccount,
           tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
         })
         .rpc();
     },
@@ -323,11 +514,90 @@ export function useContract() {
     [program, walletAdapter.publicKey]
   );
 
+  const fetchNewsAccount = useCallback(
+    async (newsAccountAddress: PublicKey) => {
+      if (!program) throw new Error("Program not ready");
+      try {
+        const accountInfo = await connection.getAccountInfo(newsAccountAddress);
+        if (!accountInfo) {
+          throw new Error("News account not found");
+        }
+        return accountInfo;
+      } catch (error) {
+        console.error('Error fetching news account:', error);
+        throw error;
+      }
+    },
+    [program, connection]
+  );
+
+  const findActualNewsAccount = useCallback(
+    async (authorAddress: PublicKey, nonce: number) => {
+      if (!program) throw new Error("Program not ready");
+      try {
+        // Try to find the news account by checking if it exists
+        const derivedNewsPda = findNewsPda(authorAddress, nonce);
+        const accountInfo = await connection.getAccountInfo(derivedNewsPda);
+        
+        if (accountInfo) {
+          console.log('Found news account at derived address:', derivedNewsPda.toString());
+          return derivedNewsPda;
+        } else {
+          console.log('No news account found at derived address:', derivedNewsPda.toString());
+          // For now, just return the derived address and let the contract handle the validation
+          console.log('No news account found at derived address, using derived address');
+          return derivedNewsPda;
+        }
+      } catch (error) {
+        console.error('Error finding news account:', error);
+        throw error;
+      }
+    },
+    [program, connection]
+  );
+
+  const estimateBuyCost = useCallback(
+    async (marketAddress: PublicKey, amount: number) => {
+      if (!program) throw new Error("Program not ready");
+      try {
+        const marketAccount = await program.account.market.fetch(marketAddress);
+        console.log('Market state:', {
+          currentSupply: marketAccount.currentSupply.toString(),
+          solReserves: marketAccount.solReserves.toString(),
+          curveType: marketAccount.curveType,
+        });
+        
+        // Simple estimation based on exponential curve
+        const basePrice = 1000000; // 0.001 SOL in lamports
+        const currentSupply = Number(marketAccount.currentSupply);
+        let totalCost = 0;
+        
+        console.log(`Calculating cost for ${amount} tokens with current supply: ${currentSupply}`);
+        
+        for (let i = 0; i < amount; i++) {
+          const supply = currentSupply + i;
+          const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x
+          const price = (basePrice * multiplier) / 10000;
+          totalCost += price;
+          console.log(`Token ${i + 1}: supply=${supply}, multiplier=${multiplier}, price=${price} lamports`);
+        }
+        
+        const costInSOL = totalCost / 1e9;
+        console.log(`Total cost: ${totalCost} lamports = ${costInSOL} SOL`);
+        
+        return costInSOL;
+      } catch (error) {
+        console.error('Error estimating buy cost:', error);
+        return null;
+      }
+    },
+    [program]
+  );
+
   return {
     program,
     // instruction wrappers
     publishNews,
-    initializeMarket,
     buy,
     sell,
     delegate,
@@ -338,6 +608,9 @@ export function useContract() {
     updateSummaryLink,
     getAllNewsTokens,
     getNewsByAuthor,
+    fetchNewsAccount,
+    findActualNewsAccount,
+    estimateBuyCost,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,

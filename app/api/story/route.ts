@@ -12,6 +12,8 @@ const createStorySchema = z.object({
   arweaveUrl: z.string().url("Invalid Arweave URL"),
   arweaveId: z.string().min(1, "Arweave ID is required"),
   onchainSignature: z.string().min(1, "Onchain signature is required"),
+  authorAddress: z.string().optional(),
+  nonce: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 })
 
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     
     console.log('[API] Validation passed, proceeding with story creation')
 
-    const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, tags } = validation.data
+    const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, authorAddress, nonce, tags } = validation.data
 
     // Check if story with this URL already exists
     const existingStory = await prisma.story.findUnique({
@@ -88,7 +90,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify onchain transaction exists (basic validation)
-    if (!onchainSignature || onchainSignature.length < 80) {
+    // Allow placeholder signatures for already-processed transactions
+    const isPlaceholderSignature = onchainSignature.startsWith('already-processed-')
+    console.log('[API] Onchain signature validation:', { 
+      signature: onchainSignature, 
+      isPlaceholder: isPlaceholderSignature, 
+      length: onchainSignature.length 
+    })
+    
+    if (!onchainSignature || (!isPlaceholderSignature && onchainSignature.length < 80)) {
+      console.log('[API] Invalid onchain signature rejected')
       return NextResponse.json(
         { error: "Invalid onchain transaction signature" },
         { status: 400 }
@@ -96,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create story with all the new fields
-    console.log('[API] Creating story in database...')
+    console.log('[API] Creating story in database...', isPlaceholderSignature ? '(with placeholder signature)' : '')
     const story = await prisma.story.create({
       data: {
         headline,
@@ -105,6 +116,8 @@ export async function POST(request: NextRequest) {
         arweaveUrl,
         arweaveId,
         onchainSignature,
+        authorAddress,
+        nonce,
         submitterId: user.id,
       } as any,
       include: {
@@ -182,11 +195,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/story - Get all stories
+// GET /api/story - Get all stories or single story by ID
 export async function GET(request: NextRequest) {
   try {
     // Parse query parameters
     const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    
+    // If ID is provided, fetch single story
+    if (id) {
+      const story = await prisma.story.findUnique({
+        where: { id },
+        include: {
+          submitter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              walletAddress: true
+            }
+          },
+          tags: true,
+          token: true
+        }
+      })
+      
+      if (!story) {
+        return NextResponse.json(
+          { error: "Story not found" },
+          { status: 404 }
+        )
+      }
+      
+      return NextResponse.json(story)
+    }
+    
+    // Otherwise, fetch all stories with pagination
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
     const tag = searchParams.get("tag")

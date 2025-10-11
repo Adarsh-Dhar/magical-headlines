@@ -67,9 +67,9 @@ export default function MarketplacePage() {
   const fetchMarketplaceStories = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/story/marketplace')
+      const response = await fetch('/api/story')
       if (!response.ok) {
-        throw new Error('Failed to fetch marketplace stories')
+        throw new Error('Failed to fetch stories')
       }
       const data: MarketplaceResponse = await response.json()
       setStories(data.stories)
@@ -83,17 +83,22 @@ export default function MarketplacePage() {
   const fetchUserStories = async () => {
     try {
       setUserStoriesLoading(true)
-      const response = await fetch('/api/story/marketplace/me')
+      if (!session?.user?.id) {
+        setUserStories([])
+        return
+      }
+      
+      const response = await fetch('/api/story')
       if (!response.ok) {
-        if (response.status === 401) {
-          // User not authenticated, that's okay
-          setUserStories([])
-          return
-        }
-        throw new Error('Failed to fetch user stories')
+        throw new Error('Failed to fetch stories')
       }
       const data: MarketplaceResponse = await response.json()
-      setUserStories(data.stories)
+      
+      // Filter stories to only show user's stories
+      const userStories = data.stories.filter(story => 
+        story.submitter.id === session.user.id
+      )
+      setUserStories(userStories)
     } catch (err) {
       console.error('Error fetching user stories:', err)
       setUserStories([])
@@ -104,19 +109,9 @@ export default function MarketplacePage() {
 
   const addToMarket = async (storyId: string) => {
     try {
-      const response = await fetch(`/api/story/marketplace/${storyId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ onMarket: true })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to add story to market')
-      }
-      
-      // Refresh both lists
+      // For now, just refresh the data since we don't have an update endpoint
+      // TODO: Implement API endpoint for updating onMarket status
+      console.log('Add to market functionality not yet implemented')
       await Promise.all([fetchMarketplaceStories(), fetchUserStories()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -125,19 +120,9 @@ export default function MarketplacePage() {
 
   const removeFromMarket = async (storyId: string) => {
     try {
-      const response = await fetch(`/api/story/marketplace/${storyId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ onMarket: false })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to remove story from market')
-      }
-      
-      // Refresh both lists
+      // For now, just refresh the data since we don't have an update endpoint
+      // TODO: Implement API endpoint for updating onMarket status
+      console.log('Remove from market functionality not yet implemented')
       await Promise.all([fetchMarketplaceStories(), fetchUserStories()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -149,7 +134,7 @@ export default function MarketplacePage() {
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-3">Marketplace</h1>
-            <p className="text-lg text-muted-foreground">Browse and trade all headline tokens</p>
+            <p className="text-lg text-muted-foreground">Browse and trade headline tokens from all stories</p>
           </div>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -168,7 +153,7 @@ export default function MarketplacePage() {
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-3">Marketplace</h1>
-            <p className="text-lg text-muted-foreground">Browse and trade all headline tokens</p>
+            <p className="text-lg text-muted-foreground">Browse and trade headline tokens from all stories</p>
           </div>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -188,7 +173,7 @@ export default function MarketplacePage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-3">Marketplace</h1>
-              <p className="text-lg text-muted-foreground">Browse and trade all headline tokens</p>
+              <p className="text-lg text-muted-foreground">Browse and trade headline tokens from all stories</p>
             </div>
             <div className="flex items-center gap-3">
               <Button 
@@ -243,9 +228,9 @@ export default function MarketplacePage() {
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
                   <PlusIcon className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">No stories on the marketplace yet</h3>
+                <h3 className="text-xl font-semibold mb-3">No stories available yet</h3>
                 <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
-                  Be the first to add a story to the marketplace and start trading headline tokens. 
+                  Be the first to create a story and start trading headline tokens. 
                   Create compelling news stories that others can invest in.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -265,7 +250,7 @@ export default function MarketplacePage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {stories.length} story{stories.length !== 1 ? 'ies' : ''} on the marketplace
+                Showing {stories.length} story{stories.length !== 1 ? 'ies' : ''} available
               </p>
             </div>
             <Card className="overflow-hidden">
@@ -333,18 +318,9 @@ export default function MarketplacePage() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <Button size="sm">Trade</Button>
-                            {session?.user?.id && story.submitter && session.user.id === story.submitter.id && (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => removeFromMarket(story.id)}
-                                className="flex items-center gap-1"
-                              >
-                                <MinusIcon className="w-3 h-3" />
-                                Remove
-                              </Button>
-                            )}
+                            <Link href={`/marketplace/${story.id}`}>
+                              <Button size="sm">Trade</Button>
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -371,10 +347,9 @@ export default function MarketplacePage() {
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
                   <PlusIcon className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3">No stories to add to market</h3>
+                <h3 className="text-xl font-semibold mb-3">No stories created yet</h3>
                 <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
-                  You don't have any stories that are not on the market yet. Create a new story first, 
-                  then you can add it to the marketplace for others to trade.
+                  You haven't created any stories yet. Create a new story to get started with trading headline tokens.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/">
@@ -393,7 +368,7 @@ export default function MarketplacePage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  {userStories.length} story{userStories.length !== 1 ? 'ies' : ''} ready to add to market
+                  {userStories.length} story{userStories.length !== 1 ? 'ies' : ''} created by you
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -427,9 +402,10 @@ export default function MarketplacePage() {
                         <Button 
                           onClick={() => addToMarket(story.id)}
                           className="flex items-center gap-2"
+                          disabled
                         >
                           <PlusIcon className="w-4 h-4" />
-                          Add to Market
+                          View Details
                         </Button>
                       </div>
                     </div>

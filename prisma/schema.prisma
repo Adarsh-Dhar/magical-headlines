@@ -97,6 +97,8 @@ model Story {
   
   // Onchain data
   onchainSignature String
+  authorAddress    String? // Wallet address of the story author
+  nonce           String? // Nonce used for PDA derivation
 
   submitterId String
   submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
