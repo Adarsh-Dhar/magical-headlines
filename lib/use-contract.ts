@@ -570,6 +570,235 @@ export function useContract() {
     [program]
   );
 
+  // Fetch all token accounts owned by the user
+  const fetchUserTokenAccounts = useCallback(
+    async () => {
+      if (!walletAdapter.publicKey || !connection) throw new Error("Wallet not ready");
+      
+      try {
+        // Get all token accounts for the user
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+          walletAdapter.publicKey,
+          {
+            programId: TOKEN_PROGRAM_ID,
+          }
+        );
+
+        console.log("Found token accounts:", tokenAccounts.value.length);
+        
+        return tokenAccounts.value.map(account => ({
+          pubkey: account.pubkey,
+          account: account.account,
+          mint: account.account.data.parsed.info.mint,
+          amount: account.account.data.parsed.info.tokenAmount.uiAmount || 0,
+          rawAmount: account.account.data.parsed.info.tokenAmount.amount,
+          decimals: account.account.data.parsed.info.tokenAmount.decimals,
+        }));
+      } catch (error) {
+        console.error("Error fetching token accounts:", error);
+        throw error;
+      }
+    },
+    [walletAdapter.publicKey, connection]
+  );
+
+  // Fetch news tokens owned by the user
+  const fetchUserNewsTokens = useCallback(
+    async () => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Program not ready");
+      
+      try {
+        // First, get all token accounts for the user
+        const tokenAccounts = await fetchUserTokenAccounts();
+        console.log("User has token accounts for mints:", tokenAccounts.length);
+        
+        const newsTokens: any[] = [];
+        const programId = getProgramId();
+        
+        // Check each token account to see if it's a news token
+        // Process in batches to avoid overwhelming the RPC
+        const batchSize = 5;
+        for (let i = 0; i < tokenAccounts.length; i += batchSize) {
+          const batch = tokenAccounts.slice(i, i + batchSize);
+          
+          await Promise.all(batch.map(async (tokenAccount) => {
+            try {
+              const mintPda = new PublicKey(tokenAccount.mint);
+              
+              // Check if this mint was created by our program by looking at the mint authority
+              const mintAccountInfo = await connection.getAccountInfo(mintPda);
+              if (!mintAccountInfo) return;
+              
+              // Parse the mint account to get the mint authority
+              // Mint account structure: https://docs.solana.com/developing/programming-model/accounts#mint-account
+              const mintData = mintAccountInfo.data;
+              if (mintData.length < 82) return; // Minimum mint account size
+              
+              // The mint authority is at offset 4-36 (32 bytes)
+              const mintAuthorityBytes = mintData.slice(4, 36);
+              const mintAuthority = new PublicKey(mintAuthorityBytes);
+              
+              // Check if the mint authority is a market PDA from our program
+              try {
+                // Try to fetch the market account using the mint authority
+                const marketAccount = await (program.account as any).market.fetch(mintAuthority);
+                
+                if (marketAccount) {
+                  // This is a news token! Now get the news account
+                  const newsAccount = marketAccount.newsAccount;
+                  
+                  // Fetch the news account data
+                  const newsAccountData = await (program.account as any).newsAccount.fetch(newsAccount);
+                  
+                  // Calculate current price using the same logic as the contract
+                  const currentPrice = await estimateBuyCost(mintAuthority, 1);
+                  
+                  // Calculate the actual token amount from raw amount and decimals
+                  const actualAmount = tokenAccount.rawAmount ? 
+                    Number(tokenAccount.rawAmount) / Math.pow(10, tokenAccount.decimals) : 0;
+                  
+                  // Calculate total value
+                  const totalValue = actualAmount * currentPrice;
+                  
+                  newsTokens.push({
+                    newsAccount: newsAccount.toString(),
+                    mint: tokenAccount.mint,
+                    market: mintAuthority.toString(),
+                    headline: newsAccountData.headline,
+                    arweaveLink: newsAccountData.arweaveLink,
+                    summaryLink: newsAccountData.summaryLink,
+                    author: newsAccountData.authority.toString(),
+                    publishedAt: newsAccountData.publishedAt,
+                    amount: actualAmount,
+                    currentPrice: currentPrice,
+                    totalValue: totalValue,
+                    marketData: {
+                      currentSupply: marketAccount.currentSupply.toString(),
+                      solReserves: marketAccount.solReserves.toString(),
+                      totalVolume: marketAccount.totalVolume.toString(),
+                      isDelegated: marketAccount.isDelegated,
+                    }
+                  });
+                  
+                  console.log("Found news token:", {
+                    mint: tokenAccount.mint,
+                    headline: newsAccountData.headline,
+                    rawAmount: tokenAccount.rawAmount,
+                    decimals: tokenAccount.decimals,
+                    actualAmount: actualAmount,
+                    currentPrice: currentPrice,
+                    totalValue: totalValue
+                  });
+                }
+              } catch (marketError) {
+                // This mint authority is not a market account, skip
+                return;
+              }
+            } catch (error) {
+              // Error processing this token, skip it
+              console.log("Error processing token:", tokenAccount.mint, error);
+              return;
+            }
+          }));
+          
+          // Add a small delay between batches to avoid rate limiting
+          if (i + batchSize < tokenAccounts.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+        
+        console.log("Found news tokens:", newsTokens.length);
+        
+        // Calculate total tokens held
+        const totalTokensHeld = newsTokens.reduce((sum, token) => sum + token.amount, 0);
+        const totalValue = newsTokens.reduce((sum, token) => sum + token.totalValue, 0);
+        
+        console.log("Portfolio Summary:", {
+          totalNewsTokens: newsTokens.length,
+          totalTokensHeld: totalTokensHeld,
+          totalValue: totalValue,
+          tokens: newsTokens.map(t => ({
+            mint: t.mint.slice(0, 8) + "...",
+            headline: t.headline,
+            amount: t.amount,
+            value: t.totalValue
+          }))
+        });
+        
+        return newsTokens;
+      } catch (error) {
+        console.error("Error fetching news tokens:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey, fetchUserTokenAccounts, connection, estimateBuyCost]
+  );
+
+  // Helper function to find news account from mint
+  const findNewsAccountFromMint = useCallback(
+    async (mintPda: PublicKey) => {
+      if (!program) return null;
+      
+      try {
+        // We need to check all possible news accounts to find the one with this mint
+        // This is not efficient but necessary without a direct mapping
+        // In a real implementation, you might want to maintain an index
+        
+        // For now, we'll try to get all news accounts by scanning
+        // This is a simplified approach - in production you'd want a more efficient method
+        
+        // We'll return null for now and implement a more efficient method later
+        return null;
+      } catch (error) {
+        return null;
+      }
+    },
+    [program]
+  );
+
+  // Get total token count and value across all token accounts
+  const getTotalTokenStats = useCallback(
+    async () => {
+      if (!walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        const tokenAccounts = await fetchUserTokenAccounts();
+        
+        let totalTokens = 0;
+        let totalValue = 0;
+        let nonZeroTokens = 0;
+        
+        tokenAccounts.forEach(account => {
+          const amount = account.rawAmount ? 
+            Number(account.rawAmount) / Math.pow(10, account.decimals) : 0;
+          
+          if (amount > 0) {
+            nonZeroTokens++;
+            totalTokens += amount;
+          }
+        });
+        
+        console.log("Total Token Statistics:", {
+          totalTokenAccounts: tokenAccounts.length,
+          nonZeroTokenAccounts: nonZeroTokens,
+          totalTokensHeld: totalTokens,
+          averageTokensPerAccount: tokenAccounts.length > 0 ? totalTokens / tokenAccounts.length : 0
+        });
+        
+        return {
+          totalTokenAccounts: tokenAccounts.length,
+          nonZeroTokenAccounts: nonZeroTokens,
+          totalTokensHeld: totalTokens,
+          averageTokensPerAccount: tokenAccounts.length > 0 ? totalTokens / tokenAccounts.length : 0
+        };
+      } catch (error) {
+        console.error("Error getting token stats:", error);
+        throw error;
+      }
+    },
+    [walletAdapter.publicKey, fetchUserTokenAccounts]
+  );
+
   return {
     program,
     // instruction wrappers
@@ -590,6 +819,10 @@ export function useContract() {
     // delegation functions
     getMarketDelegationStatus,
     listenForDelegationEvents,
+    // user token functions
+    fetchUserTokenAccounts,
+    fetchUserNewsTokens,
+    getTotalTokenStats,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,
