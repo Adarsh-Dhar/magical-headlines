@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 // Removed NextAuth import - using wallet address directly
 import { useContract } from "@/lib/use-contract"
@@ -67,31 +67,36 @@ export default function MarketplacePage() {
   const [activeTab, setActiveTab] = useState<'marketplace' | 'my-stories'>('marketplace')
   const [realTimePrices, setRealTimePrices] = useState<Record<string, number>>({})
   const [pricesLoading, setPricesLoading] = useState(false)
+  const isCalculatingPricesRef = useRef(false)
 
   useEffect(() => {
     fetchMarketplaceStories()
     fetchUserStories()
   }, [])
 
-  // Calculate real-time prices when stories are loaded
-  useEffect(() => {
-    if (stories.length > 0 && typeof estimateBuyCost === 'function' && pdas) {
-      calculateRealTimePrices()
-    }
-  }, [stories, estimateBuyCost, pdas])
+  // Remove automatic price calculation - prices will only update on manual refresh
 
-  const calculateRealTimePrices = async () => {
-    if (!estimateBuyCost || !pdas) return
+  const calculateRealTimePrices = useCallback(async () => {
+    if (!estimateBuyCost || !pdas || isCalculatingPricesRef.current) return
     
+    // Prevent multiple simultaneous calculations
+    isCalculatingPricesRef.current = true
     setPricesLoading(true)
     const prices: Record<string, number> = {}
     
     try {
-      for (const story of stories) {
-        if (story.authorAddress && story.nonce) {
+      // Process stories in batches to avoid overwhelming the RPC
+      const batchSize = 3
+      const storiesToProcess = stories.filter(story => story.authorAddress && story.nonce)
+      
+      for (let i = 0; i < storiesToProcess.length; i += batchSize) {
+        const batch = storiesToProcess.slice(i, i + batchSize)
+        
+        // Process batch in parallel but with rate limiting
+        await Promise.all(batch.map(async (story) => {
           try {
-            const authorAddress = new PublicKey(story.authorAddress)
-            const nonce = parseInt(story.nonce)
+            const authorAddress = new PublicKey(story.authorAddress!)
+            const nonce = parseInt(story.nonce!)
             const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
             const marketPda = pdas.findMarketPda(newsAccountPubkey)
             
@@ -101,16 +106,24 @@ export default function MarketplacePage() {
               prices[story.id] = price
             }
           } catch (error) {
+            console.warn(`Failed to calculate price for story ${story.id}:`, error)
           }
+        }))
+        
+        // Add delay between batches to respect rate limits
+        if (i + batchSize < storiesToProcess.length) {
+          await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
       
       setRealTimePrices(prices)
     } catch (error) {
+      console.error('Error calculating real-time prices:', error)
     } finally {
       setPricesLoading(false)
+      isCalculatingPricesRef.current = false
     }
-  }
+  }, [stories, estimateBuyCost, pdas])
 
   const fetchMarketplaceStories = async () => {
     try {
@@ -234,7 +247,7 @@ export default function MarketplacePage() {
                   className="flex items-center gap-2"
                 >
                   <RefreshCwIcon className={`w-4 h-4 ${pricesLoading ? 'animate-spin' : ''}`} />
-                  Update Prices
+                  {pricesLoading ? 'Updating Prices...' : 'Update Prices'}
                 </Button>
               )}
               <Link href="/">
@@ -351,11 +364,22 @@ export default function MarketplacePage() {
                         <td className="p-4 text-right">
                           <div className="flex flex-col items-end">
                             <span className="font-bold">
-                              {realTimePrice !== undefined ? `${price.toFixed(6)} SOL` : `$${price.toFixed(2)}`}
+                              {pricesLoading ? (
+                                <div className="flex items-center gap-1">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                                  <span className="text-sm">Loading...</span>
+                                </div>
+                              ) : realTimePrice !== undefined ? (
+                                `${price.toFixed(6)} SOL`
+                              ) : (
+                                `$${price.toFixed(2)}`
+                              )}
                             </span>
-                            {realTimePrice !== undefined && (
+                            {realTimePrice !== undefined && !pricesLoading ? (
                               <span className="text-xs text-muted-foreground">Real-time</span>
-                            )}
+                            ) : !pricesLoading && realTimePrice === undefined ? (
+                              <span className="text-xs text-muted-foreground">Click "Update Prices" for real-time data</span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="p-4 text-right">

@@ -500,32 +500,55 @@ export function useContract() {
   const estimateBuyCost = useCallback(
     async (marketAddress: PublicKey, amount: number) => {
       if (!program) throw new Error("Program not ready");
-      try {
-        const marketAccount = await (program.account as any).market.fetch(marketAddress);
-        
-        // Use the same calculation as the contract's exponential curve
-        const basePrice = 1000000; // 0.001 SOL in lamports (1,000,000 lamports)
-        const currentSupply = Number(marketAccount.currentSupply);
-        let totalCost = 0;
-        
-        
-        for (let i = 0; i < amount; i++) {
-          const supply = currentSupply + i;
-          // Use the same calculation as the contract: base_price * (1 + supply/10000)
-          const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
-          const price = Math.floor((basePrice * multiplier) / 10000);
-          totalCost += price;
+      
+      // Retry logic for rate limiting
+      let retries = 3;
+      let lastError;
+      
+      while (retries > 0) {
+        try {
+          const marketAccount = await (program.account as any).market.fetch(marketAddress);
+          
+          // Use the same calculation as the contract's exponential curve
+          const basePrice = 1000000; // 0.001 SOL in lamports (1,000,000 lamports)
+          const currentSupply = Number(marketAccount.currentSupply);
+          let totalCost = 0;
+          
+          for (let i = 0; i < amount; i++) {
+            const supply = currentSupply + i;
+            // Use the same calculation as the contract: base_price * (1 + supply/10000)
+            const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
+            const price = Math.floor((basePrice * multiplier) / 10000);
+            totalCost += price;
+          }
+          
+          const costInSOL = totalCost / 1e9;
+          return costInSOL;
+        } catch (error) {
+          lastError = error;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Check if it's a rate limiting error
+          if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
+            retries--;
+            if (retries > 0) {
+              // Exponential backoff: wait 2^retries seconds
+              const delay = Math.pow(2, 3 - retries) * 1000;
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+          
+          // If it's not a rate limiting error or we've exhausted retries, break
+          break;
         }
-        
-        const costInSOL = totalCost / 1e9;
-        
-        return costInSOL;
-      } catch (error) {
-        // Return a fallback calculation if market account fetch fails
-        const basePrice = 1000000; // 0.001 SOL in lamports
-        const fallbackCost = (basePrice * amount) / 1e9; // Simple linear fallback
-        return fallbackCost;
       }
+      
+      // Return a fallback calculation if all retries failed
+      console.warn(`Failed to fetch market account after retries, using fallback calculation:`, lastError);
+      const basePrice = 1000000; // 0.001 SOL in lamports
+      const fallbackCost = (basePrice * amount) / 1e9; // Simple linear fallback
+      return fallbackCost;
     },
     [program]
   );
