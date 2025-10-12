@@ -678,18 +678,57 @@ export function useContract() {
                   // Calculate current price using the same logic as the contract
                   const currentPrice = await estimateBuyCost(mintAuthority, 1);
                   
-                  // For news tokens, always use rawAmount calculation
-                  // Subtract 100 from rawAmount to get the correct token amount
+                  // For news tokens, use the actual token amount from the account
+                  // Debug: log the raw values to understand the units
+                  console.log("Token account debug:", {
+                    mint: tokenAccount.mint,
+                    rawAmount: tokenAccount.rawAmount,
+                    rawAmountType: typeof tokenAccount.rawAmount,
+                    uiAmount: tokenAccount.amount,
+                    decimals: tokenAccount.decimals,
+                    rawAmountAsNumber: parseFloat(tokenAccount.rawAmount),
+                    calculatedAmount: parseFloat(tokenAccount.rawAmount) / Math.pow(10, tokenAccount.decimals),
+                    // Let's also check if the raw amount is actually much larger
+                    rawAmountLength: tokenAccount.rawAmount ? tokenAccount.rawAmount.length : 0
+                  });
+                  
                   let actualAmount = 0;
                   if (tokenAccount.rawAmount) {
-                    actualAmount = parseFloat(tokenAccount.rawAmount) - 100;
+                    // Try different approaches to get the correct amount
+                    const rawAmountNum = parseFloat(tokenAccount.rawAmount);
+                    
+                    // If the raw amount is small (like 8 or 100), it might be the actual token amount
+                    // If the raw amount is large (like 8000000000), it needs to be divided by decimals
+                    if (rawAmountNum < 10000) {
+                      // Small raw amount - might be the actual token amount
+                      actualAmount = rawAmountNum;
+                      console.log("Using raw amount as actual amount:", rawAmountNum);
+                    } else {
+                      // Large raw amount - divide by decimals
+                      actualAmount = rawAmountNum / Math.pow(10, tokenAccount.decimals);
+                      console.log("Dividing raw amount by decimals:", rawAmountNum, "/", Math.pow(10, tokenAccount.decimals), "=", actualAmount);
+                    }
                   }
                   
                   // Calculate total value
                   const totalValue = actualAmount * currentPrice;
                   
-                  // Set total supply to always be 100
-                  const actualTotalSupply = 100;
+                  // Get the actual total supply from the mint account
+                  // The market's current_supply represents available tokens for trading
+                  // The total supply is the mint's total supply
+                  const mintAccountInfo = await connection.getAccountInfo(mintPda);
+                  let actualTotalSupply = 0;
+                  if (mintAccountInfo) {
+                    // Parse mint account to get total supply
+                    // Mint account structure: https://docs.solana.com/developing/programming-model/accounts#mint-account
+                    const mintData = mintAccountInfo.data;
+                    if (mintData.length >= 36) {
+                      // Total supply is at offset 36-44 (8 bytes, little-endian u64)
+                      const supplyBytes = mintData.slice(36, 44);
+                      const supply = new DataView(supplyBytes.buffer).getBigUint64(0, true);
+                      actualTotalSupply = Number(supply) / Math.pow(10, tokenAccount.decimals);
+                    }
+                  }
                   
                   newsTokens.push({
                     newsAccount: newsAccount.toString(),

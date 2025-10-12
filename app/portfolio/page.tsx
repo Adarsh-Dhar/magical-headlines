@@ -240,7 +240,10 @@ export default function PortfolioPage() {
                       <td className="p-4 text-right">
                         <div className="flex flex-col items-end">
                           <span className="font-bold text-lg text-primary">
-                            {userBalance > 0 ? userBalance.toFixed(9) : '0'}
+                            {userBalance > 0 ? 
+                              (userBalance >= 1 ? userBalance.toFixed(0) : userBalance.toFixed(9)) : 
+                              '0'
+                            }
                           </span>
                           <span className="text-xs text-muted-foreground">
                             tokens owned

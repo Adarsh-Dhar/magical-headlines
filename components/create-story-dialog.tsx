@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { useContract } from "@/lib/use-contract"
 import { usePublishNews as useArweavePublishNews, NewsContent } from "../lib/functions/publish-news"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
+import { useSession, signIn } from "next-auth/react"
 
 interface CreateStoryDialogProps {
   onStoryCreated?: () => void
@@ -30,6 +32,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAutoSigningIn, setIsAutoSigningIn] = useState(false)
   
   const [formData, setFormData] = useState({
     headline: "",
@@ -45,12 +48,76 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const [usedNonces, setUsedNonces] = useState<Set<number>>(new Set())
   const nonceCounterRef = useRef<number>(0)
   const { toast } = useToast()
+  const router = useRouter()
+  const { data: session, status: sessionStatus } = useSession()
   const wallet = useWallet()
   const { publicKey, connected } = wallet || {}
   const { setVisible: setWalletModalVisible } = useWalletModal()
   const { publishNews: publishOnchain } = useContract()
   const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews()
   // no program ref needed when using useContract
+
+  // Auto-sign in with wallet address when wallet connects
+  useEffect(() => {
+    console.log('[CreateStoryDialog] useEffect triggered:', {
+      connected,
+      publicKey: publicKey?.toString(),
+      sessionStatus,
+      isAutoSigningIn
+    })
+
+    const autoSignInWithWallet = async () => {
+      // Only proceed if wallet is connected but no session exists
+      if (connected && publicKey && sessionStatus === "unauthenticated" && !isAutoSigningIn) {
+        console.log('[CreateStoryDialog] Starting auto-sign in process...')
+        setIsAutoSigningIn(true)
+        try {
+          console.log('[CreateStoryDialog] Auto-signing in with wallet:', publicKey.toString())
+          
+          const result = await signIn("credentials", {
+            walletAddress: publicKey.toString(),
+            name: `Wallet User ${publicKey.toString().slice(0, 8)}`,
+            redirect: false,
+          })
+          
+          console.log('[CreateStoryDialog] Sign in result:', result)
+          
+          if (result?.ok) {
+            console.log('[CreateStoryDialog] Auto-sign in successful')
+            toast({
+              title: "Success",
+              description: "Wallet connected and signed in successfully!",
+            })
+          } else {
+            console.error('[CreateStoryDialog] Auto-sign in failed:', result?.error)
+            toast({
+              title: "Authentication Error",
+              description: `Failed to sign in with wallet: ${result?.error || 'Unknown error'}`,
+              variant: "destructive",
+            })
+          }
+        } catch (error) {
+          console.error('[CreateStoryDialog] Auto-sign in error:', error)
+          toast({
+            title: "Authentication Error",
+            description: `Error signing in with wallet: ${error}`,
+            variant: "destructive",
+          })
+        } finally {
+          setIsAutoSigningIn(false)
+        }
+      } else {
+        console.log('[CreateStoryDialog] Auto-sign in conditions not met:', {
+          connected,
+          hasPublicKey: !!publicKey,
+          sessionStatus,
+          isAutoSigningIn
+        })
+      }
+    }
+
+    autoSignInWithWallet()
+  }, [connected, publicKey, sessionStatus, isAutoSigningIn, toast])
 
   // Generate a unique nonce that combines timestamp with counter and random component
   // Using smaller values to stay within safe integer range for anchor.BN
@@ -84,8 +151,25 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('[CreateStoryDialog] Form submitted, starting story creation process')
+    console.log('[CreateStoryDialog] Current state:', {
+      isSubmitting,
+      loading,
+      connected,
+      publicKey: publicKey?.toString(),
+      sessionStatus,
+      hasSession: !!session?.user?.id,
+      formData: {
+        headline: formData.headline,
+        contentLength: formData.content.length,
+        originalUrl: formData.originalUrl,
+        tagsCount: formData.tags.length
+      }
+    })
+    
     // Prevent multiple simultaneous submissions
     if (isSubmitting || loading) {
+      console.log('[CreateStoryDialog] Submission blocked - already in progress')
       return
     }
     
@@ -136,6 +220,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     }
 
     if (!connected || !publicKey || !wallet.signTransaction) {
+      console.log('[CreateStoryDialog] Wallet not connected, opening wallet modal')
       setWalletModalVisible(true)
       toast({
         title: "Error",
@@ -145,9 +230,34 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       return
     }
 
-    
+    console.log('[CreateStoryDialog] Wallet connected, checking session authentication')
+
+    // Check session authentication
+    if (sessionStatus === "loading") {
+      console.log('[CreateStoryDialog] Session still loading, waiting...')
+      toast({
+        title: "Loading",
+        description: "Checking authentication...",
+      })
+      return
+    }
+
+    if (sessionStatus === "unauthenticated" || !session?.user?.id) {
+      console.log('[CreateStoryDialog] No valid session found, redirecting to auth')
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to publish a story",
+        variant: "destructive",
+      })
+      setOpen(false) // Close the dialog
+      router.push("/auth") // Redirect to auth page
+      return
+    }
+
+    console.log('[CreateStoryDialog] Authentication passed, proceeding with story creation')
 
     // Enhanced URL validation
+    console.log('[CreateStoryDialog] Step 1.1: Validating URL...')
     try {
       const url = new URL(formData.originalUrl)
       if (!['http:', 'https:'].includes(url.protocol)) {
@@ -156,7 +266,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       if (url.hostname.length === 0) {
         throw new Error('Invalid hostname')
       }
-    } catch {
+      console.log('[CreateStoryDialog] URL validation passed:', formData.originalUrl)
+    } catch (urlError) {
+      console.error('[CreateStoryDialog] URL validation failed:', urlError)
       toast({
         title: "Error",
         description: "Please enter a valid URL (must start with http:// or https://)",
@@ -166,7 +278,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     }
     
     // Validate content contains only printable characters
+    console.log('[CreateStoryDialog] Step 1.2: Validating content characters...')
     if (!formData.content.match(/^[\x20-\x7E\s]*$/)) {
+      console.error('[CreateStoryDialog] Content validation failed - invalid characters')
       toast({
         title: "Error",
         description: "Content contains invalid characters",
@@ -174,9 +288,12 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       return
     }
+    console.log('[CreateStoryDialog] Content validation passed')
     
     // Validate headline contains only printable characters
+    console.log('[CreateStoryDialog] Step 1.3: Validating headline characters...')
     if (!formData.headline.match(/^[\x20-\x7E\s]*$/)) {
+      console.error('[CreateStoryDialog] Headline validation failed - invalid characters')
       toast({
         title: "Error",
         description: "Headline contains invalid characters",
@@ -184,18 +301,25 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       return
     }
+    console.log('[CreateStoryDialog] Headline validation passed')
 
     // Make URL unique by adding timestamp to avoid conflicts
     const uniqueUrl = `${formData.originalUrl}?t=${Date.now()}`
+    console.log('[CreateStoryDialog] Step 1.4: Generated unique URL:', uniqueUrl)
 
     // Set both loading states to prevent duplicate submissions
+    console.log('[CreateStoryDialog] Step 1.5: Setting loading states...')
     setLoading(true)
     setIsSubmitting(true)
 
+    console.log('[CreateStoryDialog] Starting story creation process...')
+
     try {
+      console.log('[CreateStoryDialog] ✅ ENTERED TRY BLOCK - Process is continuing!')
       // No extra readiness loop required
 
       // Step 1: Upload to Arweave
+      console.log('[CreateStoryDialog] Step 1: Preparing content for Arweave upload')
       const newsContent: NewsContent = {
         title: formData.headline,
         content: formData.content,
@@ -207,8 +331,18 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           publishedAt: new Date().toISOString(),
         }
       }
+      
+      console.log('[CreateStoryDialog] News content prepared:', {
+        title: newsContent.title,
+        contentLength: newsContent.content.length,
+        author: newsContent.author,
+        tags: newsContent.tags,
+        metadata: newsContent.metadata
+      })
 
       // Run Arweave upload with a client-side timeout so the UI never stalls
+      console.log('[CreateStoryDialog] Step 2: Starting Arweave upload...')
+      console.log('[CreateStoryDialog] 🔥 ABOUT TO CALL publishToArweave function')
       const arweaveTimeoutMs = 20000
       const wrappedUpload = publishToArweave(
         newsContent,
@@ -218,19 +352,28 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         ],
         publicKey?.toString()
       ).catch((e: any) => {
+        console.error('[CreateStoryDialog] Arweave upload error:', e)
         return { success: false, error: e instanceof Error ? e.message : String(e) }
       })
 
+      console.log('[CreateStoryDialog] Waiting for Arweave upload with timeout:', arweaveTimeoutMs + 'ms')
+      console.log('[CreateStoryDialog] 🚀 CALLING Promise.race for Arweave upload...')
       const arweaveResult: any = await Promise.race([
         wrappedUpload,
         new Promise<ReturnType<typeof publishToArweave>>(resolve =>
           setTimeout(() => {
+            console.log('[CreateStoryDialog] Arweave upload timed out, using fallback')
             resolve({ success: true, arweaveId: 'timeout', arweaveUrl: 'https://arweave.net/timeout', newsId: `news-${Date.now()}` } as any)
           }, arweaveTimeoutMs)
         ),
       ])
+      console.log('[CreateStoryDialog] 🎉 Arweave upload Promise.race completed!')
+
+      console.log('[CreateStoryDialog] Arweave upload result:', arweaveResult)
 
       if (!arweaveResult.success) {
+        console.error('[CreateStoryDialog] Arweave upload failed:', arweaveResult.error)
+        throw new Error(`Arweave upload failed: ${arweaveResult.error}`)
       }
 
 
@@ -250,12 +393,21 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       
       // Generate unique nonce for this transaction
       const uniqueNonce = generateUniqueNonce()
+      console.log('[CreateStoryDialog] Generated unique nonce:', uniqueNonce)
       
       let txSignature: string | undefined
       try {
+        console.log('[CreateStoryDialog] Step 3: Starting blockchain transaction...')
         
         // Add timeout to onchain call
         const onchainTimeoutMs = 30000 // 30 seconds
+        console.log('[CreateStoryDialog] Publishing onchain with params:', {
+          headline: formData.headline,
+          arweaveLink: safeArweaveResult.arweaveUrl,
+          initialSupply: 100,
+          nonce: uniqueNonce
+        })
+        
         txSignature = await Promise.race([
           publishOnchain({
             headline: formData.headline,
@@ -268,8 +420,10 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           )
         ]) as string
 
+        console.log('[CreateStoryDialog] Blockchain transaction completed, signature:', txSignature)
 
         if (!txSignature) {
+          console.error('[CreateStoryDialog] No signature returned from blockchain transaction')
           throw new Error('Failed to publish onchain - no signature returned')
         }
       } catch (onchainError) {
@@ -302,30 +456,38 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       const isBlockchainSkipped = txSignature.startsWith('already-processed-')
+      console.log('[CreateStoryDialog] Blockchain transaction result:', { txSignature, isBlockchainSkipped })
       
       // Save to database only after successful onchain transaction
+      console.log('[CreateStoryDialog] Step 4: Saving story to database...')
+      
+      const storyData = {
+        headline: formData.headline,
+        content: formData.content,
+        originalUrl: uniqueUrl, // Using the unique URL to avoid conflicts
+        arweaveUrl: safeArweaveResult.arweaveUrl,
+        arweaveId: safeArweaveResult.arweaveId,
+        onchainSignature: txSignature,
+        authorAddress: wallet.publicKey?.toString(), // Using wallet instead of walletAdapter
+        nonce: uniqueNonce.toString(), // Using uniqueNonce
+        tags: formData.tags,
+      }
+      
+      console.log('[CreateStoryDialog] Sending story data to API:', storyData)
       
       const response = await fetch('/api/story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          headline: formData.headline,
-          content: formData.content,
-          originalUrl: uniqueUrl, // Using the unique URL to avoid conflicts
-          arweaveUrl: safeArweaveResult.arweaveUrl,
-          arweaveId: safeArweaveResult.arweaveId,
-          onchainSignature: txSignature,
-          authorAddress: wallet.publicKey?.toString(), // Using wallet instead of walletAdapter
-          nonce: uniqueNonce.toString(), // Using uniqueNonce
-          tags: formData.tags,
-        }),
+        body: JSON.stringify(storyData),
       })
 
+      console.log('[CreateStoryDialog] API response status:', response.status)
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('[CreateStoryDialog] API error response:', errorData)
         
         // Handle specific error cases
         if (response.status === 409) {
@@ -334,6 +496,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           throw new Error(errorData.error || 'Failed to save story to database')
         }
       }
+
+      const savedStory = await response.json()
+      console.log('[CreateStoryDialog] Story saved successfully:', savedStory)
 
 
       toast({
@@ -362,12 +527,20 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         onStoryCreated()
       }
     } catch (error) {
+      console.error('[CreateStoryDialog] Story creation failed with error:', error)
+      console.error('[CreateStoryDialog] Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to publish story",
         variant: "destructive",
       })
     } finally {
+      console.log('[CreateStoryDialog] Story creation process completed, resetting states')
       setLoading(false)
       setIsSubmitting(false)
     }
@@ -408,12 +581,102 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     setOpen(newOpen)
   }
 
+  // Handle button click to check authentication before opening dialog
+  const handleButtonClick = () => {
+    console.log('[CreateStoryDialog] Button clicked:', {
+      sessionStatus,
+      isAutoSigningIn,
+      connected,
+      publicKey: publicKey?.toString(),
+      hasSession: !!session?.user?.id
+    })
+
+    if (sessionStatus === "loading" || isAutoSigningIn) {
+      console.log('[CreateStoryDialog] Loading state, showing toast')
+      toast({
+        title: "Loading",
+        description: isAutoSigningIn ? "Signing you in with your wallet..." : "Checking authentication...",
+      })
+      return
+    }
+
+    if (!connected || !publicKey) {
+      console.log('[CreateStoryDialog] No wallet connected, opening wallet modal')
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      })
+      setWalletModalVisible(true)
+      return
+    }
+
+    if (sessionStatus === "unauthenticated" || !session?.user?.id) {
+      console.log('[CreateStoryDialog] Wallet connected but no session, triggering manual sign in')
+      toast({
+        title: "Authentication Required",
+        description: "Please wait while we sign you in with your wallet...",
+        variant: "destructive",
+      })
+      
+      // Trigger manual sign in
+      const manualSignIn = async () => {
+        if (!isAutoSigningIn && publicKey) {
+          setIsAutoSigningIn(true)
+          try {
+            console.log('[CreateStoryDialog] Manual sign in with wallet:', publicKey.toString())
+            
+            const result = await signIn("credentials", {
+              walletAddress: publicKey.toString(),
+              name: `Wallet User ${publicKey.toString().slice(0, 8)}`,
+              redirect: false,
+            })
+            
+            console.log('[CreateStoryDialog] Manual sign in result:', result)
+            
+            if (result?.ok) {
+              console.log('[CreateStoryDialog] Manual sign in successful')
+              toast({
+                title: "Success",
+                description: "Wallet connected and signed in successfully!",
+              })
+              // Open dialog after successful sign in
+              setTimeout(() => setOpen(true), 1000)
+            } else {
+              console.error('[CreateStoryDialog] Manual sign in failed:', result?.error)
+              toast({
+                title: "Authentication Error",
+                description: `Failed to sign in with wallet: ${result?.error || 'Unknown error'}`,
+                variant: "destructive",
+              })
+            }
+          } catch (error) {
+            console.error('[CreateStoryDialog] Manual sign in error:', error)
+            toast({
+              title: "Authentication Error",
+              description: `Error signing in with wallet: ${error}`,
+              variant: "destructive",
+            })
+          } finally {
+            setIsAutoSigningIn(false)
+          }
+        }
+      }
+      
+      manualSignIn()
+      return
+    }
+
+    console.log('[CreateStoryDialog] All conditions met, opening dialog')
+    setOpen(true)
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={handleButtonClick} disabled={isAutoSigningIn || sessionStatus === "loading"}>
           <Plus className="w-4 h-4" />
-          Post Story
+          {isAutoSigningIn ? "Signing In..." : "Post Story"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

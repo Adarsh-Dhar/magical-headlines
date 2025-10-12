@@ -14,7 +14,7 @@ const emailSchema = z.object({
 })
 
 const walletSchema = z.object({
-  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  walletAddress: z.string().min(32), // Solana addresses are base58 encoded and typically 32-44 characters
   name: z.string().optional(),
 })
 
