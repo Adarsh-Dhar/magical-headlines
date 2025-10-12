@@ -81,6 +81,11 @@ export default function PortfolioPage() {
   const totalValue = portfolioHoldings.reduce((sum, h) => sum + h.totalValue, 0)
   const totalTokens = portfolioHoldings.reduce((sum, h) => sum + h.amount, 0)
   const avgPrice = totalTokens > 0 ? totalValue / totalTokens : 0
+  
+  // Calculate additional metrics
+  const totalSupply = portfolioHoldings.reduce((sum, h) => sum + parseInt(h.marketData.currentSupply), 0)
+  const totalPercentageOwned = totalSupply > 0 ? (totalTokens / totalSupply) * 100 : 0
+  const uniqueStories = portfolioHoldings.length
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,7 +106,7 @@ export default function PortfolioPage() {
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -109,7 +114,8 @@ export default function PortfolioPage() {
               </div>
               <span className="text-sm text-muted-foreground">Total Value</span>
             </div>
-            <p className="text-3xl font-bold">${totalValue.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-600">${totalValue.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Portfolio value</p>
           </Card>
 
           <Card className="p-6">
@@ -119,7 +125,8 @@ export default function PortfolioPage() {
               </div>
               <span className="text-sm text-muted-foreground">Total Tokens</span>
             </div>
-            <p className="text-3xl font-bold">{totalTokens.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-primary">{totalTokens.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">Tokens owned</p>
           </Card>
 
           <Card className="p-6">
@@ -127,9 +134,21 @@ export default function PortfolioPage() {
               <div className="p-2 bg-primary/10 rounded-lg">
                 <TrendingUpIcon className="w-5 h-5 text-primary" />
               </div>
-              <span className="text-sm text-muted-foreground">Avg Price</span>
+              <span className="text-sm text-muted-foreground">Market Share</span>
             </div>
-            <p className="text-3xl font-bold">${avgPrice.toFixed(6)}</p>
+            <p className="text-3xl font-bold text-blue-600">{totalPercentageOwned.toFixed(2)}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Of total supply</p>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <TrendingUpIcon className="w-5 h-5 text-primary" />
+              </div>
+              <span className="text-sm text-muted-foreground">Stories</span>
+            </div>
+            <p className="text-3xl font-bold text-purple-600">{uniqueStories}</p>
+            <p className="text-xs text-muted-foreground mt-1">Unique stories</p>
           </Card>
         </div>
 
@@ -190,44 +209,86 @@ export default function PortfolioPage() {
                 <tr>
                   <th className="text-left p-4 font-semibold">Token</th>
                   <th className="text-left p-4 font-semibold">Headline</th>
-                  <th className="text-right p-4 font-semibold">Amount</th>
+                  <th className="text-right p-4 font-semibold">Your Balance</th>
+                  <th className="text-right p-4 font-semibold">% of Supply</th>
                   <th className="text-right p-4 font-semibold">Current Price</th>
-                    <th className="text-right p-4 font-semibold">Total Value</th>
-                    <th className="text-right p-4 font-semibold">Supply</th>
+                  <th className="text-right p-4 font-semibold">Total Value</th>
+                  <th className="text-right p-4 font-semibold">Total Supply</th>
                 </tr>
               </thead>
               <tbody>
-                {portfolioHoldings.map((holding) => (
+                {portfolioHoldings.map((holding) => {
+                  const totalSupply = parseInt(holding.marketData.currentSupply);
+                  const userBalance = holding.amount;
+                  // Market supply is already in the correct units
+                  const actualTotalSupply = totalSupply;
+                  const percentageOwned = actualTotalSupply > 0 ? (userBalance / actualTotalSupply) * 100 : 0;
+                  
+                  return (
                     <tr key={holding.mint} className="border-t hover:bg-accent/50 transition-colors">
-                    <td className="p-4">
-                      <Badge variant="outline" className="font-mono">
+                      <td className="p-4">
+                        <Badge variant="outline" className="font-mono">
                           {holding.mint.slice(0, 8)}...
-                      </Badge>
-                    </td>
-                    <td className="p-4">
-                      <p className="font-medium">{holding.headline}</p>
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <p className="font-medium">{holding.headline}</p>
                         <p className="text-sm text-muted-foreground">
                           by {holding.author.slice(0, 8)}...
                         </p>
-                    </td>
-                    <td className="p-4 text-right">
-                        <span className="font-medium">{holding.amount.toLocaleString()}</span>
-                    </td>
-                    <td className="p-4 text-right">
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="font-bold text-lg text-primary">
+                            {userBalance > 0 ? userBalance.toFixed(9) : '0'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            tokens owned
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`font-bold text-lg ${
+                              percentageOwned >= 10 ? 'text-green-600' : 
+                              percentageOwned >= 5 ? 'text-yellow-600' : 
+                              'text-muted-foreground'
+                            }`}>
+                              {percentageOwned > 0 ? percentageOwned.toFixed(6) : '0.000000'}%
+                            </span>
+                          </div>
+                          <div className="w-20 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                percentageOwned >= 10 ? 'bg-green-500' : 
+                                percentageOwned >= 5 ? 'bg-yellow-500' : 
+                                'bg-gray-400'
+                              }`}
+                              style={{ width: `${Math.min(percentageOwned, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-muted-foreground mt-1">
+                            of total supply
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
                         <span className="font-bold">${holding.currentPrice.toFixed(6)}</span>
-                    </td>
-                    <td className="p-4 text-right">
-                        <span className="font-bold">
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className="font-bold text-green-600">
                           ${holding.totalValue.toFixed(2)}
                         </span>
-                    </td>
-                    <td className="p-4 text-right">
+                      </td>
+                      <td className="p-4 text-right">
                         <span className="text-sm text-muted-foreground">
-                          {parseInt(holding.marketData.currentSupply).toLocaleString()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                          {actualTotalSupply.toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
                 </tbody>
               </table>
               </div>

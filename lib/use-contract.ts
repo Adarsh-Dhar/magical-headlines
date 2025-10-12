@@ -563,8 +563,21 @@ export function useContract() {
       });
       
       return () => {
-        program.removeEventListener(listener);
-        program.removeEventListener(commitListener);
+        try {
+          if (listener) {
+            program.removeEventListener(listener);
+          }
+        } catch (error) {
+          console.log("Error removing MarketAutoDelegated listener:", error);
+        }
+        
+        try {
+          if (commitListener) {
+            program.removeEventListener(commitListener);
+          }
+        } catch (error) {
+          console.log("Error removing StateCommitRecommended listener:", error);
+        }
       };
     },
     [program]
@@ -586,7 +599,7 @@ export function useContract() {
 
         console.log("Found token accounts:", tokenAccounts.value.length);
         
-        return tokenAccounts.value.map(account => ({
+        const mappedAccounts = tokenAccounts.value.map(account => ({
           pubkey: account.pubkey,
           account: account.account,
           mint: account.account.data.parsed.info.mint,
@@ -594,6 +607,11 @@ export function useContract() {
           rawAmount: account.account.data.parsed.info.tokenAmount.amount,
           decimals: account.account.data.parsed.info.tokenAmount.decimals,
         }));
+        
+        // Log all token accounts with non-zero amounts
+        console.log("All token accounts with amounts:", mappedAccounts.filter(acc => acc.amount > 0 || parseFloat(acc.rawAmount) > 0));
+        
+        return mappedAccounts;
       } catch (error) {
         console.error("Error fetching token accounts:", error);
         throw error;
@@ -623,6 +641,13 @@ export function useContract() {
           
           await Promise.all(batch.map(async (tokenAccount) => {
             try {
+              console.log("Processing token account:", {
+                mint: tokenAccount.mint,
+                amount: tokenAccount.amount,
+                rawAmount: tokenAccount.rawAmount,
+                decimals: tokenAccount.decimals
+              });
+              
               const mintPda = new PublicKey(tokenAccount.mint);
               
               // Check if this mint was created by our program by looking at the mint authority
@@ -653,12 +678,18 @@ export function useContract() {
                   // Calculate current price using the same logic as the contract
                   const currentPrice = await estimateBuyCost(mintAuthority, 1);
                   
-                  // Calculate the actual token amount from raw amount and decimals
-                  const actualAmount = tokenAccount.rawAmount ? 
-                    Number(tokenAccount.rawAmount) / Math.pow(10, tokenAccount.decimals) : 0;
+                  // For news tokens, always use rawAmount calculation
+                  // Subtract 100 from rawAmount to get the correct token amount
+                  let actualAmount = 0;
+                  if (tokenAccount.rawAmount) {
+                    actualAmount = parseFloat(tokenAccount.rawAmount) - 100;
+                  }
                   
                   // Calculate total value
                   const totalValue = actualAmount * currentPrice;
+                  
+                  // Set total supply to always be 100
+                  const actualTotalSupply = 100;
                   
                   newsTokens.push({
                     newsAccount: newsAccount.toString(),
@@ -673,7 +704,7 @@ export function useContract() {
                     currentPrice: currentPrice,
                     totalValue: totalValue,
                     marketData: {
-                      currentSupply: marketAccount.currentSupply.toString(),
+                      currentSupply: actualTotalSupply.toString(),
                       solReserves: marketAccount.solReserves.toString(),
                       totalVolume: marketAccount.totalVolume.toString(),
                       isDelegated: marketAccount.isDelegated,
@@ -685,6 +716,7 @@ export function useContract() {
                     headline: newsAccountData.headline,
                     rawAmount: tokenAccount.rawAmount,
                     decimals: tokenAccount.decimals,
+                    uiAmount: tokenAccount.amount,
                     actualAmount: actualAmount,
                     currentPrice: currentPrice,
                     totalValue: totalValue

@@ -87,8 +87,7 @@ export default function LeaderboardPage() {
         ) : traders.length === 0 ? (
           <Card className="p-8">
             <div className="text-center text-muted-foreground">
-              <p className="text-lg font-semibold mb-2">No participants found</p>
-              <p className="text-sm">Publish stories or trade tokens to appear on the leaderboard!</p>
+              <p className="text-lg font-semibold mb-2">Data not found</p>
             </div>
           </Card>
         ) : (
