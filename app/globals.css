@@ -143,3 +143,30 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--color-muted-foreground) / 0.5);
 }
+
+/* Chart styling enhancements */
+.recharts-cartesian-axis-tick-text {
+  fill: hsl(var(--muted-foreground));
+}
+
+.recharts-cartesian-grid-line {
+  stroke: hsl(var(--border));
+  opacity: 0.3;
+}
+
+.recharts-line {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.recharts-area {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+/* Mini chart styling */
+.mini-chart .recharts-cartesian-grid-line {
+  display: none;
+}
+
+.mini-chart .recharts-line {
+  filter: none;
+}

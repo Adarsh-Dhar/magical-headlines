@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } from "lucide-react"
+import { MiniPriceChart } from "@/components/mini-price-chart"
 import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 // Removed NextAuth import - using wallet address directly
@@ -325,6 +326,7 @@ export default function MarketplacePage() {
                       <th className="text-left p-4 font-semibold">Token</th>
                       <th className="text-left p-4 font-semibold">Headline</th>
                       <th className="text-right p-4 font-semibold">Price</th>
+                      <th className="text-center p-4 font-semibold">Chart</th>
                       <th className="text-right p-4 font-semibold">24h Change</th>
                       <th className="text-right p-4 font-semibold">Volume</th>
                       <th className="text-right p-4 font-semibold">Market Cap</th>
@@ -381,6 +383,15 @@ export default function MarketplacePage() {
                               <span className="text-xs text-muted-foreground">Click "Update Prices" for real-time data</span>
                             ) : null}
                           </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          {token && (
+                            <MiniPriceChart 
+                              tokenId={token.id} 
+                              height={40}
+                              width={120}
+                            />
+                          )}
                         </td>
                         <td className="p-4 text-right">
                           <span

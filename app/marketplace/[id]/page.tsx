@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon } from "lucide-react"
+import { PriceChart } from "@/components/price-chart"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -546,6 +547,15 @@ export default function StoryDetailPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Price Chart */}
+            {story.token && (
+              <PriceChart 
+                tokenId={story.token.id} 
+                height={400}
+                showVolume={true}
+              />
+            )}
+
             {/* Story Content */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>
