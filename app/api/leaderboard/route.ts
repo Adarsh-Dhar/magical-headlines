@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       } else if (storiesPublished > 0) {
         // For story authors who haven't traded, give them a base ROI based on story performance
         // This is a simplified approach - in reality, you'd track actual token value appreciation
-        roi = storiesPublished * 10 // 10% per story published
+        roi = Math.min(storiesPublished * 2, 50) // 2% per story, max 50%
       }
 
       // Assign badge based on performance and activity
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Filter out users with no token ownership and sort by ROI
+    // Filter to include users who have made trades, hold tokens, or have published stories with tokens
     const activeTraders = traderStats
       .filter(trader => trader.totalTrades > 0 || trader.totalTokensOwned > 0 || trader.storiesPublished > 0)
       .sort((a, b) => {
@@ -110,8 +110,8 @@ export async function GET(request: NextRequest) {
         if (b.roi !== a.roi) return b.roi - a.roi
         // Secondary sort: Total tokens owned
         if (b.totalTokensOwned !== a.totalTokensOwned) return b.totalTokensOwned - a.totalTokensOwned
-        // Tertiary sort: Stories published
-        return b.storiesPublished - a.storiesPublished
+        // Tertiary sort: Trading volume
+        return b.volume - a.volume
       })
       .slice(0, limit)
       .map((trader, index) => ({

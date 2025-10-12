@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { getOrCreateUser, isValidWalletAddress } from "@/lib/user-utils"
 import { z } from "zod"
 
 // Validation schemas
@@ -12,7 +11,7 @@ const createStorySchema = z.object({
   arweaveUrl: z.string().url("Invalid Arweave URL"),
   arweaveId: z.string().min(1, "Arweave ID is required"),
   onchainSignature: z.string().min(1, "Onchain signature is required"),
-  authorAddress: z.string().optional(),
+  authorAddress: z.string().min(1, "Author address is required"),
   nonce: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 })
@@ -22,35 +21,6 @@ export async function POST(request: NextRequest) {
   try {
     console.log('[API] Story creation request received')
     
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    console.log('[API] Session check:', { hasSession: !!session, userId: session?.user?.id })
-    
-    if (!session?.user?.id) {
-      console.log('[API] No session found, returning 401')
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    // Ensure user exists in database (for JWT strategy)
-    let user = await prisma.user.findUnique({
-      where: { id: session.user.id }
-    })
-
-    if (!user) {
-      // Create user if they don't exist in database
-      user = await prisma.user.create({
-        data: {
-          id: session.user.id,
-          email: session.user.email || null,
-          name: session.user.name || null,
-          walletAddress: session.user.walletAddress || `user_${session.user.id}`,
-        }
-      })
-    }
-
     // Parse and validate request body
     const body = await request.json()
     console.log('[API] Request body received:', { 
@@ -60,6 +30,7 @@ export async function POST(request: NextRequest) {
       hasArweaveUrl: !!body.arweaveUrl,
       hasArweaveId: !!body.arweaveId,
       hasOnchainSignature: !!body.onchainSignature,
+      authorAddress: body.authorAddress,
       tagsCount: body.tags?.length || 0
     })
     
@@ -76,6 +47,19 @@ export async function POST(request: NextRequest) {
     console.log('[API] Validation passed, proceeding with story creation')
 
     const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, authorAddress, nonce, tags } = validation.data
+
+    // Validate wallet address
+    if (!isValidWalletAddress(authorAddress)) {
+      console.log('[API] Invalid wallet address provided')
+      return NextResponse.json(
+        { error: "Invalid wallet address format" },
+        { status: 400 }
+      )
+    }
+
+    // Get or create user by wallet address
+    const user = await getOrCreateUser(authorAddress)
+    console.log('[API] User found/created:', { userId: user.id, walletAddress: user.walletAddress })
 
     // Check if story with this URL already exists
     const existingStory = await prisma.story.findUnique({
@@ -125,7 +109,6 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true,
             walletAddress: true
           }
         },
@@ -174,7 +157,6 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true,
             walletAddress: true
           }
         },
@@ -211,7 +193,6 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true,
               walletAddress: true
             }
           },
@@ -284,7 +265,6 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
-              email: true,
               walletAddress: true
             }
           },

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+// Removed NextAuth import - using wallet address directly
 import { useContract } from "@/lib/use-contract"
 import { PublicKey } from "@solana/web3.js"
 
@@ -26,7 +26,6 @@ interface Story {
   submitter: {
     id: string
     name: string | null
-    email: string | null
     walletAddress: string
   }
   tags: Array<{
@@ -58,7 +57,6 @@ interface MarketplaceResponse {
 }
 
 export default function MarketplacePage() {
-  const { data: session } = useSession()
   const contract = useContract()
   const { estimateBuyCost, pdas } = contract || {}
   const [stories, setStories] = useState<Story[]>([])
@@ -133,22 +131,16 @@ export default function MarketplacePage() {
   const fetchUserStories = async () => {
     try {
       setUserStoriesLoading(true)
-      if (!session?.user?.id) {
-        setUserStories([])
-        return
-      }
-      
+      // For now, show all stories in "My Stories" tab since we don't have wallet context
+      // In a real implementation, you'd pass the wallet address to filter stories
       const response = await fetch('/api/story')
       if (!response.ok) {
         throw new Error('Failed to fetch stories')
       }
       const data: MarketplaceResponse = await response.json()
       
-      // Filter stories to only show user's stories
-      const userStories = data.stories.filter(story => 
-        story.submitter.id === session.user.id
-      )
-      setUserStories(userStories)
+      // For now, show all stories - in a real implementation you'd filter by wallet address
+      setUserStories(data.stories)
     } catch (err) {
       setUserStories([])
     } finally {

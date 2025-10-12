@@ -1,7 +1,6 @@
 "use client"
 
-import { SessionProvider } from "next-auth/react"
-
+// Removed SessionProvider - no authentication needed
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>
+  return <>{children}</>
 }

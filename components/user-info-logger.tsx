@@ -1,22 +1,18 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useWallet } from "@solana/wallet-adapter-react"
 import { useEffect } from "react"
 
 export function UserInfoLogger() {
-  const { data: session, status } = useSession()
+  const { connected, publicKey } = useWallet()
 
   useEffect(() => {
-    if (status === "loading") {
-      return
+    if (connected && publicKey) {
+      console.log('[UserInfoLogger] Wallet connected:', publicKey.toString())
+    } else {
+      console.log('[UserInfoLogger] Wallet not connected')
     }
-
-    if (status === "authenticated" && session?.user) {
-      
-    } else if (status === "unauthenticated") {
-      
-    }
-  }, [session, status])
+  }, [connected, publicKey])
 
   return null // This component doesn't render anything
 }
