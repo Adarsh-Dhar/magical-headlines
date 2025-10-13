@@ -1,13 +1,14 @@
-import { OpenAI } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, Connection } from "@solana/web3.js";
 import { NewsPlatform } from "../../contract/target/types/news_platform";
 import IDL from "../../contract/target/idl/news_platform.json";
 import { updateOnChainSummary } from "./onchain";
+import { getConnection } from "./config";
 import fetch from "node-fetch";
 
 const PROGRAM_ID = new PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const connection = getConnection();
 
 // Assume you have a function to upload data to Arweave
 // using a library like Bundlr
@@ -30,22 +31,21 @@ export async function handleNewArticle(accountId: PublicKey, data: Buffer) {
     const articleResponse = await fetch(newsAccount.arweaveLink);
     const articleContent = await articleResponse.text();
 
-    // 3. Call the AI service to generate a summary
-    const openai = new OpenAI({ apiKey: "YOUR_OPENAI_API_KEY" });
-    const summaryResponse = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-            {
-                role: "system",
-                content: "You are a helpful assistant that summarizes news articles."
-            },
-            {
-                role: "user",
-                content: `Please summarize this article: ${articleContent}`
-            }
-        ]
-    });
-    const summary = summaryResponse.choices[0]?.message?.content;
+    // 3. Call the AI service (Gemini) to generate a summary
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not set");
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = [
+        "You are a helpful assistant that summarizes news articles.",
+        "Please produce a concise 3-5 sentence summary with key facts and neutral tone.",
+        "Article:",
+        articleContent
+    ].join("\n\n");
+    const summaryResponse = await model.generateContent(prompt);
+    const summary = summaryResponse.response.text();
 
     if (!summary) {
         console.error("Failed to generate summary.");

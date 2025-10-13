@@ -49,22 +49,22 @@ exports.updateOnChainSummary = updateOnChainSummary;
 const anchor = __importStar(require("@coral-xyz/anchor"));
 const web3_js_1 = require("@solana/web3.js");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
-const PROGRAM_ID = new web3_js_1.PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new web3_js_1.Connection("https://api.devnet.solana.com", "confirmed");
-const oracleKeypair = anchor.web3.Keypair.generate();
-const wallet = new anchor.Wallet(oracleKeypair);
+const config_1 = require("./config");
+const PROGRAM_ID = (0, config_1.getProgramId)();
+const connection = (0, config_1.getConnection)();
+const wallet = (0, config_1.getWallet)();
 function updateOnChainSummary(newsAccountPubkey, summaryLink) {
     return __awaiter(this, void 0, void 0, function* () {
         const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
         const program = new anchor.Program(news_platform_json_1.default, provider);
-        const [whitelistPda, _] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("whitelist"), oracleKeypair.publicKey.toBuffer()], program.programId);
+        const [whitelistPda, _] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("whitelist"), wallet.publicKey.toBuffer()], program.programId);
         try {
             const txSignature = yield program.methods
                 .updateSummaryLink(summaryLink)
                 .accounts({
                 newsAccount: newsAccountPubkey,
                 whitelist: whitelistPda,
-                oracleAuthority: oracleKeypair.publicKey,
+                oracleAuthority: wallet.publicKey,
             })
                 .rpc();
             console.log(`Successfully updated summary on-chain. Transaction: ${txSignature}`);

@@ -1,15 +1,12 @@
 import * as anchor from "@coral-xyz/anchor";
-import { PublicKey, Connection } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { NewsPlatform } from "../../contract/target/types/news_platform";
 import IDL from "../../contract/target/idl/news_platform.json";
+import { getConnection, getProgramId, getWallet } from "./config";
 
-const PROGRAM_ID = new PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-
-// This keypair's public key must be added as a whitelisted authority
-// by the admin calling the `add_authority` function in your contract.
-const oracleKeypair = anchor.web3.Keypair.generate();
-const wallet = new anchor.Wallet(oracleKeypair);
+const PROGRAM_ID = getProgramId();
+const connection = getConnection();
+const wallet = getWallet();
 
 export async function updateOnChainSummary(newsAccountPubkey: PublicKey, summaryLink: string) {
     const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
@@ -17,7 +14,7 @@ export async function updateOnChainSummary(newsAccountPubkey: PublicKey, summary
 
     // Find the PDA for the whitelist entry
     const [whitelistPda, _] = PublicKey.findProgramAddressSync(
-        [Buffer.from("whitelist"), oracleKeypair.publicKey.toBuffer()],
+        [Buffer.from("whitelist"), wallet.publicKey.toBuffer()],
         program.programId
     );
 
@@ -27,7 +24,7 @@ export async function updateOnChainSummary(newsAccountPubkey: PublicKey, summary
            .accounts({
                 newsAccount: newsAccountPubkey,
                 whitelist: whitelistPda,
-                oracleAuthority: oracleKeypair.publicKey,
+                oracleAuthority: wallet.publicKey,
             } as any)
            .rpc();
 

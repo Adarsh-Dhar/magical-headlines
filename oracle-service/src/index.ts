@@ -1,12 +1,14 @@
 // In your main oracle service file (e.g., index.ts)
 import * as anchor from "@coral-xyz/anchor";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { NewsPlatform } from "../../contract/target/types/news_platform";
 import IDL from "../../contract/target/idl/news_platform.json";
 import { handleNewArticle } from "./article";
 
-const PROGRAM_ID = new PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+import { getConnection, getProgramId } from "./config";
+
+const PROGRAM_ID = getProgramId();
+const connection = getConnection();
 
 // Main function to start the listener
 async function main() {

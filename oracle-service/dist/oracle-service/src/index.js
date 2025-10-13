@@ -9,10 +9,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const web3_js_1 = require("@solana/web3.js");
 const article_1 = require("./article");
-const PROGRAM_ID = new web3_js_1.PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new web3_js_1.Connection("https://api.devnet.solana.com", "confirmed");
+const config_1 = require("./config");
+const PROGRAM_ID = (0, config_1.getProgramId)();
+const connection = (0, config_1.getConnection)();
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         console.log("Starting oracle listener...");

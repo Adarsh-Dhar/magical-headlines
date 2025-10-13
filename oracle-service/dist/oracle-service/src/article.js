@@ -46,14 +46,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleNewArticle = handleNewArticle;
-const openai_1 = require("openai");
+const generative_ai_1 = require("@google/generative-ai");
 const anchor = __importStar(require("@coral-xyz/anchor"));
 const web3_js_1 = require("@solana/web3.js");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
 const onchain_1 = require("./onchain");
+const config_1 = require("./config");
 const node_fetch_1 = __importDefault(require("node-fetch"));
 const PROGRAM_ID = new web3_js_1.PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
-const connection = new web3_js_1.Connection("https://api.devnet.solana.com", "confirmed");
+const connection = (0, config_1.getConnection)();
 function uploadToArweave(data) {
     return __awaiter(this, void 0, void 0, function* () {
         const arweaveLink = "https://arweave.net/UNIQUE_ID_FOR_SUMMARY";
@@ -62,7 +63,6 @@ function uploadToArweave(data) {
 }
 function handleNewArticle(accountId, data) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
         const wallet = new anchor.Wallet(anchor.web3.Keypair.generate());
         const provider = new anchor.AnchorProvider(connection, wallet, {});
         const program = new anchor.Program(news_platform_json_1.default, provider);
@@ -70,21 +70,20 @@ function handleNewArticle(accountId, data) {
         console.log(`Processing article: ${newsAccount.headline}`);
         const articleResponse = yield (0, node_fetch_1.default)(newsAccount.arweaveLink);
         const articleContent = yield articleResponse.text();
-        const openai = new openai_1.OpenAI({ apiKey: "YOUR_OPENAI_API_KEY" });
-        const summaryResponse = yield openai.chat.completions.create({
-            model: "gpt-4",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a helpful assistant that summarizes news articles."
-                },
-                {
-                    role: "user",
-                    content: `Please summarize this article: ${articleContent}`
-                }
-            ]
-        });
-        const summary = (_b = (_a = summaryResponse.choices[0]) === null || _a === void 0 ? void 0 : _a.message) === null || _b === void 0 ? void 0 : _b.content;
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            throw new Error("GEMINI_API_KEY is not set");
+        }
+        const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const prompt = [
+            "You are a helpful assistant that summarizes news articles.",
+            "Please produce a concise 3-5 sentence summary with key facts and neutral tone.",
+            "Article:",
+            articleContent
+        ].join("\n\n");
+        const summaryResponse = yield model.generateContent(prompt);
+        const summary = summaryResponse.response.text();
         if (!summary) {
             console.error("Failed to generate summary.");
             return;
