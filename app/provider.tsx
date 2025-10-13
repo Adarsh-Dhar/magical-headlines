@@ -9,7 +9,7 @@ import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 import { TorusWalletAdapter, LedgerWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
-import "@solana/wallet-adapter-react-ui/styles.css";
+// Note: styles are imported globally in `app/layout.tsx` to control order
 
 interface SolanaProviderProps {
   children: ReactNode;

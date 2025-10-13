@@ -4,7 +4,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NewspaperIcon, TrendingUpIcon, WalletIcon, TrophyIcon, BarChart3Icon } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 
 const navItems = [
   { href: "/", label: "Feed", icon: NewspaperIcon },
@@ -15,6 +16,8 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname()
+  const { publicKey, connected } = useWallet()
+  const { setVisible } = useWalletModal()
 
   // Render wallet button only on client after mount to prevent hydration mismatch
   const [mounted, setMounted] = (require('react') as typeof import('react')).useState(false)
@@ -47,7 +50,14 @@ export function Navigation() {
           </div>
 
           {mounted ? (
-            <WalletMultiButton className="!bg-black !text-white hover:!bg-black/90 !border-0 !rounded-md !h-9 !px-4" />
+            <Button
+              onClick={() => setVisible(true)}
+              className="bg-white text-black hover:bg-white/90 border-0 rounded-md h-9 px-4"
+            >
+              {connected && publicKey
+                ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}`
+                : "Connect Wallet"}
+            </Button>
           ) : null}
         </div>
       </div>
