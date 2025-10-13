@@ -9,7 +9,6 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 const navItems = [
   { href: "/", label: "Feed", icon: NewspaperIcon },
   { href: "/marketplace", label: "Marketplace", icon: TrendingUpIcon },
-  { href: "/charts", label: "Charts", icon: BarChart3Icon },
   { href: "/portfolio", label: "Portfolio", icon: WalletIcon },
   { href: "/leaderboard", label: "Leaderboard", icon: TrophyIcon },
 ]
