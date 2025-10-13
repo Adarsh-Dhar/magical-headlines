@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Trade the News - Where News Becomes Tradable",
+  title: "Magical Headlines - Where Headlines Becomes Tradable",
   description: "Speculate on attention, profit from trends. Trade headline tokens in a revolutionary news marketplace.",
     generator: 'v0.app'
 }

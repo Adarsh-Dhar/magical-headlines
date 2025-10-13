@@ -49,7 +49,7 @@ export default function HomePage() {
       <UserInfoLogger />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Trade the News</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Magical Headlines</h1>
           <p className="text-lg text-muted-foreground text-balance">
             Where breaking news becomes tradable assets. Speculate on attention, profit from trends.
           </p>

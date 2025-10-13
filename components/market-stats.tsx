@@ -1,38 +1,137 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { TrendingUpIcon, UsersIcon, DollarSignIcon, ActivityIcon } from "lucide-react"
+import { useContract } from "@/lib/use-contract"
 
-const stats = [
-  {
-    label: "Total Market Cap",
-    value: "$12.4M",
-    change: "+8.3%",
-    icon: DollarSignIcon,
-    positive: true,
-  },
-  {
-    label: "Active Stories",
-    value: "1,247",
-    change: "+156",
-    icon: ActivityIcon,
-    positive: true,
-  },
-  {
-    label: "Total Traders",
-    value: "8,932",
-    change: "+423",
-    icon: UsersIcon,
-    positive: true,
-  },
-  {
-    label: "24h Volume",
-    value: "$2.8M",
-    change: "+12.7%",
-    icon: TrendingUpIcon,
-    positive: true,
-  },
-]
+type StatItem = {
+  label: string
+  value: string
+  change: string
+  icon: any
+  positive: boolean
+}
+
+function formatNumberCompact(value: number): string {
+  try {
+    return Intl.NumberFormat(undefined, { notation: "compact" }).format(value)
+  } catch {
+    return value.toString()
+  }
+}
 
 export function MarketStats() {
+  const [activeStories, setActiveStories] = useState<number | null>(null)
+  const [totalTraders, setTotalTraders] = useState<number | null>(null)
+  const [totalVolume24h, setTotalVolume24h] = useState<number | null>(null)
+  const [realTimeTotalVolumeSOL, setRealTimeTotalVolumeSOL] = useState<number | null>(null)
+  const contract = useContract()
+  const { pdas, getMarketDelegationStatus } = contract || {}
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/stats", { cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        setActiveStories(data.activeStories ?? null)
+        setTotalTraders(data.totalTraders ?? null)
+        setTotalVolume24h(data.totalVolume24h ?? null)
+      } catch {
+        // no-op; keep placeholders
+      }
+    }
+    fetchStats()
+    const id = setInterval(fetchStats, 30_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
+  // Compute live SOL total by summing on-chain market volumes for recent stories
+  useEffect(() => {
+    let cancelled = false
+    const computeLiveTotal = async () => {
+      if (!pdas || !getMarketDelegationStatus) return
+      try {
+        const res = await fetch("/api/story?limit=20", { cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json()
+        const stories = (data?.stories || []) as Array<{ id: string; authorAddress?: string; nonce?: string }>
+
+        // Batch in chunks to avoid RPC overload
+        const batchSize = 4
+        let total = 0
+        for (let i = 0; i < stories.length; i += batchSize) {
+          const batch = stories.slice(i, i + batchSize)
+          const results = await Promise.all(batch.map(async (s) => {
+            try {
+              if (!s.authorAddress || !s.nonce) return 0
+              const author = (await import("@solana/web3.js")).PublicKey
+              const authorPk = new author(s.authorAddress)
+              const nonceNum = parseInt(s.nonce)
+              const newsPda = pdas.findNewsPda(authorPk, nonceNum)
+              const marketPda = pdas.findMarketPda(newsPda)
+              const status = await getMarketDelegationStatus(marketPda)
+              const volLamports = Number(status?.totalVolume ?? 0)
+              const volSOL = volLamports / 1e9
+              return Number.isFinite(volSOL) ? volSOL : 0
+            } catch {
+              return 0
+            }
+          }))
+          total += results.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0)
+          if (i + batchSize < stories.length) {
+            await new Promise((r) => setTimeout(r, 300))
+          }
+        }
+        if (!cancelled) setRealTimeTotalVolumeSOL(total)
+      } catch {
+        // ignore
+      }
+    }
+    computeLiveTotal()
+    const interval = setInterval(computeLiveTotal, 30_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [pdas, getMarketDelegationStatus])
+
+  const stats: StatItem[] = useMemo(() => [
+    {
+      label: "Total Market Cap",
+      value: "$12.4M",
+      change: "+8.3%",
+      icon: DollarSignIcon,
+      positive: true,
+    },
+    {
+      label: "Active Stories",
+      value: activeStories == null ? "—" : formatNumberCompact(activeStories),
+      change: "",
+      icon: ActivityIcon,
+      positive: true,
+    },
+    {
+      label: "Total Traders",
+      value: totalTraders == null ? "—" : formatNumberCompact(totalTraders),
+      change: "",
+      icon: UsersIcon,
+      positive: true,
+    },
+    {
+      label: "24h Volume",
+      value: realTimeTotalVolumeSOL != null && realTimeTotalVolumeSOL > 0
+        ? `${realTimeTotalVolumeSOL.toFixed(4)} SOL`
+        : (totalVolume24h == null ? "—" : `${totalVolume24h.toFixed(4)} SOL`),
+      change: "",
+      icon: TrendingUpIcon,
+      positive: true,
+    },
+  ], [activeStories, totalTraders, totalVolume24h, realTimeTotalVolumeSOL])
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat) => {
@@ -43,9 +142,11 @@ export function MarketStats() {
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Icon className="w-4 h-4 text-primary" />
               </div>
-              <span className={`text-xs font-medium ${stat.positive ? "text-green-500" : "text-red-500"}`}>
-                {stat.change}
-              </span>
+              {stat.change && (
+                <span className={`text-xs font-medium ${stat.positive ? "text-green-500" : "text-red-500"}`}>
+                  {stat.change}
+                </span>
+              )}
             </div>
             <p className="text-2xl font-bold mb-1">{stat.value}</p>
             <p className="text-xs text-muted-foreground">{stat.label}</p>

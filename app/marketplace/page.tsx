@@ -3,9 +3,8 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUpIcon, TrendingDownIcon, PlusIcon, RefreshCwIcon, MinusIcon } from "lucide-react"
-import { MiniPriceChart } from "@/components/mini-price-chart"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { PlusIcon, RefreshCwIcon } from "lucide-react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import Link from "next/link"
 // Removed NextAuth import - using wallet address directly
 import { useContract } from "@/lib/use-contract"
@@ -61,6 +60,7 @@ export default function MarketplacePage() {
   const contract = useContract()
   const { estimateBuyCost, pdas, getMarketDelegationStatus } = contract || {}
   const [stories, setStories] = useState<Story[]>([])
+  const [totalVolume24h, setTotalVolume24h] = useState<number>(0)
   const [userStories, setUserStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [userStoriesLoading, setUserStoriesLoading] = useState(false)
@@ -71,6 +71,27 @@ export default function MarketplacePage() {
   const [pricesLoading, setPricesLoading] = useState(false)
   const isCalculatingPricesRef = useRef(false)
   const hasRunInitialUpdateRef = useRef(false)
+
+  // Memoized total of real-time 24h volumes for currently displayed stories
+  const totalRealtimeVolumeSOL = useMemo(() => {
+    try {
+      return stories.reduce((sum, story) => {
+        const v = realTimeVolumes[story.id]
+        const n = typeof v === 'string' ? parseFloat(v as any) : (typeof v === 'number' ? v : 0)
+        return sum + (Number.isFinite(n) ? n : 0)
+      }, 0)
+    } catch {
+      return 0
+    }
+  }, [stories, realTimeVolumes])
+
+  const hasPositiveRealtimeVolume = useMemo(() => {
+    return stories.some(story => {
+      const v = realTimeVolumes[story.id]
+      const n = typeof v === 'string' ? parseFloat(v as any) : (typeof v === 'number' ? v : 0)
+      return Number.isFinite(n) && n > 0
+    })
+  }, [stories, realTimeVolumes])
 
   useEffect(() => {
     fetchMarketplaceStories()
@@ -155,6 +176,9 @@ export default function MarketplacePage() {
       }
       const data: MarketplaceResponse = await response.json()
       setStories(data.stories)
+      // Calculate total 24h volume across all stories (from token.volume24h)
+      const total = data.stories.reduce((sum, story) => sum + (story.token?.volume24h || 0), 0)
+      setTotalVolume24h(total)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -337,6 +361,13 @@ export default function MarketplacePage() {
               <p className="text-sm text-muted-foreground">
                 Showing {stories.length} story{stories.length !== 1 ? 'ies' : ''} available
               </p>
+              <div className="text-sm text-muted-foreground">
+                Total Volume (24h): {hasPositiveRealtimeVolume ? (
+                  <span className="font-medium">{totalRealtimeVolumeSOL.toFixed(4)} SOL</span>
+                ) : (
+                  <span className="font-medium">${(totalVolume24h / 1000).toFixed(1)}K</span>
+                )}
+              </div>
             </div>
             <Card className="overflow-hidden">
               <div className="overflow-x-auto">
@@ -346,10 +377,7 @@ export default function MarketplacePage() {
                       <th className="text-left p-4 font-semibold">Token</th>
                       <th className="text-left p-4 font-semibold">Headline</th>
                       <th className="text-right p-4 font-semibold">Price</th>
-                      <th className="text-center p-4 font-semibold">Chart</th>
-                      <th className="text-right p-4 font-semibold">24h Change</th>
                       <th className="text-right p-4 font-semibold">Volume</th>
-                      <th className="text-right p-4 font-semibold">Market Cap</th>
                       <th className="text-right p-4 font-semibold">Action</th>
                     </tr>
                   </thead>
@@ -359,10 +387,7 @@ export default function MarketplacePage() {
                     // Use real-time price if available, otherwise fallback to token data
                     const realTimePrice = realTimePrices[story.id]
                     const price = realTimePrice !== undefined ? realTimePrice : (token ? token.price : 0)
-                    const isPriceUp = token ? token.priceChange24h > 0 : false
-                    const priceChange = token ? Math.abs(token.priceChange24h) : 0
                     const volume = token ? token.volume24h : 0
-                    const marketCap = token ? token.marketCap : 0
                     
                     return (
                       <tr key={story.id} className="border-t hover:bg-accent/50 transition-colors">
@@ -404,27 +429,6 @@ export default function MarketplacePage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="p-4 text-center">
-                          {token && (
-                            <MiniPriceChart 
-                              tokenId={token.id} 
-                              height={40}
-                              width={120}
-                            />
-                          )}
-                        </td>
-                        <td className="p-4 text-right">
-                          <span
-                            className={`flex items-center justify-end gap-1 font-medium ${isPriceUp ? "text-green-500" : "text-red-500"}`}
-                          >
-                            {isPriceUp ? (
-                              <TrendingUpIcon className="w-4 h-4" />
-                            ) : (
-                              <TrendingDownIcon className="w-4 h-4" />
-                            )}
-                            {priceChange.toFixed(1)}%
-                          </span>
-                        </td>
                         <td className="p-4 text-right">
                           {realTimeVolumes[story.id] !== undefined ? (
                             <div className="flex flex-col items-end">
@@ -434,9 +438,6 @@ export default function MarketplacePage() {
                           ) : (
                             <span className="text-muted-foreground">${(volume / 1000).toFixed(1)}K</span>
                           )}
-                        </td>
-                        <td className="p-4 text-right">
-                          <span className="text-muted-foreground">${(marketCap / 1000).toFixed(1)}K</span>
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex items-center gap-2 justify-end">
