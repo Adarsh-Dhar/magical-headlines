@@ -32,6 +32,10 @@ model User {
   storiesSubmitted Story[]   @relation("SubmittedStories")
   holdings         Holding[]
   trades           Trade[]
+  likes            Like[]
+  comments         Comment[]
+  subscriptions    Subscription[]        @relation("SubscriberRelation")
+  subscribers      Subscription[]        @relation("AuthorRelation")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -61,6 +65,8 @@ model Story {
 
   tags  Tag[]
   token Token? // A story has one corresponding token
+  likes Like[]
+  comments Comment[]
 
   onMarket    Boolean   @default(false)
 
@@ -120,4 +126,39 @@ model Trade {
   token        Token     @relation(fields: [tokenId], references: [id])
 
   timestamp    DateTime  @default(now())
+}
+
+// Like model represents a user's like on a story.
+model Like {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  story     Story    @relation(fields: [storyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, userId], name: "UserStoryLike")
+}
+
+// Comment model stores user comments on stories.
+model Comment {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  content   String
+  story     Story    @relation(fields: [storyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// Subscription model allows a user to subscribe to an author (by wallet/user)
+model Subscription {
+  id             String   @id @default(cuid())
+  subscriberId   String
+  authorId       String
+  subscriber     User     @relation("SubscriberRelation", fields: [subscriberId], references: [id])
+  author         User     @relation("AuthorRelation", fields: [authorId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@unique([subscriberId, authorId], name: "UniqueSubscription")
 }

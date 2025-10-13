@@ -1,7 +1,10 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, HeartIcon, Share2Icon, CheckIcon, UserPlusIcon } from "lucide-react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useWallet } from "@solana/wallet-adapter-react"
 
 interface NewsCardProps {
   story: {
@@ -14,11 +17,50 @@ interface NewsCardProps {
     priceChange: number
     volume24h: number
     timestamp: string
+    authorWallet?: string
   }
 }
 
 export function NewsCard({ story }: NewsCardProps) {
   const isPriceUp = story.priceChange > 0
+  const { publicKey } = useWallet()
+  const [likeCount, setLikeCount] = useState<number>(0)
+  const [liked, setLiked] = useState<boolean>(false)
+  const [isSharing, setIsSharing] = useState<boolean>(false)
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false)
+  const [subscriberCount, setSubscriberCount] = useState<number>(0)
+
+  // Fetch like count and status
+  useEffect(() => {
+    const fetchLikes = async () => {
+      try {
+        const wallet = publicKey?.toString()
+        const res = await fetch(`/api/likes?storyId=${story.id}${wallet ? `&walletAddress=${wallet}` : ''}`)
+        if (res.ok) {
+          const data = await res.json()
+          setLikeCount(data.count || 0)
+          setLiked(!!data.liked)
+        }
+      } catch {}
+    }
+    fetchLikes()
+  }, [story.id, publicKey])
+
+  // Fetch subscription count and status (if author wallet known)
+  useEffect(() => {
+    const fetchSubs = async () => {
+      if (!story.authorWallet) return
+      try {
+        const res = await fetch(`/api/subscriptions?authorWallet=${story.authorWallet}${publicKey ? `&subscriberWallet=${publicKey.toString()}` : ''}`)
+        if (res.ok) {
+          const data = await res.json()
+          setIsSubscribed(!!data.subscribed)
+          setSubscriberCount(data.count || 0)
+        }
+      } catch {}
+    }
+    fetchSubs()
+  }, [story.authorWallet, publicKey])
 
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
@@ -28,14 +70,6 @@ export function NewsCard({ story }: NewsCardProps) {
           <div className="flex-1 space-y-2">
             <h3 className="text-xl font-bold leading-tight text-balance">{story.headline}</h3>
             <p className="text-sm text-muted-foreground text-pretty">{story.summary}</p>
-          </div>
-
-          {/* Attention Score Badge */}
-          <div className="flex-shrink-0">
-            <div className="flex flex-col items-center gap-1 px-3 py-2 bg-primary/10 rounded-lg">
-              <span className="text-xs font-medium text-muted-foreground">Score</span>
-              <span className="text-2xl font-bold text-primary">{story.attentionScore}</span>
-            </div>
           </div>
         </div>
 
@@ -71,13 +105,88 @@ export function NewsCard({ story }: NewsCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-              <BarChart3Icon className="w-4 h-4" />
-              Chart
+            <Button
+              variant={liked ? "default" : "outline"}
+              size="sm"
+              onClick={async () => {
+                try {
+                  if (!publicKey) return
+                  const res = await fetch('/api/likes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ storyId: story.id, walletAddress: publicKey.toString() })
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setLiked(!!data.liked)
+                    setLikeCount(data.count || 0)
+                  }
+                } catch {}
+              }}
+              className="min-w-20"
+            >
+              <HeartIcon className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
+              <span className="text-sm">{likeCount}</span>
             </Button>
-            <Button size="sm" className="bg-primary hover:bg-primary/90">
-              Trade
+
+            <Button
+              variant={isSubscribed ? "default" : "outline"}
+              size="sm"
+              onClick={async () => {
+                try {
+                  if (!publicKey || !story.authorWallet) return
+                  const res = await fetch('/api/subscriptions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ authorWallet: story.authorWallet, subscriberWallet: publicKey.toString() })
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setIsSubscribed(!!data.subscribed)
+                    setSubscriberCount(data.count || 0)
+                  }
+                } catch {}
+              }}
+              className="min-w-24"
+            >
+              <UserPlusIcon className="w-4 h-4" />
+              <span className="text-sm">{isSubscribed ? 'Subscribed' : 'Subscribe'}</span>
+              {story.authorWallet ? (
+                <span className="text-xs text-muted-foreground ml-1">{subscriberCount}</span>
+              ) : null}
             </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const shareUrl = `${window.location.origin}/marketplace/${story.id}`
+                  if (navigator.share) {
+                    await navigator.share({ title: story.headline, url: shareUrl })
+                  } else {
+                    await navigator.clipboard.writeText(shareUrl)
+                    setIsSharing(true)
+                    setTimeout(() => setIsSharing(false), 1500)
+                  }
+                } catch {}
+              }}
+            >
+              {isSharing ? <CheckIcon className="w-4 h-4" /> : <Share2Icon className="w-4 h-4" />}
+              <span className="text-sm">{isSharing ? 'Copied' : 'Share'}</span>
+            </Button>
+
+            <Link href={`/marketplace/${story.id}`}>
+              <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                <BarChart3Icon className="w-4 h-4" />
+                Chart
+              </Button>
+            </Link>
+            <Link href={`/marketplace/${story.id}`}>
+              <Button size="sm" className="bg-primary hover:bg-primary/90">
+                Trade
+              </Button>
+            </Link>
           </div>
         </div>
 

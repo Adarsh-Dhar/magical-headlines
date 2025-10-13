@@ -84,7 +84,8 @@ export function NewsFeed() {
     tokenPrice: story.token.price,
     priceChange: story.token.priceChange24h,
     volume24h: story.token.volume24h,
-    timestamp: formatTimestamp(story.createdAt)
+    timestamp: formatTimestamp(story.createdAt),
+    authorWallet: story.submitter.walletAddress,
   })
 
   if (loading) {

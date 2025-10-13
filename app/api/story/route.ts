@@ -188,17 +188,17 @@ export async function GET(request: NextRequest) {
     if (id) {
       const story = await prisma.story.findUnique({
         where: { id },
-        include: {
-          submitter: {
-            select: {
-              id: true,
-              name: true,
-              walletAddress: true
-            }
-          },
-          tags: true,
-          token: true
-        }
+      include: {
+        submitter: {
+          select: {
+            id: true,
+            name: true,
+            walletAddress: true
+          }
+        },
+        tags: true,
+        token: true
+      }
       })
       
       if (!story) {

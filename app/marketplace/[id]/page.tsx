@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon, CopyIcon } from "lucide-react"
 import { PriceChart } from "@/components/price-chart"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -59,6 +59,14 @@ export default function StoryDetailPage() {
   const { buy, sell, pdas, findActualNewsAccount, estimateBuyCost, getMarketDelegationStatus, listenForDelegationEvents } = contract || {}
   
   const [story, setStory] = useState<Story | null>(null)
+  const [likeCount, setLikeCount] = useState<number>(0)
+  const [liked, setLiked] = useState<boolean>(false)
+  const [isSharing, setIsSharing] = useState<boolean>(false)
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false)
+  const [subscriberCount, setSubscriberCount] = useState<number>(0)
+  const [comments, setComments] = useState<Array<{ id: string; content: string; createdAt: string; user: { id: string; name: string | null; walletAddress: string } }>>([])
+  const [commentText, setCommentText] = useState("")
+  const [isPostingComment, setIsPostingComment] = useState(false)
   
   // Debug contract availability
   useEffect(() => {
@@ -110,6 +118,38 @@ export default function StoryDetailPage() {
     }
   }, [storyId])
 
+  // Fetch likes for this story
+  useEffect(() => {
+    const fetchLikes = async () => {
+      if (!storyId) return
+      try {
+        const wallet = publicKey?.toString()
+        const res = await fetch(`/api/likes?storyId=${storyId}${wallet ? `&walletAddress=${wallet}` : ''}`)
+        if (res.ok) {
+          const data = await res.json()
+          setLikeCount(data.count || 0)
+          setLiked(!!data.liked)
+        }
+      } catch {}
+    }
+    fetchLikes()
+  }, [storyId, publicKey])
+
+  // Fetch comments
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!storyId) return
+      try {
+        const res = await fetch(`/api/comments?storyId=${storyId}&limit=50`)
+        if (res.ok) {
+          const data = await res.json()
+          setComments(data.comments || [])
+        }
+      } catch {}
+    }
+    fetchComments()
+  }, [storyId])
+
   // Fetch wallet balance
   useEffect(() => {
     const fetchWalletBalance = async () => {
@@ -149,6 +189,22 @@ export default function StoryDetailPage() {
     
     fetchDelegationStatus()
   }, [story?.authorAddress, story?.nonce, getMarketDelegationStatus, pdas])
+
+  // Fetch subscription status & count
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!story?.submitter?.walletAddress) return
+      try {
+        const res = await fetch(`/api/subscriptions?authorWallet=${story.submitter.walletAddress}${publicKey ? `&subscriberWallet=${publicKey.toString()}` : ''}`)
+        if (res.ok) {
+          const data = await res.json()
+          setIsSubscribed(!!data.subscribed)
+          setSubscriberCount(data.count || 0)
+        }
+      } catch {}
+    }
+    fetchSubscription()
+  }, [story?.submitter?.walletAddress, publicKey])
 
   // Set up event listeners for delegation events
   useEffect(() => {
@@ -517,7 +573,30 @@ export default function StoryDetailPage() {
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">By</span>
-                  <span className="font-medium">{story.submitter.name || 'Anonymous'}</span>
+                <span className="font-medium">{story.submitter.name || 'Anonymous'}</span>
+                <Button
+                  size="sm"
+                  variant={isSubscribed ? "default" : "outline"}
+                  onClick={async () => {
+                    if (!publicKey) return
+                    try {
+                      const res = await fetch('/api/subscriptions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ authorWallet: story.submitter.walletAddress, subscriberWallet: publicKey.toString() })
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setIsSubscribed(!!data.subscribed)
+                        setSubscriberCount(data.count || 0)
+                      }
+                    } catch {}
+                  }}
+                  className="h-7 px-3 ml-2"
+                >
+                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                </Button>
+                <span className="text-xs text-muted-foreground">{subscriberCount}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Created</span>
@@ -540,7 +619,37 @@ export default function StoryDetailPage() {
               </div>
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex gap-2">
+              <Button
+                variant={liked ? "default" : "outline"}
+                size="sm"
+                onClick={async () => {
+                  try {
+                    if (!publicKey) return
+                    const res = await fetch('/api/likes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ storyId: story.id, walletAddress: publicKey.toString() })
+                    })
+                    if (res.ok) {
+                      const data = await res.json()
+                      setLiked(!!data.liked)
+                      setLikeCount(data.count || 0)
+                    }
+                  } catch {}
+                }}
+                className="min-w-20"
+              >
+                <HeartIcon className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
+                <span className="text-sm">{likeCount}</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const el = document.getElementById('comments')
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}>
+                <MessageCircleIcon className="w-4 h-4" />
+                Comments
+              </Button>
               <Button variant="outline" size="sm" asChild>
                 <a href={story.originalUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
                   <ExternalLinkIcon className="w-4 h-4" />
@@ -552,6 +661,25 @@ export default function StoryDetailPage() {
                   <ExternalLinkIcon className="w-4 h-4" />
                   Arweave
                 </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const shareUrl = `${window.location.origin}/marketplace/${story.id}`
+                    if (navigator.share) {
+                      await navigator.share({ title: story.headline, url: shareUrl })
+                    } else {
+                      await navigator.clipboard.writeText(shareUrl)
+                      setIsSharing(true)
+                      setTimeout(() => setIsSharing(false), 1500)
+                    }
+                  } catch {}
+                }}
+              >
+                {isSharing ? <CheckIcon className="w-4 h-4" /> : <Share2Icon className="w-4 h-4" />}
+                {isSharing ? 'Copied' : 'Share'}
               </Button>
             </div>
           </div>
@@ -598,13 +726,74 @@ export default function StoryDetailPage() {
               />
             )}
 
-            {/* Story Content */}
-            <Card className="p-6">
+            {/* Story Content */
+            }
+            <Card className="p-6" id="comments">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>
               <div className="prose prose-sm max-w-none">
                 <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {story.content}
                 </p>
+              </div>
+            </Card>
+
+            {/* Comments */}
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Comments</h2>
+              <div className="space-y-4">
+                {/* Composer */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={publicKey ? "Write a comment..." : "Connect wallet to comment"}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    disabled={!publicKey || isPostingComment}
+                  />
+                  <Button
+                    onClick={async () => {
+                      if (!publicKey || !commentText.trim() || !story) return
+                      setIsPostingComment(true)
+                      try {
+                        const res = await fetch('/api/comments', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ storyId: story.id, walletAddress: publicKey.toString(), content: commentText.trim() })
+                        })
+                        if (res.ok) {
+                          const created = await res.json()
+                          setComments((prev) => [created, ...prev])
+                          setCommentText("")
+                        }
+                      } catch {} finally {
+                        setIsPostingComment(false)
+                      }
+                    }}
+                    disabled={!publicKey || !commentText.trim() || isPostingComment}
+                  >
+                    {isPostingComment ? 'Posting...' : 'Post'}
+                  </Button>
+                </div>
+
+                {/* List */}
+                {comments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No comments yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {comments.map((c) => (
+                      <div key={c.id} className="p-3 rounded-md border">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-xs text-muted-foreground">
+                            {c.user.name || c.user.walletAddress.slice(0, 6) + '...' + c.user.walletAddress.slice(-4)}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {new Date(c.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Card>
 

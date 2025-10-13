@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -25,13 +25,21 @@ export function TrendingStories() {
   const [volumes, setVolumes] = useState<Record<string, number>>({})
   const [isUpdating, setIsUpdating] = useState(false)
 
+  const didInitialVolumeUpdateRef = useRef(false)
+
   const fetchStories = useCallback(async () => {
     try {
       setLoading(true)
       const res = await fetch("/api/story")
       if (!res.ok) throw new Error("Failed to fetch stories")
       const data = await res.json()
-      setStories(data.stories || [])
+      const fetched = data.stories || []
+      setStories(fetched)
+      // Perform a one-time volume update on mount if contract utils are ready
+      if (!didInitialVolumeUpdateRef.current && pdas && typeof getMarketDelegationStatus === 'function' && fetched.length > 0) {
+        didInitialVolumeUpdateRef.current = true
+        void updateVolumesFor(fetched)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load stories")
     } finally {
@@ -43,14 +51,15 @@ export function TrendingStories() {
     fetchStories()
   }, [fetchStories])
 
-  const updateVolumes = useCallback(async () => {
-    if (!pdas || !getMarketDelegationStatus) return
+  const updateVolumesFor = useCallback(async (sourceStories?: Story[]) => {
+    if (!pdas || typeof getMarketDelegationStatus !== 'function') return
     if (isUpdating) return
     setIsUpdating(true)
     const nextVolumes: Record<string, number> = {}
 
     try {
-      const eligible = stories.filter(s => s.authorAddress && s.nonce)
+      const base = sourceStories ?? stories
+      const eligible = base.filter(s => s.authorAddress && s.nonce)
       const batchSize = 4
       for (let i = 0; i < eligible.length; i += batchSize) {
         const batch = eligible.slice(i, i + batchSize)
@@ -77,11 +86,7 @@ export function TrendingStories() {
     }
   }, [stories, pdas, getMarketDelegationStatus, isUpdating])
 
-  useEffect(() => {
-    if (!pdas || !getMarketDelegationStatus) return
-    if (stories.length === 0) return
-    void updateVolumes()
-  }, [pdas, getMarketDelegationStatus, stories, updateVolumes])
+  // Removed periodic/automatic updates; volumes now update only once on mount (via fetchStories) and on manual refresh
 
   const trending = useMemo(() => {
     return stories
@@ -103,7 +108,7 @@ export function TrendingStories() {
           <FlameIcon className="w-5 h-5 text-primary" />
           <h2 className="text-xl font-bold">Trending Now</h2>
         </div>
-        <Button variant="outline" size="sm" onClick={updateVolumes} disabled={isUpdating || loading} className="h-8">
+        <Button variant="outline" size="sm" onClick={() => updateVolumesFor()} disabled={isUpdating || loading} className="h-8">
           {isUpdating ? "Updating..." : "Refresh"}
         </Button>
       </div>
