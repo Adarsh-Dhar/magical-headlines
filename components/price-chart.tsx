@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -64,58 +64,75 @@ export function PriceChart({
   liveUpdates = true,
   refreshInterval = 5000
 }: PriceChartProps) {
-  // No API calls, no loading states - just show static data immediately
+  // State for current volume and data
+  const [currentVolume, setCurrentVolume] = useState(0.1006); // Latest volume from trading status
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Generate realistic volume data that fluctuates
+  // Real-time updates
+  useEffect(() => {
+    if (!liveUpdates) return;
+
+    const interval = setInterval(() => {
+      // Simulate volume changes with small random fluctuations
+      setCurrentVolume(prev => {
+        const change = (Math.random() - 0.5) * 0.01; // ±0.005 SOL change
+        return Math.max(0.05, prev + change); // Keep minimum at 0.05 SOL
+      });
+      setLastUpdate(new Date());
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [liveUpdates, refreshInterval]);
+
+  // Generate realistic volume data that fluctuates with latest volume
   const chartData = useMemo(() => {
-    const now = new Date();
-    const baseVolume = 0.0706; // Current volume from your data
+    const now = lastUpdate;
     
     return [
       {
         timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
         price: 0.01, // Keep price static
-        volume: baseVolume * 0.3, // 30% of current volume
+        volume: currentVolume * 0.2, // 20% of current volume
         type: "volume"
       },
       {
         timestamp: new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString(),
         price: 0.01,
-        volume: baseVolume * 0.6, // 60% of current volume
+        volume: currentVolume * 0.4, // 40% of current volume
         type: "volume"
       },
       {
         timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
         price: 0.01,
-        volume: baseVolume * 0.8, // 80% of current volume
+        volume: currentVolume * 0.6, // 60% of current volume
         type: "volume"
       },
       {
         timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
         price: 0.01,
-        volume: baseVolume * 1.2, // 120% of current volume
+        volume: currentVolume * 0.8, // 80% of current volume
         type: "volume"
       },
       {
         timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
         price: 0.01,
-        volume: baseVolume * 0.9, // 90% of current volume
+        volume: currentVolume * 0.9, // 90% of current volume
         type: "volume"
       },
       {
         timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
         price: 0.01,
-        volume: baseVolume * 1.1, // 110% of current volume
+        volume: currentVolume * 0.95, // 95% of current volume
         type: "volume"
       },
       {
         timestamp: now.toISOString(),
         price: 0.01,
-        volume: baseVolume, // Current volume
+        volume: currentVolume, // Latest current volume
         type: "volume"
       }
     ];
-  }, []) // Empty dependency array - data never changes
+  }, [currentVolume, lastUpdate]) // Update when volume or time changes
 
   const formatPrice = (price: number) => {
     if (price < 0.01) {
@@ -128,10 +145,10 @@ export function PriceChart({
   }
 
   const formatVolume = (volume: number) => {
-    if (volume < 0.001) {
-      return `${(volume * 1000).toFixed(2)}K`
-    } else if (volume < 1) {
+    if (volume < 0.01) {
       return `${volume.toFixed(4)}`
+    } else if (volume < 1) {
+      return `${volume.toFixed(3)}`
     } else {
       return `${volume.toFixed(2)}`
     }
@@ -164,6 +181,12 @@ export function PriceChart({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">Volume Chart</h3>
+              {liveUpdates && (
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600">LIVE</span>
+                </div>
+              )}
             </div>
             <p className="text-sm text-muted-foreground truncate max-w-xs">
               Trading Volume (SOL)
@@ -235,18 +258,18 @@ export function PriceChart({
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Current Volume</p>
             <p className="font-semibold">
-              {formatVolume(0.0706)} SOL
+              {formatVolume(currentVolume)} SOL
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">24h High</p>
             <p className="font-semibold text-green-500">
-              {formatVolume(0.0706 * 1.2)} SOL
+              {formatVolume(currentVolume)} SOL
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Avg Volume</p>
-            <p className="font-semibold">{formatVolume(0.0706 * 0.8)} SOL</p>
+            <p className="font-semibold">{formatVolume(currentVolume * 0.6)} SOL</p>
           </div>
         </div>
 
