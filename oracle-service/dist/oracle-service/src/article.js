@@ -48,17 +48,46 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleNewArticle = handleNewArticle;
 const generative_ai_1 = require("@google/generative-ai");
 const anchor = __importStar(require("@coral-xyz/anchor"));
-const web3_js_1 = require("@solana/web3.js");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
 const onchain_1 = require("./onchain");
 const config_1 = require("./config");
 const node_fetch_1 = __importDefault(require("node-fetch"));
-const PROGRAM_ID = new web3_js_1.PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
+const PROGRAM_ID = process.env.PROGRAM_ID;
 const connection = (0, config_1.getConnection)();
 function uploadToArweave(data) {
     return __awaiter(this, void 0, void 0, function* () {
-        const arweaveLink = "https://arweave.net/UNIQUE_ID_FOR_SUMMARY";
-        return arweaveLink;
+        var _a;
+        const baseUrl = (_a = process.env.ARWEAVE_UPLOAD_URL) !== null && _a !== void 0 ? _a : "http://localhost:3000";
+        const fetchPromise = (() => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const res = yield (0, node_fetch_1.default)(`${baseUrl}/api/arweave/upload`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    content: data,
+                    tags: [
+                        { name: "Content-Type", value: "text/plain" },
+                        { name: "Summary-For", value: "news-article" },
+                        { name: "App-Name", value: "TradeTheNews" },
+                    ],
+                }),
+            });
+            if (!res.ok) {
+                const text = yield res.text().catch(() => "");
+                throw new Error(`Arweave upload failed ${res.status}: ${text}`);
+            }
+            const json = yield res.json();
+            if (!json.success || !json.url)
+                throw new Error((_a = json.error) !== null && _a !== void 0 ? _a : "Arweave upload returned no URL");
+            return json.url;
+        }))();
+        const timeoutPromise = new Promise((_, reject) => {
+            const id = setTimeout(() => {
+                clearTimeout(id);
+                reject(new Error("Arweave upload timed out"));
+            }, 20000);
+        });
+        return Promise.race([fetchPromise, timeoutPromise]);
     });
 }
 function handleNewArticle(accountId, data) {

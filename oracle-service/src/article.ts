@@ -7,15 +7,42 @@ import { updateOnChainSummary } from "./onchain";
 import { getConnection } from "./config";
 import fetch from "node-fetch";
 
-const PROGRAM_ID = new PublicKey("7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
+const PROGRAM_ID = process.env.PROGRAM_ID;
 const connection = getConnection();
 
-// Assume you have a function to upload data to Arweave
-// using a library like Bundlr
+// Upload the generated summary to Arweave via the Next.js API route
 async function uploadToArweave(data: string): Promise<string> {
-    //... implementation for uploading to Arweave...
-    const arweaveLink = "https://arweave.net/UNIQUE_ID_FOR_SUMMARY";
-    return arweaveLink;
+    const baseUrl = process.env.ARWEAVE_UPLOAD_URL ?? "http://localhost:3000";
+    const fetchPromise = (async () => {
+        const res = await fetch(`${baseUrl}/api/arweave/upload`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                content: data,
+                tags: [
+                    { name: "Content-Type", value: "text/plain" },
+                    { name: "Summary-For", value: "news-article" },
+                    { name: "App-Name", value: "TradeTheNews" },
+                ],
+            }),
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`Arweave upload failed ${res.status}: ${text}`);
+        }
+        const json: { success?: boolean; url?: string; error?: string } = await res.json();
+        if (!json.success || !json.url) throw new Error(json.error ?? "Arweave upload returned no URL");
+        return json.url;
+    })();
+
+    const timeoutPromise = new Promise<string>((_, reject) => {
+        const id = setTimeout(() => {
+            clearTimeout(id);
+            reject(new Error("Arweave upload timed out"));
+        }, 20000);
+    });
+
+    return Promise.race([fetchPromise, timeoutPromise]) as Promise<string>;
 }
 
 export async function handleNewArticle(accountId: PublicKey, data: Buffer) {

@@ -1,0 +1,15 @@
+{
+  "name": "trade-the-news-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for Trade The News",
+  "type": "module",
+  "scripts": {
+    "initialize-oracle": "tsx initialize-oracle.ts",
+    "whitelist-oracle": "tsx whitelist-oracle.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/web3.js": "^1.98.4",
+    "tsx": "^4.7.0"
+  }
+}
