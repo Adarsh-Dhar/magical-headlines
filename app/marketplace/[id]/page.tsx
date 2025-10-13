@@ -58,11 +58,24 @@ export default function StoryDetailPage() {
   const contract = useContract()
   const { buy, sell, pdas, findActualNewsAccount, estimateBuyCost, getMarketDelegationStatus, listenForDelegationEvents } = contract || {}
   
+  const [story, setStory] = useState<Story | null>(null)
+  
   // Debug contract availability
   useEffect(() => {
-  }, [contract, buy, sell, pdas])
-  
-  const [story, setStory] = useState<Story | null>(null)
+    console.log("Marketplace Debug:", {
+      story: story ? {
+        id: story.id,
+        hasToken: !!story.token,
+        hasAuthorAddress: !!story.authorAddress,
+        hasNonce: !!story.nonce,
+        tokenId: story.token?.id
+      } : null,
+      contract: !!contract,
+      pdas: !!pdas,
+      buy: typeof buy,
+      sell: typeof sell
+    });
+  }, [contract, buy, sell, pdas, story])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -548,11 +561,40 @@ export default function StoryDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Price Chart */}
-            {story.token && (
+            {story.token ? (
+              story.authorAddress && story.nonce && pdas ? (
+                <PriceChart 
+                  tokenId={story.token.id}
+                  marketAddress={pdas.findMarketPda(pdas.findNewsPda(new PublicKey(story.authorAddress), parseInt(story.nonce))).toString()}
+                  newsAccountAddress={pdas.findNewsPda(new PublicKey(story.authorAddress), parseInt(story.nonce)).toString()}
+                  mintAddress={pdas.findMintPda(pdas.findNewsPda(new PublicKey(story.authorAddress), parseInt(story.nonce))).toString()}
+                  height={400}
+                  showVolume={true}
+                  liveUpdates={false}
+                  refreshInterval={0}
+                />
+              ) : (
+                <PriceChart 
+                  tokenId={story.token.id}
+                  marketAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
+                  newsAccountAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
+                  mintAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
+                  height={400}
+                  showVolume={true}
+                  liveUpdates={false}
+                  refreshInterval={0}
+                />
+              )
+            ) : (
               <PriceChart 
-                tokenId={story.token.id} 
+                tokenId={story.id}
+                marketAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
+                newsAccountAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
+                mintAddress="7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
                 height={400}
                 showVolume={true}
+                liveUpdates={false}
+                refreshInterval={0}
               />
             )}
 
@@ -739,6 +781,8 @@ export default function StoryDetailPage() {
                           <p>Wallet Balance: {walletBalance !== null ? `${walletBalance.toFixed(4)} SOL` : 'Loading...'}</p>
                           <p>Estimated Cost: {estimatedCost !== null ? `${estimatedCost.toFixed(6)} SOL` : 'N/A'}</p>
                           <p>Story Token: {story?.token ? 'Available' : 'None'}</p>
+                          <p>Author Address: {story?.authorAddress || 'None'}</p>
+                          <p>Nonce: {story?.nonce || 'None'}</p>
                           <p>Contract Available: {contract ? 'Yes' : 'No'}</p>
                           <p>Buy Function: {typeof buy === 'function' ? 'Available' : 'None'}</p>
                           <p>Sell Function: {typeof sell === 'function' ? 'Available' : 'None'}</p>
