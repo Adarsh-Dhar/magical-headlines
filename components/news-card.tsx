@@ -62,6 +62,8 @@ export function NewsCard({ story }: NewsCardProps) {
     fetchSubs()
   }, [story.authorWallet, publicKey])
 
+  const isAuthor = !!(publicKey && story.authorWallet && story.authorWallet === publicKey.toString())
+
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
       <div className="space-y-4">
@@ -134,7 +136,7 @@ export function NewsCard({ story }: NewsCardProps) {
               size="sm"
               onClick={async () => {
                 try {
-                  if (!publicKey || !story.authorWallet) return
+                  if (!publicKey || !story.authorWallet || isAuthor) return
                   const res = await fetch('/api/subscriptions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -148,9 +150,10 @@ export function NewsCard({ story }: NewsCardProps) {
                 } catch {}
               }}
               className="min-w-24"
+              disabled={isAuthor}
             >
               <UserPlusIcon className="w-4 h-4" />
-              <span className="text-sm">{isSubscribed ? 'Subscribed' : 'Subscribe'}</span>
+              <span className="text-sm">{isAuthor ? 'Author' : (isSubscribed ? 'Subscribed' : 'Subscribe')}</span>
               {story.authorWallet ? (
                 <span className="text-xs text-muted-foreground ml-1">{subscriberCount}</span>
               ) : null}

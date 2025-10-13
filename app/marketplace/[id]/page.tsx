@@ -544,6 +544,7 @@ export default function StoryDetailPage() {
   const price = token ? token.price : 0
   const volume = token ? token.volume24h : 0
   const marketCap = token ? token.marketCap : 0
+  const isAuthor = !!(publicKey && story?.submitter?.walletAddress === publicKey.toString())
 
   return (
     <div className="min-h-screen bg-background">
@@ -576,9 +577,9 @@ export default function StoryDetailPage() {
                 <span className="font-medium">{story.submitter.name || 'Anonymous'}</span>
                 <Button
                   size="sm"
-                  variant={isSubscribed ? "default" : "outline"}
+                  variant={isAuthor ? "secondary" : (isSubscribed ? "default" : "outline")}
                   onClick={async () => {
-                    if (!publicKey) return
+                    if (!publicKey || isAuthor) return
                     try {
                       const res = await fetch('/api/subscriptions', {
                         method: 'POST',
@@ -593,8 +594,9 @@ export default function StoryDetailPage() {
                     } catch {}
                   }}
                   className="h-7 px-3 ml-2"
+                  disabled={isAuthor}
                 >
-                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                  {isAuthor ? 'Author' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
                 </Button>
                 <span className="text-xs text-muted-foreground">{subscriberCount}</span>
                 </div>
