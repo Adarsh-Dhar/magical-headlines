@@ -59,7 +59,7 @@ interface MarketplaceResponse {
 
 export default function MarketplacePage() {
   const contract = useContract()
-  const { estimateBuyCost, pdas } = contract || {}
+  const { estimateBuyCost, pdas, getMarketDelegationStatus } = contract || {}
   const [stories, setStories] = useState<Story[]>([])
   const [userStories, setUserStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,8 +67,10 @@ export default function MarketplacePage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'marketplace' | 'my-stories'>('marketplace')
   const [realTimePrices, setRealTimePrices] = useState<Record<string, number>>({})
+  const [realTimeVolumes, setRealTimeVolumes] = useState<Record<string, number>>({})
   const [pricesLoading, setPricesLoading] = useState(false)
   const isCalculatingPricesRef = useRef(false)
+  const hasRunInitialUpdateRef = useRef(false)
 
   useEffect(() => {
     fetchMarketplaceStories()
@@ -78,12 +80,13 @@ export default function MarketplacePage() {
   // Remove automatic price calculation - prices will only update on manual refresh
 
   const calculateRealTimePrices = useCallback(async () => {
-    if (!estimateBuyCost || !pdas || isCalculatingPricesRef.current) return
+    if (!estimateBuyCost || !pdas || !getMarketDelegationStatus || isCalculatingPricesRef.current) return
     
     // Prevent multiple simultaneous calculations
     isCalculatingPricesRef.current = true
     setPricesLoading(true)
     const prices: Record<string, number> = {}
+    const volumes: Record<string, number> = {}
     
     try {
       // Process stories in batches to avoid overwhelming the RPC
@@ -106,6 +109,13 @@ export default function MarketplacePage() {
             if (price !== null) {
               prices[story.id] = price
             }
+
+            // Fetch on-chain total volume and convert lamports to SOL
+            const status = await getMarketDelegationStatus(marketPda)
+            if (status && status.totalVolume != null) {
+              // totalVolume may be BN/BigInt; coerce to number (SOL)
+              volumes[story.id] = Number(status.totalVolume) / 1e9
+            }
           } catch (error) {
             console.warn(`Failed to calculate price for story ${story.id}:`, error)
           }
@@ -118,13 +128,23 @@ export default function MarketplacePage() {
       }
       
       setRealTimePrices(prices)
+      setRealTimeVolumes(volumes)
     } catch (error) {
       console.error('Error calculating real-time prices:', error)
     } finally {
       setPricesLoading(false)
       isCalculatingPricesRef.current = false
     }
-  }, [stories, estimateBuyCost, pdas])
+  }, [stories, estimateBuyCost, pdas, getMarketDelegationStatus])
+
+  // Run a one-time real-time update after stories load and contract utils are ready
+  useEffect(() => {
+    if (hasRunInitialUpdateRef.current) return
+    if (!contract || !pdas || !estimateBuyCost || !getMarketDelegationStatus) return
+    if (stories.length === 0) return
+    hasRunInitialUpdateRef.current = true
+    void calculateRealTimePrices()
+  }, [stories, contract, pdas, estimateBuyCost, getMarketDelegationStatus, calculateRealTimePrices])
 
   const fetchMarketplaceStories = async () => {
     try {
@@ -406,7 +426,14 @@ export default function MarketplacePage() {
                           </span>
                         </td>
                         <td className="p-4 text-right">
-                          <span className="text-muted-foreground">${(volume / 1000).toFixed(1)}K</span>
+                          {realTimeVolumes[story.id] !== undefined ? (
+                            <div className="flex flex-col items-end">
+                              <span className="font-medium">{realTimeVolumes[story.id].toFixed(4)} SOL</span>
+                              <span className="text-xs text-muted-foreground">24h</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">${(volume / 1000).toFixed(1)}K</span>
+                          )}
                         </td>
                         <td className="p-4 text-right">
                           <span className="text-muted-foreground">${(marketCap / 1000).toFixed(1)}K</span>
