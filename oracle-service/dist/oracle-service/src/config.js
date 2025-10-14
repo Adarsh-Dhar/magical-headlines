@@ -38,6 +38,8 @@ exports.getRpcUrl = getRpcUrl;
 exports.getConnection = getConnection;
 exports.getOracleKeypair = getOracleKeypair;
 exports.getWallet = getWallet;
+const dotenv = __importStar(require("dotenv"));
+dotenv.config();
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const anchor = __importStar(require("@coral-xyz/anchor"));

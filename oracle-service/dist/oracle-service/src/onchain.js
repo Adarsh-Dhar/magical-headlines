@@ -55,10 +55,18 @@ const connection = (0, config_1.getConnection)();
 const wallet = (0, config_1.getWallet)();
 function updateOnChainSummary(newsAccountPubkey, summaryLink) {
     return __awaiter(this, void 0, void 0, function* () {
+        console.log("⛓️  ========================================");
+        console.log("🔗 Updating summary on-chain...");
+        console.log(`📰 News Account: ${newsAccountPubkey.toBase58()}`);
+        console.log(`🔗 Summary Link: ${summaryLink}`);
+        console.log("⛓️  ========================================");
         const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
         const program = new anchor.Program(news_platform_json_1.default, provider);
         const [whitelistPda, _] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("whitelist"), wallet.publicKey.toBuffer()], program.programId);
+        console.log(`🔑 Oracle Authority: ${wallet.publicKey.toBase58()}`);
+        console.log(`🔑 Whitelist PDA: ${whitelistPda.toBase58()}`);
         try {
+            console.log("📝 Building transaction...");
             const txSignature = yield program.methods
                 .updateSummaryLink(summaryLink)
                 .accounts({
@@ -67,10 +75,17 @@ function updateOnChainSummary(newsAccountPubkey, summaryLink) {
                 oracleAuthority: wallet.publicKey,
             })
                 .rpc();
-            console.log(`Successfully updated summary on-chain. Transaction: ${txSignature}`);
+            console.log("✅ ========================================");
+            console.log("✅ Successfully updated summary on-chain!");
+            console.log(`🔗 Transaction: ${txSignature}`);
+            console.log(`🌐 Explorer: https://explorer.solana.com/tx/${txSignature}`);
+            console.log("✅ ========================================");
         }
         catch (error) {
-            console.error("Failed to update summary on-chain:", error);
+            console.error("❌ ========================================");
+            console.error("❌ Failed to update summary on-chain:", error);
+            console.error("❌ ========================================");
+            throw error;
         }
     });
 }

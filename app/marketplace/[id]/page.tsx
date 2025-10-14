@@ -27,6 +27,7 @@ interface Story {
   onMarket: boolean
   createdAt: string
   updatedAt: string
+  summaryLink?: string
   submitter: {
     id: string
     name: string | null
@@ -291,6 +292,20 @@ export default function StoryDetailPage() {
         throw new Error('Failed to fetch story')
       }
       const data = await response.json()
+      
+      // If we have a news account, fetch the on-chain data for summary link
+      if (data.token?.newsAccount) {
+        try {
+          const newsAccountData = await fetch(`/api/news-account?address=${data.token.newsAccount}`)
+          if (newsAccountData.ok) {
+            const onChainData = await newsAccountData.json()
+            data.summaryLink = onChainData.summaryLink
+          }
+        } catch (err) {
+          console.warn('Failed to fetch on-chain summary link:', err)
+        }
+      }
+      
       setStory(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -571,6 +586,19 @@ export default function StoryDetailPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h1 className="text-4xl font-bold mb-4 leading-tight">{story.headline}</h1>
+              {story.summaryLink && (
+                <div className="mb-4">
+                  <a 
+                    href={story.summaryLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    <ExternalLinkIcon className="w-4 h-4 mr-2" />
+                    Read AI Summary
+                  </a>
+                </div>
+              )}
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">By</span>

@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, HeartIcon, Share2Icon, CheckIcon, UserPlusIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, HeartIcon, Share2Icon, CheckIcon, UserPlusIcon, ExternalLinkIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useWallet } from "@solana/wallet-adapter-react"
@@ -11,6 +11,7 @@ interface NewsCardProps {
     id: string
     headline: string
     summary: string
+    summaryLink?: string
     tags: string[]
     attentionScore: number
     tokenPrice: number
@@ -72,6 +73,17 @@ export function NewsCard({ story }: NewsCardProps) {
           <div className="flex-1 space-y-2">
             <h3 className="text-xl font-bold leading-tight text-balance">{story.headline}</h3>
             <p className="text-sm text-muted-foreground text-pretty">{story.summary}</p>
+            {story.summaryLink && (
+              <a 
+                href={story.summaryLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-500 hover:text-blue-600 underline"
+              >
+                <ExternalLinkIcon className="w-3 h-3 mr-1" />
+                Read AI Summary
+              </a>
+            )}
           </div>
         </div>
 

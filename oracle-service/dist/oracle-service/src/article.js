@@ -92,34 +92,68 @@ function uploadToArweave(data) {
 }
 function handleNewArticle(accountId, data) {
     return __awaiter(this, void 0, void 0, function* () {
-        const wallet = new anchor.Wallet(anchor.web3.Keypair.generate());
-        const provider = new anchor.AnchorProvider(connection, wallet, {});
-        const program = new anchor.Program(news_platform_json_1.default, provider);
-        const newsAccount = yield program.coder.accounts.decode("newsAccount", data);
-        console.log(`Processing article: ${newsAccount.headline}`);
-        const articleResponse = yield (0, node_fetch_1.default)(newsAccount.arweaveLink);
-        const articleContent = yield articleResponse.text();
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("GEMINI_API_KEY is not set");
+        console.log("🔍 ========================================");
+        console.log("📝 Starting article processing...");
+        console.log(`🔑 Account: ${accountId.toBase58()}`);
+        console.log("🔍 ========================================");
+        try {
+            console.log("📖 Decoding account data...");
+            const wallet = new anchor.Wallet(anchor.web3.Keypair.generate());
+            const provider = new anchor.AnchorProvider(connection, wallet, {});
+            const program = new anchor.Program(news_platform_json_1.default, provider);
+            const newsAccount = yield program.coder.accounts.decode("newsAccount", data);
+            console.log(`📰 Article: "${newsAccount.headline}"`);
+            console.log(`🔗 Arweave Link: ${newsAccount.arweaveLink}`);
+            console.log(`📅 Published: ${new Date(newsAccount.publishedAt * 1000).toISOString()}`);
+            if (newsAccount.summaryLink && newsAccount.summaryLink.trim() !== "") {
+                console.log(`⏭️  Skipping article - summary already exists: ${newsAccount.summaryLink}`);
+                return;
+            }
+            console.log(`🔄 Processing new article without summary...`);
+            console.log("🌐 Fetching article content from Arweave...");
+            const articleResponse = yield (0, node_fetch_1.default)(newsAccount.arweaveLink);
+            if (!articleResponse.ok) {
+                throw new Error(`Failed to fetch article: ${articleResponse.status}`);
+            }
+            const articleContent = yield articleResponse.text();
+            console.log(`✅ Fetched article content (${articleContent.length} characters)`);
+            console.log("🤖 Generating AI summary with Gemini...");
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                throw new Error("GEMINI_API_KEY is not set");
+            }
+            const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const prompt = [
+                "You are a helpful assistant that summarizes news articles.",
+                "Please produce a concise 3-5 sentence summary with key facts and neutral tone.",
+                "Article:",
+                articleContent
+            ].join("\n\n");
+            const summaryResponse = yield model.generateContent(prompt);
+            const summary = summaryResponse.response.text();
+            if (!summary) {
+                console.error("❌ Failed to generate summary.");
+                return;
+            }
+            console.log(`✅ Generated summary (${summary.length} characters):`);
+            console.log(`📄 "${summary}"`);
+            console.log("📤 Uploading summary to Arweave...");
+            const summaryLink = yield uploadToArweave(summary);
+            console.log(`✅ Summary uploaded to: ${summaryLink}`);
+            console.log("⛓️  Updating on-chain summary link...");
+            yield (0, onchain_1.updateOnChainSummary)(accountId, summaryLink);
+            console.log("🎉 ========================================");
+            console.log("✅ Article processing completed successfully!");
+            console.log(`🔗 Summary link: ${summaryLink}`);
+            console.log("🎉 ========================================\n");
         }
-        const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const prompt = [
-            "You are a helpful assistant that summarizes news articles.",
-            "Please produce a concise 3-5 sentence summary with key facts and neutral tone.",
-            "Article:",
-            articleContent
-        ].join("\n\n");
-        const summaryResponse = yield model.generateContent(prompt);
-        const summary = summaryResponse.response.text();
-        if (!summary) {
-            console.error("Failed to generate summary.");
-            return;
+        catch (error) {
+            console.error("❌ ========================================");
+            console.error("❌ Error processing article:", error);
+            console.error("❌ ========================================\n");
+            throw error;
         }
-        const summaryLink = yield uploadToArweave(summary);
-        console.log(`Generated summary and uploaded to: ${summaryLink}`);
-        yield (0, onchain_1.updateOnChainSummary)(accountId, summaryLink);
     });
 }
 //# sourceMappingURL=article.js.map

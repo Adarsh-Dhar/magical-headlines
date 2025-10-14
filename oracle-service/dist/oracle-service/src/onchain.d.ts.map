@@ -1,1 +1,1 @@
-{"version":3,"file":"onchain.d.ts","sourceRoot":"","sources":["../../../src/onchain.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,SAAS,EAAE,MAAM,iBAAiB,CAAC;AAS5C,wBAAsB,oBAAoB,CAAC,iBAAiB,EAAE,SAAS,EAAE,WAAW,EAAE,MAAM,iBAwB3F"}
+{"version":3,"file":"onchain.d.ts","sourceRoot":"","sources":["../../../src/onchain.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,SAAS,EAAE,MAAM,iBAAiB,CAAC;AAS5C,wBAAsB,oBAAoB,CAAC,iBAAiB,EAAE,SAAS,EAAE,WAAW,EAAE,MAAM,iBAyC3F"}

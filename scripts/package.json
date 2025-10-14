@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "initialize-oracle": "tsx initialize-oracle.ts",
-    "whitelist-oracle": "tsx whitelist-oracle.ts"
+    "whitelist-oracle": "tsx whitelist-oracle.ts",
+    "check-news-accounts": "tsx check-news-accounts.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
