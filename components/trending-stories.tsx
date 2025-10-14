@@ -127,7 +127,7 @@ export function TrendingStories() {
       ) : (
         <div className="space-y-2">
           {trending.map((item, idx) => (
-            <Link key={item.id} href={`/marketplace/${item.id}`}>
+            <Link key={item.id} href={`/${item.id}`}>
               <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent transition-colors cursor-pointer">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-sm font-bold text-primary">{idx + 1}</span>
@@ -147,7 +147,7 @@ export function TrendingStories() {
         </div>
       )}
 
-      <Link href="/marketplace">
+      <Link href="/">
         <Badge variant="outline" className="w-full mt-4 justify-center py-2">
           View All Trending
         </Badge>

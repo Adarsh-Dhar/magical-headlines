@@ -9,7 +9,8 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 
 const navItems = [
   { href: "/", label: "Feed", icon: NewspaperIcon },
-  { href: "/marketplace", label: "Marketplace", icon: TrendingUpIcon },
+  // Marketplace removed; keep a placeholder to home for now or remove entirely
+  // { href: "/marketplace", label: "Marketplace", icon: TrendingUpIcon },
   { href: "/portfolio", label: "Portfolio", icon: WalletIcon },
   { href: "/leaderboard", label: "Leaderboard", icon: TrophyIcon },
 ]

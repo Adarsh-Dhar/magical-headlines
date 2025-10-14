@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon, CopyIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
 import { PriceChart } from "@/components/price-chart"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -31,7 +31,7 @@ interface Story {
   submitter: {
     id: string
     name: string | null
-    email: string | null
+    email?: string | null
     walletAddress: string
   }
   tags: Array<{
@@ -68,23 +68,6 @@ export default function StoryDetailPage() {
   const [comments, setComments] = useState<Array<{ id: string; content: string; createdAt: string; user: { id: string; name: string | null; walletAddress: string } }>>([])
   const [commentText, setCommentText] = useState("")
   const [isPostingComment, setIsPostingComment] = useState(false)
-  
-  // Debug contract availability
-  useEffect(() => {
-    console.log("Marketplace Debug:", {
-      story: story ? {
-        id: story.id,
-        hasToken: !!story.token,
-        hasAuthorAddress: !!story.authorAddress,
-        hasNonce: !!story.nonce,
-        tokenId: story.token?.id
-      } : null,
-      contract: !!contract,
-      pdas: !!pdas,
-      buy: typeof buy,
-      sell: typeof sell
-    });
-  }, [contract, buy, sell, pdas, story])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -157,7 +140,7 @@ export default function StoryDetailPage() {
       if (publicKey) {
         try {
           const balance = await connection.getBalance(publicKey)
-          setWalletBalance(balance / 1e9) // Convert lamports to SOL
+          setWalletBalance(balance / 1e9)
         } catch (error) {
         }
       }
@@ -212,9 +195,8 @@ export default function StoryDetailPage() {
     if (!listenForDelegationEvents) return
 
     const cleanup = listenForDelegationEvents(
-      (event) => {
+      () => {
         setDelegationEvents(prev => ({ ...prev, autoDelegated: true }))
-        // Refresh delegation status
         if (story?.authorAddress && story?.nonce && getMarketDelegationStatus && pdas) {
           const authorAddress = new PublicKey(story.authorAddress)
           const nonce = parseInt(story.nonce)
@@ -223,7 +205,7 @@ export default function StoryDetailPage() {
           getMarketDelegationStatus(marketPda).then(setDelegationStatus).catch(() => {})
         }
       },
-      (event) => {
+      () => {
         setDelegationEvents(prev => ({ ...prev, commitRecommended: true }))
       }
     )
@@ -238,13 +220,10 @@ export default function StoryDetailPage() {
         try {
           const amount = parseInt(buyAmount)
           if (amount > 0) {
-            // Derive the news account PDA using author address and nonce
             const authorAddress = new PublicKey(story.authorAddress)
             const nonce = parseInt(story.nonce)
             const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
             const marketPda = pdas.findMarketPda(newsAccountPubkey)
-            
-            
             if (marketPda) {
               const cost = await estimateBuyCost(marketPda, amount)
               setEstimatedCost(cost)
@@ -263,16 +242,12 @@ export default function StoryDetailPage() {
 
   const requestAirdrop = async () => {
     if (!publicKey) return
-    
     setIsRequestingAirdrop(true)
     try {
-      const signature = await connection.requestAirdrop(publicKey, 1e9) // 1 SOL
+      const signature = await connection.requestAirdrop(publicKey, 1e9)
       await connection.confirmTransaction(signature)
-      
-      // Refresh wallet balance
       const balance = await connection.getBalance(publicKey)
       setWalletBalance(balance / 1e9)
-      
       setTradingSuccess('Airdrop successful! You now have 1 SOL for testing.')
     } catch (error) {
       setTradingError('Airdrop failed. Please try again.')
@@ -292,8 +267,6 @@ export default function StoryDetailPage() {
         throw new Error('Failed to fetch story')
       }
       const data = await response.json()
-      
-      // If we have a news account, fetch the on-chain data for summary link
       if (data.token?.newsAccount) {
         try {
           const newsAccountData = await fetch(`/api/news-account?address=${data.token.newsAccount}`)
@@ -302,10 +275,8 @@ export default function StoryDetailPage() {
             data.summaryLink = onChainData.summaryLink
           }
         } catch (err) {
-          console.warn('Failed to fetch on-chain summary link:', err)
         }
       }
-      
       setStory(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -315,106 +286,65 @@ export default function StoryDetailPage() {
   }
 
   const handleBuy = async () => {
-    
     if (!story?.token) {
       setTradingError('Story has no token available for trading')
       return
     }
-
     if (!connected || !publicKey) {
       setTradingError('Please connect your wallet to trade')
       return
     }
-
     if (typeof buy !== 'function' || !pdas) {
       setTradingError('Contract functions not available. Please try refreshing the page.')
       return
     }
-
     const amount = parseFloat(buyAmount)
     if (isNaN(amount) || amount <= 0) {
       setTradingError('Please enter a valid amount greater than 0')
       return
     }
-
     try {
       setIsTrading(true)
       setTradingError(null)
       setTradingSuccess(null)
-
-
-      // Check if we have the required onchain data
       if (!story.authorAddress || !story.nonce) {
         throw new Error('Story missing onchain data (authorAddress or nonce). Cannot derive correct account addresses.')
       }
-      
-      // Derive the actual news account PDA using the stored author address and nonce
       const authorAddress = new PublicKey(story.authorAddress)
       const nonce = parseInt(story.nonce)
-      
       if (!pdas.findNewsPda || !pdas.findMarketPda || !pdas.findMintPda) {
         throw new Error('PDA helper functions not available')
       }
-      
-      // Try to find the actual news account address
       let newsPda
       if (findActualNewsAccount) {
         try {
           newsPda = await findActualNewsAccount(authorAddress, nonce)
         } catch (error) {
-          // Fallback to derived address
           newsPda = pdas.findNewsPda(authorAddress, nonce)
         }
       } else {
         newsPda = pdas.findNewsPda(authorAddress, nonce)
       }
-      
       const marketPda = pdas.findMarketPda(newsPda)
       const mintPda = pdas.findMintPda(newsPda)
-
-      
-      
-
-      if (typeof buy !== 'function') {
-        throw new Error('Buy function is not available')
-      }
-
-      
-      // Calculate estimated cost before transaction
-      const estimatedCost = await estimateBuyCost(marketPda, amount)
-      
-      // Check wallet balance
+      const estimatedCost = await estimateBuyCost!(marketPda, amount)
       if (publicKey) {
         const balance = await connection.getBalance(publicKey)
         const balanceSOL = balance / 1e9
-        
-        // Validate sufficient funds
         if (estimatedCost && estimatedCost > balanceSOL) {
           throw new Error(`Insufficient funds. You need ${estimatedCost.toFixed(6)} SOL but only have ${balanceSOL.toFixed(4)} SOL`)
         }
       }
-      
-      const signature = await buy({
+      const signature = await buy!({
         market: marketPda,
         mint: mintPda,
         newsAccount: newsPda,
         amount: amount
       })
-
       setTradingSuccess(`Successfully bought ${amount} tokens! Transaction: ${signature}`)
       setBuyAmount("")
-      
-      // Refresh story data to get updated token info
       await fetchStory()
     } catch (err) {
-      
-      // Log transaction details if available
-      if (err && typeof err === 'object' && 'transactionLogs' in err) {
-      }
-      if (err && typeof err === 'object' && 'programErrorStack' in err) {
-      }
-      
-      // Provide more helpful error messages
       let errorMessage = 'Failed to buy tokens'
       const errorMsg = err instanceof Error ? err.message : String(err)
       if (errorMsg.includes('Blockhash not found')) {
@@ -426,7 +356,6 @@ export default function StoryDetailPage() {
       } else if (errorMsg) {
         errorMessage = errorMsg
       }
-      
       setTradingError(errorMessage)
     } finally {
       setIsTrading(false)
@@ -434,84 +363,55 @@ export default function StoryDetailPage() {
   }
 
   const handleSell = async () => {
-    
     if (!story?.token) {
       setTradingError('Story has no token available for trading')
       return
     }
-
     if (!connected || !publicKey) {
       setTradingError('Please connect your wallet to trade')
       return
     }
-
     if (typeof sell !== 'function' || !pdas) {
       setTradingError('Contract functions not available. Please try refreshing the page.')
       return
     }
-
     const amount = parseFloat(sellAmount)
     if (isNaN(amount) || amount <= 0) {
       setTradingError('Please enter a valid amount greater than 0')
       return
     }
-
     try {
       setIsTrading(true)
       setTradingError(null)
       setTradingSuccess(null)
-
-
-      // Check if we have the required onchain data
       if (!story.authorAddress || !story.nonce) {
         throw new Error('Story missing onchain data (authorAddress or nonce). Cannot derive correct account addresses.')
       }
-      
-      // Derive the actual news account PDA using the stored author address and nonce
       const authorAddress = new PublicKey(story.authorAddress)
       const nonce = parseInt(story.nonce)
-      
       if (!pdas.findNewsPda || !pdas.findMarketPda || !pdas.findMintPda) {
         throw new Error('PDA helper functions not available')
       }
-      
-      // Try to find the actual news account address
       let newsPda
       if (findActualNewsAccount) {
         try {
           newsPda = await findActualNewsAccount(authorAddress, nonce)
         } catch (error) {
-          // Fallback to derived address
           newsPda = pdas.findNewsPda(authorAddress, nonce)
         }
       } else {
         newsPda = pdas.findNewsPda(authorAddress, nonce)
       }
-      
       const marketPda = pdas.findMarketPda(newsPda)
       const mintPda = pdas.findMintPda(newsPda)
-
-      
-      
-
-      if (typeof sell !== 'function') {
-        throw new Error('Sell function is not available')
-      }
-
-      // Calculate estimated refund before transaction
-      const estimatedRefund = await estimateBuyCost(marketPda, amount) // Same calculation for sell refund
-
-      const signature = await sell({
+      await sell!({
         market: marketPda,
         mint: mintPda,
         newsAccount: newsPda,
         amount: amount
       })
-
-      setTradingSuccess(`Successfully sold ${amount} tokens! Transaction: ${signature}`)
+      setTradingSuccess(`Successfully sold ${amount} tokens!`)
       setSellAmount("")
-      
-      // Refresh story data to get updated token info
       await fetchStory()
     } catch (err) {
       setTradingError(err instanceof Error ? err.message : 'Failed to sell tokens')
@@ -564,7 +464,6 @@ export default function StoryDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-6">
             <Button 
@@ -576,7 +475,7 @@ export default function StoryDetailPage() {
               <ArrowLeftIcon className="w-4 h-4" />
               Back
             </Button>
-            <Link href="/marketplace">
+            <Link href="/">
               <Button variant="outline" size="sm">
                 All Stories
               </Button>
@@ -697,7 +596,7 @@ export default function StoryDetailPage() {
                 size="sm"
                 onClick={async () => {
                   try {
-                    const shareUrl = `${window.location.origin}/marketplace/${story.id}`
+                    const shareUrl = `${window.location.origin}/${story.id}`
                     if (navigator.share) {
                       await navigator.share({ title: story.headline, url: shareUrl })
                     } else {
@@ -716,9 +615,7 @@ export default function StoryDetailPage() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Price Chart */}
             {story.token ? (
               story.authorAddress && story.nonce && pdas ? (
                 <PriceChart 
@@ -756,8 +653,6 @@ export default function StoryDetailPage() {
               />
             )}
 
-            {/* Story Content */
-            }
             <Card className="p-6" id="comments">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>
               <div className="prose prose-sm max-w-none">
@@ -767,11 +662,9 @@ export default function StoryDetailPage() {
               </div>
             </Card>
 
-            {/* Comments */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Comments</h2>
               <div className="space-y-4">
-                {/* Composer */}
                 <div className="flex gap-2">
                   <Input
                     placeholder={publicKey ? "Write a comment..." : "Connect wallet to comment"}
@@ -804,7 +697,6 @@ export default function StoryDetailPage() {
                   </Button>
                 </div>
 
-                {/* List */}
                 {comments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No comments yet</p>
                 ) : (
@@ -827,7 +719,6 @@ export default function StoryDetailPage() {
               </div>
             </Card>
 
-            {/* Blockchain Data */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Blockchain Information</h2>
               <div className="space-y-3">
@@ -853,9 +744,7 @@ export default function StoryDetailPage() {
             </Card>
           </div>
 
-          {/* Trading Sidebar */}
           <div className="space-y-6">
-            {/* Token Information */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Token Information</h2>
               {token ? (
@@ -886,7 +775,6 @@ export default function StoryDetailPage() {
                   </div>
                   
                   <div className="pt-4 border-t space-y-4">
-                    {/* Delegation Status */}
                     {delegationStatus && (
                       <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
@@ -907,7 +795,6 @@ export default function StoryDetailPage() {
                       </div>
                     )}
 
-                    {/* Delegation Events */}
                     {delegationEvents.autoDelegated && (
                       <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                         <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
@@ -943,7 +830,6 @@ export default function StoryDetailPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* Buy Section */}
                         <div className="space-y-2">
                           <Label htmlFor="buyAmount" className="text-sm font-medium">Buy Tokens</Label>
                           <div className="flex gap-2">
@@ -967,7 +853,6 @@ export default function StoryDetailPage() {
                           </div>
                         </div>
 
-                        {/* Sell Section */}
                         <div className="space-y-2">
                           <Label htmlFor="sellAmount" className="text-sm font-medium">Sell Tokens</Label>
                           <div className="flex gap-2">
@@ -992,7 +877,6 @@ export default function StoryDetailPage() {
                           </div>
                         </div>
 
-                        {/* Debug Information */}
                         <div className="p-3 bg-gray-50 border border-gray-200 rounded-md text-xs">
                           <p className="font-medium mb-2">Debug Info:</p>
                           <p>Wallet Connected: {connected ? 'Yes' : 'No'}</p>
@@ -1014,14 +898,12 @@ export default function StoryDetailPage() {
                           <p>Is Trading: {isTrading ? 'Yes' : 'No'}</p>
                         </div>
 
-                        {/* Trading Messages */}
                         {tradingError && (
                           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                             <p className="text-sm text-red-600">{tradingError}</p>
                           </div>
                         )}
                         
-                        {/* Insufficient Funds Warning */}
                         {estimatedCost && walletBalance && estimatedCost > walletBalance && (
                           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                             <p className="text-sm text-yellow-600 mb-2">
@@ -1054,7 +936,6 @@ export default function StoryDetailPage() {
               )}
             </Card>
 
-            {/* Story Stats */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Story Stats</h2>
               <div className="space-y-3">
@@ -1080,3 +961,5 @@ export default function StoryDetailPage() {
     </div>
   )
 }
+
+

@@ -2,8 +2,10 @@
 
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrophyIcon, TrendingUpIcon, Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { TrophyIcon, TrendingUpIcon, Loader2, Search } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 interface Trader {
   rank: number
@@ -24,6 +26,8 @@ export default function LeaderboardPage() {
   const [traders, setTraders] = useState<Trader[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState("")
+  const [appliedSearch, setAppliedSearch] = useState("")
 
   useEffect(() => {
     const fetchLeaderboardData = async () => {
@@ -62,6 +66,26 @@ export default function LeaderboardPage() {
       return `$${volume.toFixed(0)}`
     }
   }
+
+  const filteredTraders = useMemo(() => {
+    const query = appliedSearch.trim().toLowerCase()
+    if (!query) return traders
+    return traders.filter((t) => {
+      const name = (t.name || "").toLowerCase()
+      const address = (t.address || "").toLowerCase()
+      return name.includes(query) || address.includes(query)
+    })
+  }, [traders, appliedSearch])
+
+  const handleApplySearch = () => {
+    setAppliedSearch(searchInput)
+  }
+
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (e.key === "Enter") {
+      handleApplySearch()
+    }
+  }
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -69,6 +93,32 @@ export default function LeaderboardPage() {
           <h1 className="text-4xl font-bold mb-3">Leaderboard</h1>
           <p className="text-lg text-muted-foreground">Top traders by return on investment</p>
         </div>
+
+        {/* Search - only render after loading completes to avoid hydration mismatches */}
+        {!loading && !error && traders.length > 0 && (
+          <div className="mb-6">
+            <div className="flex w-full items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Search author by name or address"
+                  className="pl-9"
+                />
+              </div>
+              <Button variant="secondary" onClick={handleApplySearch}>
+                Search
+              </Button>
+            </div>
+            {appliedSearch && (
+              <div className="mt-2 text-sm text-muted-foreground">
+                Showing results for <span className="font-medium">{appliedSearch}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <Card className="p-8">
@@ -106,7 +156,7 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {traders.map((trader) => (
+                  {filteredTraders.map((trader) => (
                     <tr key={trader.id} className="border-t hover:bg-accent/50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-2">

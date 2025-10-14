@@ -119,29 +119,31 @@ export function NewsCard({ story }: NewsCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant={liked ? "default" : "outline"}
-              size="sm"
-              onClick={async () => {
-                try {
-                  if (!publicKey) return
-                  const res = await fetch('/api/likes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ storyId: story.id, walletAddress: publicKey.toString() })
-                  })
-                  if (res.ok) {
-                    const data = await res.json()
-                    setLiked(!!data.liked)
-                    setLikeCount(data.count || 0)
-                  }
-                } catch {}
-              }}
-              className="min-w-20"
-            >
-              <HeartIcon className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
-              <span className="text-sm">{likeCount}</span>
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={liked ? "default" : "outline"}
+                size="icon-sm"
+                aria-label={liked ? "Unlike" : "Like"}
+                onClick={async () => {
+                  try {
+                    if (!publicKey) return
+                    const res = await fetch('/api/likes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ storyId: story.id, walletAddress: publicKey.toString() })
+                    })
+                    if (res.ok) {
+                      const data = await res.json()
+                      setLiked(!!data.liked)
+                      setLikeCount(data.count || 0)
+                    }
+                  } catch {}
+                }}
+              >
+                <HeartIcon className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
+              </Button>
+              <span className="text-xs tabular-nums">{likeCount}</span>
+            </div>
 
             <Button
               variant={isSubscribed ? "default" : "outline"}
@@ -173,10 +175,11 @@ export function NewsCard({ story }: NewsCardProps) {
 
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
+              aria-label="Share"
               onClick={async () => {
                 try {
-                  const shareUrl = `${window.location.origin}/marketplace/${story.id}`
+                  const shareUrl = `${window.location.origin}/${story.id}`
                   if (navigator.share) {
                     await navigator.share({ title: story.headline, url: shareUrl })
                   } else {
@@ -188,16 +191,15 @@ export function NewsCard({ story }: NewsCardProps) {
               }}
             >
               {isSharing ? <CheckIcon className="w-4 h-4" /> : <Share2Icon className="w-4 h-4" />}
-              <span className="text-sm">{isSharing ? 'Copied' : 'Share'}</span>
             </Button>
 
-            <Link href={`/marketplace/${story.id}`}>
+            <Link href={`/${story.id}`}>
               <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                 <BarChart3Icon className="w-4 h-4" />
                 Chart
               </Button>
             </Link>
-            <Link href={`/marketplace/${story.id}`}>
+            <Link href={`/${story.id}`}>
               <Button size="sm" className="bg-primary hover:bg-primary/90">
                 Trade
               </Button>
