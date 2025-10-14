@@ -524,7 +524,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           Post Story
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Story</DialogTitle>
           <DialogDescription>
@@ -537,7 +537,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
             {/* Removed stepper/progress UI for a cleaner automatic flow */}
 
             <div className="grid gap-2">
