@@ -165,6 +165,48 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Notify subscribers (DB + real-time)
+    try {
+      if (completeStory?.submitter?.id) {
+        const author = await prisma.user.findUnique({ where: { id: completeStory.submitter.id } })
+        if (author) {
+          const subs = await prisma.subscription.findMany({
+            where: { authorId: author.id },
+            include: { subscriber: true },
+          })
+
+          if (subs.length) {
+            const headline = completeStory.headline
+            const storyId = completeStory.id
+            const createData = subs.map((s) => ({
+              userId: s.subscriberId,
+              actorId: author.id,
+              type: "NEW_STORY",
+              storyId,
+              headline,
+            }))
+            await prisma.notification.createMany({ data: createData })
+
+            const { emitNotification } = await import("@/lib/notification-bus")
+            for (const s of subs) {
+              const userWallet = s.subscriber.walletAddress
+              if (userWallet) {
+                emitNotification(userWallet, {
+                  type: "NEW_STORY",
+                  storyId,
+                  headline,
+                  authorWallet: author.walletAddress,
+                  createdAt: new Date().toISOString(),
+                })
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[Notifications] fan-out failed:", e)
+    }
+
     console.log('[API] Returning complete story:', completeStory.id)
     return NextResponse.json(completeStory, { status: 201 })
 

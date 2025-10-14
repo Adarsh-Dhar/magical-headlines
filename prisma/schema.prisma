@@ -36,6 +36,8 @@ model User {
   comments         Comment[]
   subscriptions    Subscription[]        @relation("SubscriberRelation")
   subscribers      Subscription[]        @relation("AuthorRelation")
+  notifications    Notification[]        @relation("NotificationUser")
+  notificationsAuthored Notification[]   @relation("NotificationActor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -161,4 +163,23 @@ model Subscription {
   createdAt      DateTime @default(now())
 
   @@unique([subscriberId, authorId], name: "UniqueSubscription")
+}
+
+// Notification model stores per-user notifications, e.g., when an author publishes a new story.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  actorId   String   // author who triggered the notification
+  type      String   // e.g., "NEW_STORY"
+  storyId   String
+  headline  String
+  read      Boolean  @default(false)
+
+  user      User     @relation("NotificationUser", fields: [userId], references: [id])
+  actor     User     @relation("NotificationActor", fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([storyId])
 }
