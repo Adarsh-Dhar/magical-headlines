@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
-import IDL from "../contract/target/idl/news_platform.json";
-import type { NewsPlatform } from "../contract/target/types/news_platform";
+import IDL from "../contract1/target/idl/news_platform.json";
+import type { NewsPlatform } from "../contract1/target/types/news_platform";
 
 export interface NewsAccountData {
   headline: string;
