@@ -115,7 +115,7 @@ function startListener() {
             const provider = new anchor.AnchorProvider(connection, wallet, {});
             const program = new anchor.Program(news_platform_json_1.default, provider);
             console.log("👂 Setting up trading event listeners...");
-            program.addEventListener('TokensPurchased', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+            program.addEventListener('tokensPurchased', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
                 try {
                     console.log("\n💰 ========================================");
                     console.log(`🛒 TOKENS PURCHASED EVENT!`);
@@ -129,7 +129,7 @@ function startListener() {
                     console.error("❌ Error processing TokensPurchased event:", error);
                 }
             }));
-            program.addEventListener('TokensSold', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+            program.addEventListener('tokensSold', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
                 try {
                     console.log("\n💸 ========================================");
                     console.log(`💱 TOKENS SOLD EVENT!`);

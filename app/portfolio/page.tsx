@@ -22,6 +22,9 @@ interface PortfolioHolding {
   totalValue: number;
   marketData: {
     currentSupply: string;
+    circulatingSupply: string;
+    initialSupply: string;
+    basePrice: string;
     solReserves: string;
     totalVolume: string;
     isDelegated: boolean;

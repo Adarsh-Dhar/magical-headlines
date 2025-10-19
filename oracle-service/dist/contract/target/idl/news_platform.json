@@ -662,6 +662,10 @@
                     "type": "u64"
                 },
                 {
+                    "name": "base_price",
+                    "type": "u64"
+                },
+                {
                     "name": "nonce",
                     "type": "u64"
                 }
@@ -1216,6 +1220,18 @@
                     },
                     {
                         "name": "current_supply",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "circulating_supply",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "initial_supply",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "base_price",
                         "type": "u64"
                     },
                     {

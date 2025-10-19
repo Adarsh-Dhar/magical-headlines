@@ -662,6 +662,10 @@ export type NewsPlatform = {
                     "type": "u64";
                 },
                 {
+                    "name": "basePrice";
+                    "type": "u64";
+                },
+                {
                     "name": "nonce";
                     "type": "u64";
                 }
@@ -1216,6 +1220,18 @@ export type NewsPlatform = {
                     },
                     {
                         "name": "currentSupply";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "circulatingSupply";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "initialSupply";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "basePrice";
                         "type": "u64";
                     },
                     {

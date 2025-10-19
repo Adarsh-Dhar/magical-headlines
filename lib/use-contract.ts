@@ -232,6 +232,7 @@ export function useContract() {
       headline: string;
       arweaveLink: string;
       initialSupply: number | anchor.BN;
+      basePrice: number | anchor.BN;
       nonce: number | anchor.BN;
     }) => {
       // Try to get the program again in case it wasn't ready initially
@@ -286,8 +287,16 @@ export function useContract() {
       if (initialSupplyNum <= 0) {
         throw new Error("Initial supply must be greater than 0");
       }
-      if (initialSupplyNum > 1000000000) {
-        throw new Error("Initial supply too large (max 1 billion)");
+      if (initialSupplyNum > 10000) {
+        throw new Error("Initial supply too large (max 10,000)");
+      }
+      
+      const basePriceNum = typeof params.basePrice === 'number' ? params.basePrice : params.basePrice.toNumber();
+      if (basePriceNum <= 0) {
+        throw new Error("Base price must be greater than 0");
+      }
+      if (basePriceNum > 1_000_000_000) {
+        throw new Error("Base price too large (max 1 SOL)");
       }
       
       if (typeof params.nonce === 'number' && params.nonce < 0) {
@@ -344,6 +353,7 @@ export function useContract() {
         params.headline,
         params.arweaveLink,
         new anchor.BN(params.initialSupply),
+        new anchor.BN(params.basePrice),
         nonceBn
       )
         .accounts({
@@ -663,17 +673,43 @@ export function useContract() {
         try {
           const marketAccount = await (program.account as any).market.fetch(marketAddress);
           
-          // Use the same calculation as the contract's exponential curve
-          const basePrice = 1000000; // 0.001 SOL in lamports (1,000,000 lamports)
-          const currentSupply = Number(marketAccount.currentSupply);
+          // Use the market's base price from the contract
+          const basePrice = Number(marketAccount.basePrice);
+          const circulatingSupply = Number(marketAccount.circulatingSupply);
+          const curveType = marketAccount.curveType;
           let totalCost = 0;
           
-          for (let i = 0; i < amount; i++) {
-            const supply = currentSupply + i;
-            // Use the same calculation as the contract: base_price * (1 + supply/10000)
-            const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
-            const price = Math.floor((basePrice * multiplier) / 10000);
-            totalCost += price;
+          // Use the same calculation as the contract based on curve type
+          if (curveType === 'exponential') {
+            for (let i = 0; i < amount; i++) {
+              const supply = circulatingSupply + i;
+              // Use the same calculation as the contract: base_price * (1 + supply/10000)
+              const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
+              const price = Math.floor((basePrice * multiplier) / 10000);
+              totalCost += price;
+            }
+          } else if (curveType === 'linear') {
+            const slope = 100; // Price increase per token
+            for (let i = 0; i < amount; i++) {
+              const supply = circulatingSupply + i;
+              const price = basePrice + (supply * slope);
+              totalCost += price;
+            }
+          } else if (curveType === 'logarithmic') {
+            const scale = 1000;
+            for (let i = 0; i < amount; i++) {
+              const supply = circulatingSupply + i + 1;
+              const price = basePrice + (scale * Math.log2(supply));
+              totalCost += price;
+            }
+          } else {
+            // Default to exponential if curve type is unknown
+            for (let i = 0; i < amount; i++) {
+              const supply = circulatingSupply + i;
+              const multiplier = Math.min(10000 + supply, 20000);
+              const price = Math.floor((basePrice * multiplier) / 10000);
+              totalCost += price;
+            }
           }
           
           const costInSOL = totalCost / 1e9;
@@ -700,8 +736,8 @@ export function useContract() {
       
       // Return a fallback calculation if all retries failed
       console.warn(`Failed to fetch market account after retries, using fallback calculation:`, lastError);
-      const basePrice = 1000000; // 0.001 SOL in lamports
-      const fallbackCost = (basePrice * amount) / 1e9; // Simple linear fallback
+      const fallbackBasePrice = 1000000; // 0.001 SOL in lamports as fallback
+      const fallbackCost = (fallbackBasePrice * amount) / 1e9; // Simple linear fallback
       return fallbackCost;
     },
     [program]
@@ -717,6 +753,9 @@ export function useContract() {
           isDelegated: marketAccount.isDelegated,
           rollupAuthority: marketAccount.rollupAuthority,
           currentSupply: marketAccount.currentSupply,
+          circulatingSupply: marketAccount.circulatingSupply,
+          initialSupply: marketAccount.initialSupply,
+          basePrice: marketAccount.basePrice,
           totalVolume: marketAccount.totalVolume,
         };
       } catch (error) {
@@ -921,6 +960,9 @@ export function useContract() {
                     totalValue: totalValue,
                     marketData: {
                       currentSupply: actualTotalSupply.toString(),
+                      circulatingSupply: marketAccount.circulatingSupply.toString(),
+                      initialSupply: marketAccount.initialSupply.toString(),
+                      basePrice: marketAccount.basePrice.toString(),
                       solReserves: marketAccount.solReserves.toString(),
                       totalVolume: marketAccount.totalVolume.toString(),
                       isDelegated: marketAccount.isDelegated,

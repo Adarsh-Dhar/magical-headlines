@@ -18,6 +18,7 @@ import {
 import { TrendingUpIcon, TrendingDownIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
+import { fetchMarketAccount, estimatePriceHistory } from "@/lib/blockchain-utils"
 
 const chartConfig: ChartConfig = {
   price: {
@@ -65,10 +66,37 @@ export function StaticPriceChart({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [priceData, setPriceData] = useState<PriceHistoryResponse | null>(null)
+  const [isEstimated, setIsEstimated] = useState(false)
 
   useEffect(() => {
     const fetchPriceData = async () => {
       if (!tokenId) {
+        // If no tokenId, try to get current price from marketAddress
+        if (marketAddress) {
+          try {
+            const marketData = await fetchMarketAccount(marketAddress)
+            if (marketData) {
+              const estimatedHistory = estimatePriceHistory(marketData.currentPrice, '24h')
+              setData(estimatedHistory)
+              setPriceData({
+                tokenId: 'unknown',
+                storyId: 'unknown',
+                storyHeadline: 'Market Data',
+                currentPrice: marketData.currentPrice,
+                priceChange24h: 0,
+                volume24h: marketData.totalVolume,
+                marketCap: marketData.currentPrice * marketData.circulatingSupply,
+                timeframe: '24h',
+                priceHistory: estimatedHistory,
+                tradeCount: 0
+              })
+              setIsEstimated(true)
+            }
+          } catch (error) {
+            console.error('Error fetching market data:', error)
+            setError('Failed to load market data')
+          }
+        }
         setLoading(false)
         return
       }
@@ -86,6 +114,7 @@ export function StaticPriceChart({
         const result: PriceHistoryResponse = await response.json()
         setPriceData(result)
         setData(result.priceHistory)
+        setIsEstimated(false) // Real data
       } catch (err) {
         console.error('Error fetching price data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load price data')
@@ -136,6 +165,11 @@ export function StaticPriceChart({
             <h3 className="text-lg font-semibold">Price Chart</h3>
             <p className="text-sm text-muted-foreground truncate max-w-xs">
               {priceData?.storyHeadline || 'Loading...'}
+              {isEstimated && (
+                <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
+                  Estimated Data
+                </span>
+              )}
             </p>
           </div>
           {!loading && !error && (

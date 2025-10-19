@@ -98,7 +98,11 @@ export async function GET(
         marketCap: token.marketCap,
         timeframe,
         priceHistory,
-        tradeCount: 0
+        tradeCount: 0,
+        volumeChange: 0,
+        isVolumeUp: true,
+        recentVolume: 0,
+        earlierVolume: 0
       });
     }
 
@@ -130,6 +134,54 @@ export async function GET(
     const lastPrice = priceHistory[priceHistory.length - 1]?.price || token.price;
     const priceChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
 
+    // Calculate volume change by comparing recent vs earlier periods
+    const currentTime = new Date();
+    let halfTime: Date;
+    
+    // Calculate half-time based on timeframe
+    switch (timeframe) {
+      case "1h":
+        halfTime = new Date(currentTime.getTime() - 30 * 60 * 1000); // 30 minutes ago
+        break;
+      case "24h":
+        halfTime = new Date(currentTime.getTime() - 12 * 60 * 60 * 1000); // 12 hours ago
+        break;
+      case "7d":
+        halfTime = new Date(currentTime.getTime() - 3.5 * 24 * 60 * 60 * 1000); // 3.5 days ago
+        break;
+      case "30d":
+        halfTime = new Date(currentTime.getTime() - 15 * 24 * 60 * 60 * 1000); // 15 days ago
+        break;
+      default:
+        halfTime = new Date(currentTime.getTime() - 12 * 60 * 60 * 1000); // 12 hours ago
+    }
+
+    const recentTrades = token.trades.filter(trade => 
+      new Date(trade.timestamp) >= halfTime
+    );
+    const earlierTrades = token.trades.filter(trade => 
+      new Date(trade.timestamp) < halfTime
+    );
+
+    const recentVolume = recentTrades.reduce((sum, trade) => sum + trade.amount, 0);
+    const earlierVolume = earlierTrades.reduce((sum, trade) => sum + trade.amount, 0);
+
+    // Debug logging
+    console.log(`[Volume Change Debug] Token ${tokenId}:`);
+    console.log(`  Total trades: ${token.trades.length}`);
+    console.log(`  Recent trades (after ${halfTime.toISOString()}): ${recentTrades.length}`);
+    console.log(`  Earlier trades (before ${halfTime.toISOString()}): ${earlierTrades.length}`);
+    console.log(`  Recent volume: ${recentVolume}`);
+    console.log(`  Earlier volume: ${earlierVolume}`);
+
+    const volumeChange = earlierVolume > 0 
+      ? ((recentVolume - earlierVolume) / earlierVolume) * 100 
+      : 0;
+    const isVolumeUp = volumeChange >= 0;
+
+    console.log(`  Volume change: ${volumeChange.toFixed(2)}%`);
+    console.log(`  Is volume up: ${isVolumeUp}`);
+
     return NextResponse.json({
       tokenId: token.id,
       storyId: token.story.id,
@@ -143,7 +195,11 @@ export async function GET(
       tradeCount: token.trades.length,
       priceChange: priceChange,
       firstPrice,
-      lastPrice
+      lastPrice,
+      volumeChange: Math.abs(volumeChange),
+      isVolumeUp,
+      recentVolume,
+      earlierVolume
     });
 
   } catch (error) {

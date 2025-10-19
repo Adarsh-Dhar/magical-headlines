@@ -92,7 +92,7 @@ async function startListener() {
 
     // Listen for trading events
     console.log("👂 Setting up trading event listeners...");
-    program.addEventListener('TokensPurchased', async (event, slot, signature) => {
+    program.addEventListener('tokensPurchased', async (event, slot, signature) => {
       try {
         console.log("\n💰 ========================================");
         console.log(`🛒 TOKENS PURCHASED EVENT!`);
@@ -107,7 +107,7 @@ async function startListener() {
       }
     });
 
-    program.addEventListener('TokensSold', async (event, slot, signature) => {
+    program.addEventListener('tokensSold', async (event, slot, signature) => {
       try {
         console.log("\n💸 ========================================");
         console.log(`💱 TOKENS SOLD EVENT!`);

@@ -39,6 +39,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     content: "",
     originalUrl: "",
     tags: [] as string[],
+    initialSupply: 100,
+    basePrice: 1000000, // 0.001 SOL in lamports
   })
   const [tagInput, setTagInput] = useState("")
   const [arweaveResult, setArweaveResult] = useState<{ arweaveId?: string; arweaveUrl?: string } | null>(null)
@@ -142,6 +144,24 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       toast({
         title: "Error",
         description: "Content is too long (max 10,000 characters)",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (formData.initialSupply < 100 || formData.initialSupply > 10000) {
+      toast({
+        title: "Error",
+        description: "Initial supply must be between 100 and 10,000 tokens",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (formData.basePrice < 1 || formData.basePrice > 1000000000) {
+      toast({
+        title: "Error",
+        description: "Base price must be between 1 lamport and 1 SOL",
         variant: "destructive",
       })
       return
@@ -330,7 +350,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         console.log('[CreateStoryDialog] Publishing onchain with params:', {
           headline: formData.headline,
           arweaveLink: safeArweaveResult.arweaveUrl,
-          initialSupply: 100,
+          initialSupply: formData.initialSupply,
+          basePrice: formData.basePrice,
           nonce: uniqueNonce
         })
         
@@ -343,7 +364,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           publishOnchain({
             headline: formData.headline,
             arweaveLink: safeArweaveResult.arweaveUrl,
-            initialSupply: 100,
+            initialSupply: formData.initialSupply,
+            basePrice: formData.basePrice,
             nonce: uniqueNonce,
           }),
           new Promise<string>((_, reject) => 
@@ -445,6 +467,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         content: "",
         originalUrl: "",
         tags: [],
+        initialSupply: 100,
+        basePrice: 1000000,
       })
       setTagInput("")
       setArweaveResult(null)
@@ -628,6 +652,38 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="initialSupply">Initial Supply</Label>
+                <Input
+                  id="initialSupply"
+                  type="number"
+                  min="100"
+                  max="10000"
+                  placeholder="100"
+                  value={formData.initialSupply}
+                  onChange={(e) => setFormData(prev => ({ ...prev, initialSupply: parseInt(e.target.value) || 100 }))}
+                  disabled={loading}
+                />
+                <p className="text-xs text-muted-foreground">100 - 10,000 tokens</p>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="basePrice">Base Price (lamports)</Label>
+                <Input
+                  id="basePrice"
+                  type="number"
+                  min="1"
+                  max="1000000000"
+                  placeholder="1000000"
+                  value={formData.basePrice}
+                  onChange={(e) => setFormData(prev => ({ ...prev, basePrice: parseInt(e.target.value) || 1000000 }))}
+                  disabled={loading}
+                />
+                <p className="text-xs text-muted-foreground">1 lamport - 1 SOL</p>
+              </div>
             </div>
 
             {/* Arweave result display */}

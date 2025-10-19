@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { fetchMarketAccount, estimatePriceHistory } from "@/lib/blockchain-utils"
 import { 
   ChartContainer, 
   ChartTooltip, 
@@ -26,6 +28,15 @@ interface PriceDataPoint {
   price: number
   volume: number
   type: string
+}
+
+interface PriceHistoryApiResponse {
+  priceHistory: any[];
+  volumeChange: number;
+  isVolumeUp: boolean;
+  recentVolume: number;
+  earlierVolume: number;
+  // ... other existing fields
 }
 
 interface PriceChartProps {
@@ -66,6 +77,7 @@ export function PriceChart({
   // State for current volume and data
   const [currentVolume, setCurrentVolume] = useState(0.1006); // Latest volume from trading status
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [isEstimated, setIsEstimated] = useState(false);
 
   // Real-time updates
   useEffect(() => {
@@ -111,53 +123,45 @@ export function PriceChart({
         if (response.ok) {
           const data = await response.json();
           setChartData(data.priceHistory || []);
+          setVolumeChange(data.volumeChange || 0);
+          setIsVolumeUp(data.isVolumeUp !== undefined ? data.isVolumeUp : true);
+          setIsEstimated(false); // Real data
         } else {
-          // Fallback to mock data if API fails
-          const now = lastUpdate;
-          setChartData([
-            {
-              timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.2,
-              type: "volume"
-            },
-            {
-              timestamp: new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.4,
-              type: "volume"
-            },
-            {
-              timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.6,
-              type: "volume"
-            },
-            {
-              timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.8,
-              type: "volume"
-            },
-            {
-              timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.9,
-              type: "volume"
-            },
-            {
-              timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
-              price: 0.01,
-              volume: currentVolume * 0.95,
-              type: "volume"
-            },
-            {
-              timestamp: now.toISOString(),
-              price: 0.01,
-              volume: currentVolume,
-              type: "volume"
+          // Fallback to blockchain-based estimates if API fails
+          try {
+            if (marketAddress) {
+              const marketData = await fetchMarketAccount(marketAddress);
+              if (marketData) {
+                const estimatedHistory = estimatePriceHistory(marketData.currentPrice, '24h');
+                setChartData(estimatedHistory);
+                setVolumeChange(0);
+                setIsVolumeUp(true);
+                setIsEstimated(true);
+              } else {
+                // Final fallback to basic estimates
+                const estimatedHistory = estimatePriceHistory(0.01, '24h');
+                setChartData(estimatedHistory);
+                setVolumeChange(0);
+                setIsVolumeUp(true);
+                setIsEstimated(true);
+              }
+            } else {
+              // Final fallback to basic estimates
+              const estimatedHistory = estimatePriceHistory(0.01, '24h');
+              setChartData(estimatedHistory);
+              setVolumeChange(0);
+              setIsVolumeUp(true);
+              setIsEstimated(true);
             }
-          ]);
+          } catch (error) {
+            console.error('Error generating price estimates:', error);
+            // Final fallback to basic estimates
+            const estimatedHistory = estimatePriceHistory(0.01, '24h');
+            setChartData(estimatedHistory);
+            setVolumeChange(0);
+            setIsVolumeUp(true);
+            setIsEstimated(true);
+          }
         }
       } catch (error) {
         console.error('Error fetching price history:', error);
@@ -204,8 +208,8 @@ export function PriceChart({
     }
   }
 
-  const isVolumeUp = true // Volume trend
-  const volumeChange = 15.2 // Volume change percentage
+  const [volumeChange, setVolumeChange] = useState(0);
+  const [isVolumeUp, setIsVolumeUp] = useState(true);
 
   // Always show the chart immediately, never show loading state
 
@@ -226,11 +230,16 @@ export function PriceChart({
             </div>
             <p className="text-sm text-muted-foreground truncate max-w-xs">
               Trading Volume (SOL)
+              {isEstimated && (
+                <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
+                  Estimated Data
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              7 data points
+              {chartData.length} data points
             </Badge>
             <Badge 
               variant={isVolumeUp ? "default" : "destructive"}

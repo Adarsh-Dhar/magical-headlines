@@ -13,18 +13,33 @@ interface ArweaveUploadResult {
 }
 
 async function uploadToArweave(content: string): Promise<ArweaveUploadResult> {
-  // This is a placeholder implementation
-  // In a real implementation, you would use the Arweave upload service
-  // For now, we'll generate mock Arweave URLs
-  
-  const mockId = Math.random().toString(36).substring(2, 15);
-  const mockSignature = Math.random().toString(36).substring(2, 15);
-  
-  return {
-    arweaveUrl: `https://arweave.net/${mockId}`,
-    arweaveId: mockId,
-    signature: mockSignature
-  };
+  try {
+    // Use the real Arweave upload API
+    const response = await fetch('http://localhost:3000/api/arweave/upload', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ content })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Arweave upload failed: ${response.status} ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    return {
+      arweaveUrl: result.arweaveUrl || result.url,
+      arweaveId: result.arweaveId || result.id,
+      signature: result.signature || result.txId
+    };
+  } catch (error) {
+    console.error('Error uploading to Arweave:', error);
+    throw new Error(`Failed to upload to Arweave: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 async function fixPlaceholderStories() {
@@ -61,18 +76,19 @@ async function fixPlaceholderStories() {
         console.log(`   ID: ${story.id}`);
         console.log(`   Current URL: ${story.arweaveUrl || 'null'}`);
 
-        // For this example, we'll create a mock content based on the story
-        // In a real implementation, you would fetch the actual content
-        const mockContent = JSON.stringify({
+        // Fetch actual story content from database
+        const storyContent = {
           headline: story.headline,
-          content: `This is the content for: ${story.headline}`,
+          content: story.content || `Story content for: ${story.headline}`,
           timestamp: story.createdAt.toISOString(),
-          author: story.author
-        });
+          author: story.author,
+          originalUrl: story.originalUrl,
+          tags: story.tags || []
+        };
 
         // Upload to Arweave
         console.log('   📤 Uploading to Arweave...');
-        const arweaveResult = await uploadToArweave(mockContent);
+        const arweaveResult = await uploadToArweave(JSON.stringify(storyContent));
 
         // Update the story with real Arweave data
         await prisma.story.update({

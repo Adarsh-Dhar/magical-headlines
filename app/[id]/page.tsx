@@ -86,6 +86,9 @@ export default function StoryDetailPage() {
     isDelegated: boolean;
     rollupAuthority: string | null;
     currentSupply: number;
+    circulatingSupply: number;
+    initialSupply: number;
+    basePrice: number;
     totalVolume: number;
   } | null>(null)
   const [delegationEvents, setDelegationEvents] = useState<{
@@ -164,6 +167,9 @@ export default function StoryDetailPage() {
             isDelegated: status.isDelegated,
             rollupAuthority: status.rollupAuthority?.toString() || null,
             currentSupply: Number(status.currentSupply),
+            circulatingSupply: Number(status.circulatingSupply),
+            initialSupply: Number(status.initialSupply),
+            basePrice: Number(status.basePrice),
             totalVolume: Number(status.totalVolume),
           })
         } catch (error) {
@@ -786,7 +792,7 @@ export default function StoryDetailPage() {
                           </Badge>
                         </div>
                         <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
-                          <p>Supply: {delegationStatus.currentSupply}/100 tokens</p>
+                          <p>Supply: {delegationStatus.circulatingSupply}/{delegationStatus.initialSupply} tokens</p>
                           <p>Volume: {(delegationStatus.totalVolume / 1e9).toFixed(4)} SOL</p>
                           {delegationStatus.isDelegated && (
                             <p>Authority: {delegationStatus.rollupAuthority?.slice(0, 8)}...</p>

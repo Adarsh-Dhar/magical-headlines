@@ -3,6 +3,12 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import * as anchor from '@coral-xyz/anchor';
 import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
+import { 
+  fetchMarketAccount, 
+  parseTransactionEvents, 
+  getMarketTransactionSignatures,
+  findTokenByMarketAccount 
+} from './blockchain-utils';
 
 const prisma = new PrismaClient();
 
@@ -124,39 +130,63 @@ export async function syncHistoricalTradingData() {
           continue;
         }
         
-        // Create mock trades based on market data
-        // In a real implementation, you would parse blockchain events
-        const solReserves = Number(marketData.account.solReserves) / 1e9;
-        const currentPrice = Number(marketData.account.currentPrice) / 1e9;
+        // Parse real blockchain events instead of creating mock trades
+        const marketAddress = marketData.publicKey.toString();
         
-        if (solReserves > 0) {
-          // Create a mock buy trade representing the initial liquidity
-          await prisma.trade.create({
-            data: {
-              type: 'BUY',
-              amount: 50, // Assume 50 tokens were bought
-              priceAtTrade: currentPrice,
-              trader: {
-                connect: { walletAddress: author }
-              },
-              token: {
-                connect: { id: token.id }
-              },
-              timestamp: new Date()
+        // Get transaction signatures for this market
+        const signatures = await getMarketTransactionSignatures(marketAddress, 50);
+        
+        for (const signature of signatures) {
+          try {
+            // Parse trading events from transaction
+            const events = await parseTransactionEvents(signature);
+            
+            for (const event of events) {
+              // Create or update user
+              await prisma.user.upsert({
+                where: { walletAddress: event.trader },
+                update: {},
+                create: {
+                  walletAddress: event.trader,
+                  name: null
+                }
+              });
+              
+              // Create trade record
+              await prisma.trade.create({
+                data: {
+                  type: event.type === 'purchased' ? 'BUY' : 'SELL',
+                  amount: event.amount,
+                  priceAtTrade: event.price,
+                  trader: {
+                    connect: { walletAddress: event.trader }
+                  },
+                  token: {
+                    connect: { id: token.id }
+                  },
+                  timestamp: event.timestamp
+                }
+              });
+              
+              syncedTrades++;
             }
-          });
-          syncedTrades++;
+          } catch (error) {
+            console.error(`Error parsing transaction ${signature}:`, error);
+          }
         }
         
-        // Update token statistics
-        await prisma.token.update({
-          where: { id: token.id },
-          data: {
-            price: currentPrice,
-            volume24h: solReserves,
-            marketCap: currentPrice * 100 // Assume 100 total supply
-          }
-        });
+        // Update token statistics with real blockchain data
+        const blockchainMarketData = await fetchMarketAccount(marketAddress);
+        if (blockchainMarketData) {
+          await prisma.token.update({
+            where: { id: token.id },
+            data: {
+              price: blockchainMarketData.currentPrice,
+              volume24h: blockchainMarketData.totalVolume,
+              marketCap: blockchainMarketData.currentPrice * blockchainMarketData.currentSupply
+            }
+          });
+        }
         
         console.log(`✅ Synced token ${token.id} for story: ${newsAccount.account.headline}`);
         
@@ -198,27 +228,57 @@ export async function syncMissingTrades() {
     
     for (const token of tokensWithoutTrades) {
       try {
-        // Create a mock trade for each token
-        await prisma.trade.create({
-          data: {
-            type: 'BUY',
-            amount: 10, // Mock amount
-            priceAtTrade: token.price,
-            trader: {
-              connect: { walletAddress: token.story.author }
-            },
-            token: {
-              connect: { id: token.id }
-            },
-            timestamp: new Date()
+        // Try to find real trades from blockchain instead of creating mock trades
+        if (token.marketAddress) {
+          const signatures = await getMarketTransactionSignatures(token.marketAddress, 20);
+          
+          let hasRealTrades = false;
+          for (const signature of signatures) {
+            const events = await parseTransactionEvents(signature);
+            
+            for (const event of events) {
+              // Create or update user
+              await prisma.user.upsert({
+                where: { walletAddress: event.trader },
+                update: {},
+                create: {
+                  walletAddress: event.trader,
+                  name: null
+                }
+              });
+              
+              // Create trade record
+              await prisma.trade.create({
+                data: {
+                  type: event.type === 'purchased' ? 'BUY' : 'SELL',
+                  amount: event.amount,
+                  priceAtTrade: event.price,
+                  trader: {
+                    connect: { walletAddress: event.trader }
+                  },
+                  token: {
+                    connect: { id: token.id }
+                  },
+                  timestamp: event.timestamp
+                }
+              });
+              
+              syncedTrades++;
+              hasRealTrades = true;
+            }
           }
-        });
-        
-        syncedTrades++;
-        console.log(`✅ Created trade for token ${token.id}`);
+          
+          if (hasRealTrades) {
+            console.log(`✅ Synced real trades for token ${token.id}`);
+          } else {
+            console.log(`⚠️  No real trades found for token ${token.id}, skipping...`);
+          }
+        } else {
+          console.log(`⚠️  No market address for token ${token.id}, skipping...`);
+        }
         
       } catch (error) {
-        console.error(`❌ Error creating trade for token ${token.id}:`, error);
+        console.error(`❌ Error syncing trades for token ${token.id}:`, error);
       }
     }
     
