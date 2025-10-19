@@ -51,6 +51,7 @@ dotenv.config();
 const anchor = __importStar(require("@coral-xyz/anchor"));
 const config_1 = require("./config");
 const article_1 = require("./article");
+const trading_events_1 = require("./trading-events");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
 function processExistingAccounts() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -110,6 +111,38 @@ function startListener() {
                 process.exit(1);
             }
             yield processExistingAccounts();
+            const wallet = new anchor.Wallet(anchor.web3.Keypair.generate());
+            const provider = new anchor.AnchorProvider(connection, wallet, {});
+            const program = new anchor.Program(news_platform_json_1.default, provider);
+            console.log("👂 Setting up trading event listeners...");
+            program.addEventListener('TokensPurchased', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    console.log("\n💰 ========================================");
+                    console.log(`🛒 TOKENS PURCHASED EVENT!`);
+                    console.log(`🔑 Signature: ${signature}`);
+                    console.log(`📊 Slot: ${slot}`);
+                    console.log(`⏰ Time: ${new Date().toISOString()}`);
+                    console.log("💰 ========================================\n");
+                    yield (0, trading_events_1.processTokensPurchasedEvent)(event, signature);
+                }
+                catch (error) {
+                    console.error("❌ Error processing TokensPurchased event:", error);
+                }
+            }));
+            program.addEventListener('TokensSold', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    console.log("\n💸 ========================================");
+                    console.log(`💱 TOKENS SOLD EVENT!`);
+                    console.log(`🔑 Signature: ${signature}`);
+                    console.log(`📊 Slot: ${slot}`);
+                    console.log(`⏰ Time: ${new Date().toISOString()}`);
+                    console.log("💸 ========================================\n");
+                    yield (0, trading_events_1.processTokensSoldEvent)(event, signature);
+                }
+                catch (error) {
+                    console.error("❌ Error processing TokensSold event:", error);
+                }
+            }));
             console.log("👂 Setting up account change listener...");
             connection.onProgramAccountChange(programId, (accountInfo, context) => __awaiter(this, void 0, void 0, function* () {
                 try {
@@ -128,8 +161,8 @@ function startListener() {
                 }
             }), "confirmed");
             console.log("✅ Oracle listener started successfully");
-            console.log("🔄 Listening for new news accounts...");
-            console.log("💡 Try publishing a news article to see the oracle in action!");
+            console.log("🔄 Listening for new news accounts and trading events...");
+            console.log("💡 Try publishing a news article or trading tokens to see the oracle in action!");
             console.log("🛑 Press Ctrl+C to stop the listener");
             process.on('SIGINT', () => {
                 console.log("\n🛑 Shutting down oracle listener...");

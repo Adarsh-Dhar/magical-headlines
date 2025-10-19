@@ -7,6 +7,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getConnection, getProgramId } from "./config";
 import { handleNewArticle } from "./article";
+import { processTokensPurchasedEvent, processTokensSoldEvent } from "./trading-events";
 import IDL from "../../contract/target/idl/news_platform.json";
 import type { NewsPlatform } from "../../contract/target/types/news_platform";
 
@@ -84,6 +85,43 @@ async function startListener() {
     // First, process existing accounts without summaries
     await processExistingAccounts();
     
+    // Set up program for event listening
+    const wallet = new anchor.Wallet(anchor.web3.Keypair.generate()); // Read-only
+    const provider = new anchor.AnchorProvider(connection, wallet, {});
+    const program = new anchor.Program<NewsPlatform>(IDL as any, provider);
+
+    // Listen for trading events
+    console.log("👂 Setting up trading event listeners...");
+    program.addEventListener('TokensPurchased', async (event, slot, signature) => {
+      try {
+        console.log("\n💰 ========================================");
+        console.log(`🛒 TOKENS PURCHASED EVENT!`);
+        console.log(`🔑 Signature: ${signature}`);
+        console.log(`📊 Slot: ${slot}`);
+        console.log(`⏰ Time: ${new Date().toISOString()}`);
+        console.log("💰 ========================================\n");
+        
+        await processTokensPurchasedEvent(event, signature);
+      } catch (error) {
+        console.error("❌ Error processing TokensPurchased event:", error);
+      }
+    });
+
+    program.addEventListener('TokensSold', async (event, slot, signature) => {
+      try {
+        console.log("\n💸 ========================================");
+        console.log(`💱 TOKENS SOLD EVENT!`);
+        console.log(`🔑 Signature: ${signature}`);
+        console.log(`📊 Slot: ${slot}`);
+        console.log(`⏰ Time: ${new Date().toISOString()}`);
+        console.log("💸 ========================================\n");
+        
+        await processTokensSoldEvent(event, signature);
+      } catch (error) {
+        console.error("❌ Error processing TokensSold event:", error);
+      }
+    });
+
     // Then listen for new NewsAccount accounts
     console.log("👂 Setting up account change listener...");
     connection.onProgramAccountChange(
@@ -111,8 +149,8 @@ async function startListener() {
     );
     
     console.log("✅ Oracle listener started successfully");
-    console.log("🔄 Listening for new news accounts...");
-    console.log("💡 Try publishing a news article to see the oracle in action!");
+    console.log("🔄 Listening for new news accounts and trading events...");
+    console.log("💡 Try publishing a news article or trading tokens to see the oracle in action!");
     console.log("🛑 Press Ctrl+C to stop the listener");
     
     // Keep the process running

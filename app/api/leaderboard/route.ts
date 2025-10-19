@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Connection, PublicKey } from "@solana/web3.js"
 import { Program, AnchorProvider } from "@coral-xyz/anchor"
 import * as anchor from "@coral-xyz/anchor"
+import { prisma } from "@/lib/prisma"
 import NEWS_PLATFORM_IDL from '../../../contract/target/idl/news_platform.json'
 
 // Constants
@@ -64,6 +65,41 @@ export async function GET(request: NextRequest) {
       marketMap.set(market.account.newsAccount.toString(), market)
     })
 
+    // Fetch all users from database to get their names
+    const users = await prisma.user.findMany({
+      select: {
+        walletAddress: true,
+        name: true
+      }
+    })
+    
+    // Create a map of wallet addresses to user names
+    const userMap = new Map<string, string>()
+    users.forEach(user => {
+      userMap.set(user.walletAddress, user.name || `Wallet User ${user.walletAddress.slice(0, 8)}`)
+    })
+
+    // Fetch all trades to calculate real volume
+    const trades = await prisma.trade.findMany({
+          include: {
+            token: {
+              include: {
+                story: true
+              }
+            }
+          }
+    })
+
+    // Create a map of token IDs to their corresponding news account addresses
+    const tokenToNewsAccountMap = new Map<string, string>()
+    for (const newsAccount of newsAccounts) {
+      // Find the corresponding token for this news account
+      const token = trades.find(t => t.token.story.id === newsAccount.publicKey.toString())
+      if (token) {
+        tokenToNewsAccountMap.set(token.tokenId, newsAccount.publicKey.toString())
+      }
+    }
+
     // Group by author and calculate statistics
     const authorStats = new Map()
 
@@ -101,21 +137,27 @@ export async function GET(request: NextRequest) {
         
         totalValue = currentPrice * currentSupply
         
-        // Calculate volume - use total_volume if available, otherwise use sol_reserves
-        // total_volume tracks actual trading volume, sol_reserves tracks SOL collected
+        // Calculate volume from database trades first, then fallback to blockchain data
         let marketVolume = 0
         
-        if (marketData.account.totalVolume && Number(marketData.account.totalVolume) > 0) {
-          // Use total_volume if it has been set by trading activity
+        // Find trades for this news account
+        const newsAccountAddress = newsAccount.publicKey.toString()
+        const relatedTrades = trades.filter(trade => {
+          // Check if this trade's token corresponds to this news account
+          return tokenToNewsAccountMap.get(trade.tokenId) === newsAccountAddress
+        })
+        
+        if (relatedTrades.length > 0) {
+          // Use real trade data from database
+          marketVolume = relatedTrades.reduce((sum, trade) => {
+            return sum + (trade.amount * trade.priceAtTrade)
+          }, 0)
+        } else if (marketData.account.totalVolume && Number(marketData.account.totalVolume) > 0) {
+          // Fallback to blockchain total_volume
           marketVolume = Number(marketData.account.totalVolume) / 1e9
         } else if (Number(marketData.account.solReserves) > 0) {
-          // Fallback to sol_reserves if no trading volume recorded yet
+          // Fallback to sol_reserves
           marketVolume = Number(marketData.account.solReserves) / 1e9
-        } else {
-          // If no trading activity, estimate volume based on current supply and price
-          // This gives a rough estimate of potential volume
-          const estimatedTradingVolume = currentPrice * (100 - currentSupply) // Assume 100 initial supply
-          marketVolume = Math.max(0, estimatedTradingVolume * 0.1) // 10% of estimated volume
         }
         
         stats.totalVolume += marketVolume
@@ -144,7 +186,7 @@ export async function GET(request: NextRequest) {
       return {
         id: stats.address,
         address: stats.address,
-        name: `Wallet User ${stats.address.slice(0, 8)}`,
+        name: userMap.get(stats.address) || `Wallet User ${stats.address.slice(0, 8)}`,
         roi: Math.round(roi * 10) / 10,
         volume: Math.round(stats.totalVolume * 100) / 100,
         wins: Math.floor(stats.storiesCount / 2),
@@ -157,9 +199,9 @@ export async function GET(request: NextRequest) {
 
     // Sort by ROI, then by total value
     tradersData.sort((a, b) => {
-      if (b.roi !== a.roi) return b.roi - a.roi
+        if (b.roi !== a.roi) return b.roi - a.roi
       return b.currentHoldingsValue - a.currentHoldingsValue
-    })
+      })
 
     // Update ranks and limit results
     const activeTraders = tradersData

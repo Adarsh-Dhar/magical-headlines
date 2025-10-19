@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { 
   ChartContainer, 
   ChartTooltip, 
@@ -72,67 +71,104 @@ export function PriceChart({
   useEffect(() => {
     if (!liveUpdates) return;
 
-    const interval = setInterval(() => {
-      // Simulate volume changes with small random fluctuations
-      setCurrentVolume(prev => {
-        const change = (Math.random() - 0.5) * 0.01; // ±0.005 SOL change
-        return Math.max(0.05, prev + change); // Keep minimum at 0.05 SOL
-      });
-      setLastUpdate(new Date());
+    const interval = setInterval(async () => {
+      // Fetch real-time data instead of simulating
+      try {
+        if (tokenId) {
+          const response = await fetch(`/api/tokens/${tokenId}/price-history?timeframe=1h&limit=10`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.priceHistory && data.priceHistory.length > 0) {
+              const latest = data.priceHistory[data.priceHistory.length - 1];
+              setCurrentVolume(latest.volume || 0);
+              setLastUpdate(new Date());
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching real-time data:', error);
+      }
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [liveUpdates, refreshInterval]);
+  }, [liveUpdates, refreshInterval, tokenId]);
 
-  // Generate realistic volume data that fluctuates with latest volume
-  const chartData = useMemo(() => {
-    const now = lastUpdate;
-    
-    return [
-      {
-        timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-        price: 0.01, // Keep price static
-        volume: currentVolume * 0.2, // 20% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString(),
-        price: 0.01,
-        volume: currentVolume * 0.4, // 40% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
-        price: 0.01,
-        volume: currentVolume * 0.6, // 60% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
-        price: 0.01,
-        volume: currentVolume * 0.8, // 80% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
-        price: 0.01,
-        volume: currentVolume * 0.9, // 90% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
-        price: 0.01,
-        volume: currentVolume * 0.95, // 95% of current volume
-        type: "volume"
-      },
-      {
-        timestamp: now.toISOString(),
-        price: 0.01,
-        volume: currentVolume, // Latest current volume
-        type: "volume"
+  // Fetch real price history data
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPriceHistory = async () => {
+      if (!tokenId) {
+        setLoading(false);
+        return;
       }
-    ];
-  }, [currentVolume, lastUpdate]) // Update when volume or time changes
+
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/tokens/${tokenId}/price-history?timeframe=24h&limit=100`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setChartData(data.priceHistory || []);
+        } else {
+          // Fallback to mock data if API fails
+          const now = lastUpdate;
+          setChartData([
+            {
+              timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.2,
+              type: "volume"
+            },
+            {
+              timestamp: new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.4,
+              type: "volume"
+            },
+            {
+              timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.6,
+              type: "volume"
+            },
+            {
+              timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.8,
+              type: "volume"
+            },
+            {
+              timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.9,
+              type: "volume"
+            },
+            {
+              timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
+              price: 0.01,
+              volume: currentVolume * 0.95,
+              type: "volume"
+            },
+            {
+              timestamp: now.toISOString(),
+              price: 0.01,
+              volume: currentVolume,
+              type: "volume"
+            }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching price history:', error);
+        setChartData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPriceHistory();
+  }, [tokenId, currentVolume, lastUpdate]);
 
   const formatPrice = (price: number) => {
     if (price < 0.01) {
