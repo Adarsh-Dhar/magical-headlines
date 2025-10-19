@@ -48,7 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleNewArticle = handleNewArticle;
 const generative_ai_1 = require("@google/generative-ai");
 const anchor = __importStar(require("@coral-xyz/anchor"));
-const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
+const news_platform_json_1 = __importDefault(require("../../contract1/target/idl/news_platform.json"));
 const onchain_1 = require("./onchain");
 const config_1 = require("./config");
 const node_fetch_1 = __importDefault(require("node-fetch"));

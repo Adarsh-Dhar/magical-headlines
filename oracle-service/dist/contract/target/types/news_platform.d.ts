@@ -1,5 +1,5 @@
 export type NewsPlatform = {
-    "address": "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf";
+    "address": "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
     "metadata": {
         "name": "newsPlatform";
         "version": "0.1.0";
@@ -324,18 +324,6 @@ export type NewsPlatform = {
                             }
                         ];
                     };
-                },
-                {
-                    "name": "ownerProgram";
-                    "address": "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf";
-                },
-                {
-                    "name": "delegationProgram";
-                    "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh";
-                },
-                {
-                    "name": "systemProgram";
-                    "address": "11111111111111111111111111111111";
                 }
             ];
             "args": [];
@@ -455,43 +443,6 @@ export type NewsPlatform = {
                 }
             ];
             "args": [];
-        },
-        {
-            "name": "processUndelegation";
-            "discriminator": [
-                196,
-                28,
-                41,
-                206,
-                48,
-                37,
-                51,
-                167
-            ];
-            "accounts": [
-                {
-                    "name": "baseAccount";
-                    "writable": true;
-                },
-                {
-                    "name": "buffer";
-                },
-                {
-                    "name": "payer";
-                    "writable": true;
-                },
-                {
-                    "name": "systemProgram";
-                }
-            ];
-            "args": [
-                {
-                    "name": "accountSeeds";
-                    "type": {
-                        "vec": "bytes";
-                    };
-                }
-            ];
         },
         {
             "name": "publishNews";
@@ -906,12 +857,6 @@ export type NewsPlatform = {
                         "CHECK The market pda to undelegate"
                     ];
                     "writable": true;
-                },
-                {
-                    "name": "magicContext";
-                },
-                {
-                    "name": "magicProgram";
                 }
             ];
             "args": [];

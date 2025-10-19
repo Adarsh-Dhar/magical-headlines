@@ -1,7 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
-import IDL from "../contract1/target/idl/news_platform.json";
-import type { NewsPlatform } from "../contract1/target/types/news_platform";
 
 export interface NewsAccountData {
   headline: string;
@@ -19,21 +17,69 @@ export async function fetchNewsAccount(
 ): Promise<NewsAccountData | null> {
   try {
     const connection = new Connection(rpcUrl || "https://api.devnet.solana.com", "confirmed");
-    const wallet = new anchor.Wallet(anchor.web3.Keypair.generate()); // read-only
-    const provider = new anchor.AnchorProvider(connection, wallet, {});
-    const program = new anchor.Program<NewsPlatform>(IDL as any, provider);
+    const accountPubkey = new PublicKey(newsAccountPubkey);
     
-    const pubkey = new PublicKey(newsAccountPubkey);
-    const account = await program.account.newsAccount.fetch(pubkey);
+    // Fetch raw account data
+    const accountInfo = await connection.getAccountInfo(accountPubkey);
+    if (!accountInfo) {
+      return null;
+    }
+    
+    // Parse the account data manually
+    // This is a simplified parser - in production you'd want a more robust solution
+    const data = accountInfo.data;
+    
+    // Skip discriminator (8 bytes)
+    let offset = 8;
+    
+    // Read authority (32 bytes)
+    const authority = new PublicKey(data.slice(offset, offset + 32));
+    offset += 32;
+    
+    // Read headline length (4 bytes)
+    const headlineLength = data.readUInt32LE(offset);
+    offset += 4;
+    
+    // Read headline
+    const headline = data.slice(offset, offset + headlineLength).toString('utf8');
+    offset += headlineLength;
+    
+    // Read arweave link length (4 bytes)
+    const arweaveLinkLength = data.readUInt32LE(offset);
+    offset += 4;
+    
+    // Read arweave link
+    const arweaveLink = data.slice(offset, offset + arweaveLinkLength).toString('utf8');
+    offset += arweaveLinkLength;
+    
+    // Read summary link length (4 bytes)
+    const summaryLinkLength = data.readUInt32LE(offset);
+    offset += 4;
+    
+    // Read summary link
+    const summaryLink = data.slice(offset, offset + summaryLinkLength).toString('utf8');
+    offset += summaryLinkLength;
+    
+    // Read mint (32 bytes)
+    const mint = new PublicKey(data.slice(offset, offset + 32));
+    offset += 32;
+    
+    // Read publishedAt (8 bytes, i64)
+    const publishedAt = data.readBigInt64LE(offset);
+    offset += 8;
+    
+    // Read nonce (8 bytes, u64)
+    const nonce = data.readBigUInt64LE(offset);
+    offset += 8;
     
     return {
-      headline: account.headline,
-      arweaveLink: account.arweaveLink,
-      summaryLink: account.summaryLink,
-      publishedAt: Number(account.publishedAt),
-      mint: account.mint.toBase58(),
-      authority: account.authority.toBase58(),
-      nonce: Number(account.nonce),
+      headline,
+      arweaveLink,
+      summaryLink,
+      publishedAt: Number(publishedAt),
+      mint: mint.toString(),
+      authority: authority.toString(),
+      nonce: Number(nonce),
     };
   } catch (error) {
     console.error("Failed to fetch news account:", error);
@@ -46,21 +92,88 @@ export async function fetchAllNewsAccounts(
 ): Promise<NewsAccountData[]> {
   try {
     const connection = new Connection(rpcUrl || "https://api.devnet.solana.com", "confirmed");
-    const wallet = new anchor.Wallet(anchor.web3.Keypair.generate()); // read-only
-    const provider = new anchor.AnchorProvider(connection, wallet, {});
-    const program = new anchor.Program<NewsPlatform>(IDL as any, provider);
+    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4");
     
-    const accounts = await program.account.newsAccount.all();
+    // Get all program derived accounts
+    const accounts = await connection.getProgramAccounts(programId, {
+      filters: [
+        {
+          dataSize: 200, // Approximate size of NewsAccount
+        },
+        {
+          memcmp: {
+            offset: 0,
+            bytes: "afaf6d1f0d989bed", // NewsAccount discriminator
+          },
+        },
+      ],
+    });
     
-    return accounts.map(account => ({
-      headline: account.account.headline,
-      arweaveLink: account.account.arweaveLink,
-      summaryLink: account.account.summaryLink,
-      publishedAt: Number(account.account.publishedAt),
-      mint: account.account.mint.toBase58(),
-      authority: account.account.authority.toBase58(),
-      nonce: Number(account.account.nonce),
-    }));
+    const newsAccounts: NewsAccountData[] = [];
+    
+    for (const account of accounts) {
+      try {
+        const data = account.account.data;
+        
+        // Skip discriminator (8 bytes)
+        let offset = 8;
+        
+        // Read authority (32 bytes)
+        const authority = new PublicKey(data.slice(offset, offset + 32));
+        offset += 32;
+        
+        // Read headline length (4 bytes)
+        const headlineLength = data.readUInt32LE(offset);
+        offset += 4;
+        
+        // Read headline
+        const headline = data.slice(offset, offset + headlineLength).toString('utf8');
+        offset += headlineLength;
+        
+        // Read arweave link length (4 bytes)
+        const arweaveLinkLength = data.readUInt32LE(offset);
+        offset += 4;
+        
+        // Read arweave link
+        const arweaveLink = data.slice(offset, offset + arweaveLinkLength).toString('utf8');
+        offset += arweaveLinkLength;
+        
+        // Read summary link length (4 bytes)
+        const summaryLinkLength = data.readUInt32LE(offset);
+        offset += 4;
+        
+        // Read summary link
+        const summaryLink = data.slice(offset, offset + summaryLinkLength).toString('utf8');
+        offset += summaryLinkLength;
+        
+        // Read mint (32 bytes)
+        const mint = new PublicKey(data.slice(offset, offset + 32));
+        offset += 32;
+        
+        // Read publishedAt (8 bytes, i64)
+        const publishedAt = data.readBigInt64LE(offset);
+        offset += 8;
+        
+        // Read nonce (8 bytes, u64)
+        const nonce = data.readBigUInt64LE(offset);
+        offset += 8;
+        
+        newsAccounts.push({
+          headline,
+          arweaveLink,
+          summaryLink,
+          publishedAt: Number(publishedAt),
+          mint: mint.toString(),
+          authority: authority.toString(),
+          nonce: Number(nonce),
+        });
+      } catch (error) {
+        // Skip invalid accounts
+        console.log("Skipping invalid account:", account.pubkey.toString());
+      }
+    }
+    
+    return newsAccounts;
   } catch (error) {
     console.error("Failed to fetch all news accounts:", error);
     return [];

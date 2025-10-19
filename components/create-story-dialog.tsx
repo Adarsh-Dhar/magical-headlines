@@ -52,7 +52,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const wallet = useWallet()
   const { publicKey, connected } = wallet || {}
   const { setVisible: setWalletModalVisible } = useWalletModal()
-  const { publishNews: publishOnchain } = useContract()
+  const { publishNews: publishOnchain, testProgram } = useContract()
   const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews()
   // no program ref needed when using useContract
 
@@ -312,6 +312,19 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       try {
         console.log('[CreateStoryDialog] Step 3: Starting blockchain transaction...')
         
+        // Check wallet connection first
+        if (!connected || !publicKey) {
+          console.error('[CreateStoryDialog] Wallet not connected')
+          throw new Error('Please connect your wallet to publish a story')
+        }
+        
+        // Test program creation for debugging
+        if (testProgram) {
+          console.log('[CreateStoryDialog] Testing program creation...')
+          const testResult = testProgram()
+          console.log('[CreateStoryDialog] Program test result:', testResult)
+        }
+        
         // Add timeout to onchain call
         const onchainTimeoutMs = 30000 // 30 seconds
         console.log('[CreateStoryDialog] Publishing onchain with params:', {
@@ -320,6 +333,11 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           initialSupply: 100,
           nonce: uniqueNonce
         })
+        
+        if (!publishOnchain) {
+          console.error('[CreateStoryDialog] publishOnchain function not available')
+          throw new Error('Onchain publish failed: Please ensure your wallet is connected and try again')
+        }
         
         txSignature = await Promise.race([
           publishOnchain({

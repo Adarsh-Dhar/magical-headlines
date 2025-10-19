@@ -1,16 +1,27 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback } from "react";
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-// Load IDL JSON produced by Anchor build
-// Path: contract/target/idl/news_platform.json
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const NEWS_PLATFORM_IDL: Idl = require("../contract/target/idl/news_platform.json");
+// Import the IDL from the contract
+import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
+
+// Debug: Log IDL import
+console.log("IDL imported:", {
+  address: NEWS_PLATFORM_IDL?.address,
+  instructionsCount: NEWS_PLATFORM_IDL?.instructions?.length,
+  accountsCount: NEWS_PLATFORM_IDL?.accounts?.length,
+  eventsCount: NEWS_PLATFORM_IDL?.events?.length
+});
+
+// Debug: Log instruction names
+if (NEWS_PLATFORM_IDL?.instructions) {
+  console.log("IDL instruction names:", NEWS_PLATFORM_IDL.instructions.map((ix: any) => ix.name));
+}
 
 // Constants
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
@@ -18,10 +29,8 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID;
-  if (!id) {
-    throw new Error("NEXT_PUBLIC_PROGRAM_ID is not set in the environment");
-  }
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+  console.log("Using program ID:", id);
   return new PublicKey(id);
 }
 
@@ -35,7 +44,14 @@ function getProvider(connection: Connection, wallet: anchor.Wallet): AnchorProvi
 function getProgram(connection: Connection, wallet: anchor.Wallet): Program {
   const provider = getProvider(connection, wallet);
   const programId = getProgramId();
-  return new Program(NEWS_PLATFORM_IDL as Idl, programId as any, provider as any) as Program;
+  
+  // Create a copy of the IDL with the correct program ID
+  const idlWithCorrectProgramId = {
+    ...NEWS_PLATFORM_IDL,
+    address: programId.toString()
+  };
+  
+  return new Program(idlWithCorrectProgramId as Idl, provider) as Program;
 }
 
 // PDA helpers
@@ -80,42 +96,136 @@ export function useContract() {
   const { connection } = useConnection();
   const walletAdapter = useWallet();
 
-  const program = useMemo(() => {
-    if (!walletAdapter.publicKey || !walletAdapter.signTransaction) return null;
+  // Create program on demand to avoid dependency issues
+  const getProgram = useCallback(() => {
+    // Only log in development mode to reduce console spam
+    if (process.env.NODE_ENV === 'development') {
+      console.log("=== getProgram called ===");
+      console.log("Wallet adapter state:", {
+        publicKey: walletAdapter.publicKey?.toString(),
+        signTransaction: !!walletAdapter.signTransaction,
+        connected: walletAdapter.connected,
+        connecting: walletAdapter.connecting
+      });
+    }
+    
+    // Check if wallet is connected and has required methods
+    if (!walletAdapter.connected || !walletAdapter.publicKey || !walletAdapter.signTransaction) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Wallet not ready:", {
+          connected: walletAdapter.connected,
+          publicKey: !!walletAdapter.publicKey,
+          signTransaction: !!walletAdapter.signTransaction,
+          connecting: walletAdapter.connecting,
+          walletAdapter: walletAdapter
+        });
+      }
+      return null;
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Wallet is ready, creating program...");
+    }
     
     try {
       // Adapt wallet-adapter to Anchor wallet interface
       const wallet = {
         publicKey: walletAdapter.publicKey,
         signTransaction: walletAdapter.signTransaction!,
-        signAllTransactions: walletAdapter.signAllTransactions!,
+        signAllTransactions: walletAdapter.signAllTransactions || (async (txs: any[]) => {
+          // Fallback for wallets that don't support signAllTransactions
+          const signedTxs = [];
+          for (const tx of txs) {
+            const signed = await walletAdapter.signTransaction!(tx);
+            signedTxs.push(signed);
+          }
+          return signedTxs;
+        }),
       } as unknown as anchor.Wallet;
       
       const programId = getProgramId();
       const provider = getProvider(connection, wallet);
       
-      // Create a minimal working IDL to bypass the account structure issue
+      // Use the imported IDL with correct program ID
       const minimalIdl = {
-        address: programId.toString(),
-        metadata: {
-          name: "news_platform",
-          version: "0.1.0",
-          spec: "0.1.0",
-          description: "Created with Anchor"
-        },
-        instructions: NEWS_PLATFORM_IDL.instructions || [],
-        accounts: NEWS_PLATFORM_IDL.accounts || [], // Include accounts from IDL
-        events: NEWS_PLATFORM_IDL.events || [],
-        errors: NEWS_PLATFORM_IDL.errors || [],
-        types: NEWS_PLATFORM_IDL.types || []
-      };
+        ...NEWS_PLATFORM_IDL,
+        address: programId.toString()
+      } as Idl;
       
-      const program = new Program(minimalIdl as Idl, provider) as Program;
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Creating program with IDL:", {
+          address: minimalIdl.address,
+          instructionsCount: minimalIdl.instructions?.length || 0,
+          accountsCount: minimalIdl.accounts?.length || 0,
+          eventsCount: minimalIdl.events?.length || 0,
+          errorsCount: minimalIdl.errors?.length || 0,
+          typesCount: minimalIdl.types?.length || 0
+        });
+        
+        // Debug: Check if publish_news instruction exists in IDL
+        const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
+        console.log("publish_news instruction in IDL:", !!publishNewsInstruction);
+        if (publishNewsInstruction) {
+          console.log("publish_news instruction details:", publishNewsInstruction.name);
+        }
+      }
+      
+      const program = new Program(minimalIdl, provider) as Program;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Program created successfully:", !!program);
+        console.log("Program methods available:", Object.keys(program.methods || {}));
+        console.log("Program accounts available:", Object.keys(program.account || {}));
+        console.log("Program provider:", !!program.provider);
+        console.log("Program programId:", program.programId?.toString());
+      }
+      
+      // Debug: Log all available methods
+      console.log("Available methods:", Object.keys(program.methods || {}));
+      console.log("Looking for publish_news:", !!(program.methods?.publish_news));
+      console.log("Looking for publishNews:", !!(program.methods?.publishNews));
+      
+      // Check if Anchor converted snake_case to camelCase
+      const hasPublishNews = !!(program.methods?.publishNews);
+      const hasPublish_news = !!(program.methods?.publish_news);
+      console.log("Method name conversion check:", { hasPublishNews, hasPublish_news });
+      
+      // Validate that the program has the required methods
+      // Check both snake_case and camelCase naming conventions
+      const hasPublishNewsMethod = !!(program.methods?.publish_news || program.methods?.publishNews);
+      
+      if (!program.methods || !hasPublishNewsMethod) {
+        console.error("Program missing required methods:", {
+          hasMethods: !!program.methods,
+          hasPublishNews: !!(program.methods?.publish_news),
+          hasPublishNewsCamel: !!(program.methods?.publishNews),
+          allMethods: Object.keys(program.methods || {})
+        });
+        return null;
+      }
+      
       return program;
     } catch (error) {
+      console.error("Failed to create program:", error);
       return null;
     }
   }, [connection, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
+
+  const program = getProgram();
+  
+  // Only log in development mode to reduce console spam
+  if (process.env.NODE_ENV === 'development') {
+    console.log("useContract program state:", {
+      program: !!program,
+      programType: typeof program,
+      hasMethods: !!(program?.methods),
+      hasAccounts: !!(program?.account),
+      publishNewsAvailable: !!(program?.methods?.publish_news || program?.methods?.publishNews),
+      walletConnected: walletAdapter.connected,
+      walletPublicKey: !!walletAdapter.publicKey,
+      walletSignTransaction: !!walletAdapter.signTransaction
+    });
+  }
 
   const publishNews = useCallback(
     async (params: {
@@ -124,7 +234,36 @@ export function useContract() {
       initialSupply: number | anchor.BN;
       nonce: number | anchor.BN;
     }) => {
-      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      // Try to get the program again in case it wasn't ready initially
+      let currentProgram = program;
+      if (!currentProgram) {
+        console.log("Program not ready, attempting to recreate...");
+        currentProgram = getProgram();
+      }
+      
+      if (!currentProgram) {
+        console.error("Program not ready:", {
+          program: !!program,
+          publicKey: !!walletAdapter.publicKey,
+          connected: walletAdapter.connected,
+          signTransaction: !!walletAdapter.signTransaction,
+          walletAdapter: walletAdapter
+        });
+        
+        if (!walletAdapter.connected) {
+          throw new Error("Wallet not connected. Please connect your wallet first.");
+        } else if (!walletAdapter.publicKey) {
+          throw new Error("Wallet public key not available. Please reconnect your wallet.");
+        } else if (!walletAdapter.signTransaction) {
+          throw new Error("Wallet sign transaction not available. Please reconnect your wallet.");
+        } else {
+          throw new Error("Program not ready. Please try again.");
+        }
+      }
+      if (!walletAdapter.publicKey) {
+        console.error("Public key not available");
+        throw new Error("Wallet not ready");
+      }
 
       // Comprehensive input validation
       if (!params.headline || params.headline.trim().length === 0) {
@@ -185,13 +324,28 @@ export function useContract() {
       });
 
 
-      const signature = await program.methods
-        .publishNews(
-          params.headline,
-          params.arweaveLink,
-          new anchor.BN(params.initialSupply),
-          nonceBn
-        )
+      // Use the correct method name (Anchor might convert snake_case to camelCase)
+      const publishMethod = currentProgram.methods.publish_news || currentProgram.methods.publishNews;
+      
+      if (!publishMethod) {
+        console.error("Publish method not found:", {
+          hasPublish_news: !!currentProgram.methods.publish_news,
+          hasPublishNews: !!currentProgram.methods.publishNews,
+          allMethods: Object.keys(currentProgram.methods || {})
+        });
+        throw new Error("Publish method not found in program");
+      }
+      
+      console.log("Calling publish method:", publishMethod.name || "unknown");
+      console.log("Method type:", typeof publishMethod);
+      console.log("Method is function:", typeof publishMethod === 'function');
+      
+      const signature = await publishMethod(
+        params.headline,
+        params.arweaveLink,
+        new anchor.BN(params.initialSupply),
+        nonceBn
+      )
         .accounts({
           newsAccount: newsPda,
           mint: mintPda,
@@ -258,7 +412,7 @@ export function useContract() {
         throw new Error(`Transaction verification failed: ${verificationError instanceof Error ? verificationError.message : String(verificationError)}`);
       }
     },
-    [program, walletAdapter.publicKey]
+    [program, walletAdapter.publicKey, getProgram]
   );
 
 
@@ -893,6 +1047,21 @@ export function useContract() {
     [walletAdapter.publicKey, fetchUserTokenAccounts]
   );
 
+  // Debug function to test program creation
+  const testProgram = useCallback(() => {
+    console.log("Testing program creation...");
+    const testProgram = getProgram();
+    console.log("Test program result:", {
+      success: !!testProgram,
+      hasMethods: !!(testProgram?.methods),
+      hasPublishNews: !!(testProgram?.methods?.publish_news || testProgram?.methods?.publishNews),
+      walletConnected: walletAdapter.connected,
+      walletPublicKey: !!walletAdapter.publicKey,
+      walletSignTransaction: !!walletAdapter.signTransaction
+    });
+    return testProgram;
+  }, [getProgram, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction]);
+
   return {
     program,
     // instruction wrappers
@@ -926,6 +1095,8 @@ export function useContract() {
       findWhitelistPda,
       findMetadataPda,
     },
+    // debug function
+    testProgram,
   } as const;
 }
 

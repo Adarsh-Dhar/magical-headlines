@@ -1,8 +1,8 @@
 // In your main oracle service file (e.g., index.ts)
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { NewsPlatform } from "../../contract1/target/types/news_platform";
-import IDL from "../../contract1/target/idl/news_platform.json";
+import { NewsPlatform } from "../../contract/target/types/news_platform";
+import IDL from "../../contract/target/idl/news_platform.json";
 import { handleNewArticle } from "./article";
 
 import { getConnection, getProgramId } from "./config";

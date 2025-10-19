@@ -7,10 +7,13 @@ export function UserInfoLogger() {
   const { connected, publicKey } = useWallet()
 
   useEffect(() => {
-    if (connected && publicKey) {
-      console.log('[UserInfoLogger] Wallet connected:', publicKey.toString())
-    } else {
-      console.log('[UserInfoLogger] Wallet not connected')
+    // Only log in development mode to reduce console spam
+    if (process.env.NODE_ENV === 'development') {
+      if (connected && publicKey) {
+        console.log('[UserInfoLogger] Wallet connected:', publicKey.toString())
+      } else {
+        console.log('[UserInfoLogger] Wallet not connected')
+      }
     }
   }, [connected, publicKey])
 

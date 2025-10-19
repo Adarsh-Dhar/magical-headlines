@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, Connection } from "@solana/web3.js";
-import { NewsPlatform } from "../../contract1/target/types/news_platform";
-import IDL from "../../contract1/target/idl/news_platform.json";
+import { NewsPlatform } from "../../contract/target/types/news_platform";
+import IDL from "../../contract/target/idl/news_platform.json";
 import { updateOnChainSummary } from "./onchain";
 import { getConnection } from "./config";
 import fetch from "node-fetch";
