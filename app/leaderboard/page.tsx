@@ -1,12 +1,10 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { TrophyIcon, TrendingUpIcon, Loader2, Search } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-
 interface Trader {
   rank: number
   id: string
@@ -15,7 +13,6 @@ interface Trader {
   roi: number
   volume: number
   wins: number
-  badge: string
   totalTrades: number
   totalTokensOwned: number
   currentHoldingsValue: number
@@ -28,11 +25,12 @@ export default function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
   const [appliedSearch, setAppliedSearch] = useState("")
-
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       try {
         setLoading(true)
+        setError(null)
+        
         const response = await fetch('/api/leaderboard?limit=50')
         
         if (!response.ok) {
@@ -42,7 +40,7 @@ export default function LeaderboardPage() {
         const data = await response.json()
         setTraders(data.traders || [])
       } catch (err) {
-        console.error('Error fetching leaderboard:', err)
+        console.error('Error fetching leaderboard data:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         setLoading(false)
@@ -124,7 +122,7 @@ export default function LeaderboardPage() {
           <Card className="p-8">
             <div className="flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin mr-2" />
-              <span>Loading leaderboard data...</span>
+              <span>Loading leaderboard data from blockchain...</span>
             </div>
           </Card>
         ) : error ? (
@@ -132,12 +130,18 @@ export default function LeaderboardPage() {
             <div className="text-center text-red-500">
               <p className="text-lg font-semibold mb-2">Error loading leaderboard</p>
               <p className="text-sm">{error}</p>
+              {error.includes('wallet') && (
+                <p className="text-xs mt-2 text-muted-foreground">
+                  Please connect your wallet to view the leaderboard
+                </p>
+              )}
             </div>
           </Card>
         ) : traders.length === 0 ? (
           <Card className="p-8">
             <div className="text-center text-muted-foreground">
-              <p className="text-lg font-semibold mb-2">Data not found</p>
+              <p className="text-lg font-semibold mb-2">No trading data found</p>
+              <p className="text-sm">Connect your wallet and start trading to see leaderboard data</p>
             </div>
           </Card>
         ) : (
@@ -148,7 +152,6 @@ export default function LeaderboardPage() {
                   <tr>
                     <th className="text-left p-4 font-semibold">Rank</th>
                     <th className="text-left p-4 font-semibold">Trader</th>
-                    <th className="text-left p-4 font-semibold">Badge</th>
                     <th className="text-right p-4 font-semibold">ROI</th>
                     <th className="text-right p-4 font-semibold">Tokens Owned</th>
                     <th className="text-right p-4 font-semibold">Stories</th>
@@ -181,9 +184,6 @@ export default function LeaderboardPage() {
                             <div className="text-sm text-muted-foreground">{trader.name}</div>
                           )}
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="secondary">{trader.badge}</Badge>
                       </td>
                       <td className="p-4 text-right">
                         <span className={`flex items-center justify-end gap-1 font-bold ${
