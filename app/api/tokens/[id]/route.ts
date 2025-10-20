@@ -59,7 +59,7 @@ export async function GET(
       try {
         marketData = await fetchMarketAccount(token.marketAddress);
       } catch (error) {
-        console.error('Error fetching market data:', error);
+        // console.error('Error fetching market data:', error);
         // Continue without blockchain data
       }
     }
@@ -118,7 +118,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error("Error fetching token details:", error);
+    // console.error("Error fetching token details:", error);
     return NextResponse.json(
       { error: "Failed to fetch token details" },
       { status: 500 }

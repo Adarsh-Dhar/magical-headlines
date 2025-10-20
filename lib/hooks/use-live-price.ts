@@ -62,7 +62,7 @@ export function useLivePrice({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to fetch live price data";
       setError(errorMessage);
-      console.error("Error fetching live price:", err);
+      // console.error("Error fetching live price:", err);
     } finally {
       setLoading(false);
     }

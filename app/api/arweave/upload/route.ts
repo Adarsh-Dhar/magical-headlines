@@ -21,7 +21,7 @@ export interface ArweaveUploadResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[arweave api] request received')
+    // console.log('[arweave api] request received')
     const body: ArweaveUploadRequest = await request.json()
     const { content, tags = [], walletAddress } = body
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       const contentBuffer = Buffer.from(content, 'utf8')
 
       // Enforce a 20s timeout on the upload to avoid hanging
-      console.log('[arweave api] starting upload')
+      // console.log('[arweave api] starting upload')
       const result = await Promise.race([
         turbo.uploadFile({
           fileStreamFactory: () => {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timed out')), 20000)),
       ]) as { id: string }
 
-      console.log('[arweave api] upload complete')
+      // console.log('[arweave api] upload complete')
       return NextResponse.json({
         success: true,
         id: result.id,
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (uploadError) {
-      console.error('Arweave upload error:', uploadError)
+      // console.error('Arweave upload error:', uploadError)
       return NextResponse.json(
         { 
           success: false, 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('API error:', error)
+    // console.error('API error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

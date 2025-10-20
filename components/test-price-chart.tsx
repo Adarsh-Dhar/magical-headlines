@@ -47,7 +47,6 @@ export function TestPriceChart() {
           storyHeadline: token.story.headline
         })
       } catch (err) {
-        console.error('Error fetching token data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load token data')
       } finally {
         setLoading(false)

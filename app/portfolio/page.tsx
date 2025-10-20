@@ -50,24 +50,24 @@ export default function PortfolioPage() {
     setDetectingTokens(true);
 
     try {
-      console.log("Loading portfolio data for user:", publicKey.toString());
+      // console.log("Loading portfolio data for user:", publicKey.toString());
       
       // First, let's just fetch and log all token accounts
       const tokenAccounts = await fetchUserTokenAccounts();
-      console.log("User token accounts:", tokenAccounts);
+      // console.log("User token accounts:", tokenAccounts);
       
       // Try to fetch news tokens (now with proper detection)
       const newsTokens = await fetchUserNewsTokens();
-      console.log("Found news tokens:", newsTokens);
+      // console.log("Found news tokens:", newsTokens);
       
       // Get total token statistics
       const tokenStats = await getTotalTokenStats();
-      console.log("Token statistics:", tokenStats);
+      // console.log("Token statistics:", tokenStats);
       
       setPortfolioHoldings(newsTokens);
       
     } catch (err) {
-      console.error("Error loading portfolio:", err);
+      // console.error("Error loading portfolio:", err);
       setError(err instanceof Error ? err.message : "Failed to load portfolio data");
     } finally {
       setLoading(false);

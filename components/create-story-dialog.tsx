@@ -92,23 +92,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    console.log('[CreateStoryDialog] Form submitted, starting story creation process')
-    console.log('[CreateStoryDialog] Current state:', {
-      isSubmitting,
-      loading,
-      connected,
-      publicKey: publicKey?.toString(),
-      formData: {
-        headline: formData.headline,
-        contentLength: formData.content.length,
-        originalUrl: formData.originalUrl,
-        tagsCount: formData.tags.length
-      }
-    })
     
     // Prevent multiple simultaneous submissions
     if (isSubmitting || loading) {
-      console.log('[CreateStoryDialog] Submission blocked - already in progress')
       return
     }
     
@@ -177,7 +163,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     }
 
     if (!connected || !publicKey || !wallet.signTransaction) {
-      console.log('[CreateStoryDialog] Wallet not connected, opening wallet modal')
       setWalletModalVisible(true)
       toast({
         title: "Error",
@@ -187,10 +172,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       return
     }
 
-    console.log('[CreateStoryDialog] Wallet connected, proceeding with story creation')
 
     // Enhanced URL validation
-    console.log('[CreateStoryDialog] Step 1.1: Validating URL...')
     try {
       const url = new URL(formData.originalUrl)
       if (!['http:', 'https:'].includes(url.protocol)) {
@@ -199,9 +182,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       if (url.hostname.length === 0) {
         throw new Error('Invalid hostname')
       }
-      console.log('[CreateStoryDialog] URL validation passed:', formData.originalUrl)
     } catch (urlError) {
-      console.error('[CreateStoryDialog] URL validation failed:', urlError)
+      // console.error('[CreateStoryDialog] URL validation failed:', urlError)
       toast({
         title: "Error",
         description: "Please enter a valid URL (must start with http:// or https://)",
@@ -211,9 +193,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
     }
     
     // Validate content contains only printable characters
-    console.log('[CreateStoryDialog] Step 1.2: Validating content characters...')
     if (!formData.content.match(/^[\x20-\x7E\s]*$/)) {
-      console.error('[CreateStoryDialog] Content validation failed - invalid characters')
+      // console.error('[CreateStoryDialog] Content validation failed - invalid characters')
       toast({
         title: "Error",
         description: "Content contains invalid characters",
@@ -221,12 +202,10 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       return
     }
-    console.log('[CreateStoryDialog] Content validation passed')
     
     // Validate headline contains only printable characters
-    console.log('[CreateStoryDialog] Step 1.3: Validating headline characters...')
     if (!formData.headline.match(/^[\x20-\x7E\s]*$/)) {
-      console.error('[CreateStoryDialog] Headline validation failed - invalid characters')
+      // console.error('[CreateStoryDialog] Headline validation failed - invalid characters')
       toast({
         title: "Error",
         description: "Headline contains invalid characters",
@@ -234,25 +213,19 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       return
     }
-    console.log('[CreateStoryDialog] Headline validation passed')
 
     // Make URL unique by adding timestamp to avoid conflicts
     const uniqueUrl = `${formData.originalUrl}?t=${Date.now()}`
-    console.log('[CreateStoryDialog] Step 1.4: Generated unique URL:', uniqueUrl)
 
     // Set both loading states to prevent duplicate submissions
-    console.log('[CreateStoryDialog] Step 1.5: Setting loading states...')
     setLoading(true)
     setIsSubmitting(true)
 
-    console.log('[CreateStoryDialog] Starting story creation process...')
 
     try {
-      console.log('[CreateStoryDialog] ✅ ENTERED TRY BLOCK - Process is continuing!')
       // No extra readiness loop required
 
       // Step 1: Upload to Arweave
-      console.log('[CreateStoryDialog] Step 1: Preparing content for Arweave upload')
       const newsContent: NewsContent = {
         title: formData.headline,
         content: formData.content,
@@ -265,17 +238,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         }
       }
       
-      console.log('[CreateStoryDialog] News content prepared:', {
-        title: newsContent.title,
-        contentLength: newsContent.content.length,
-        author: newsContent.author,
-        tags: newsContent.tags,
-        metadata: newsContent.metadata
-      })
 
       // Run Arweave upload with a client-side timeout so the UI never stalls
-      console.log('[CreateStoryDialog] Step 2: Starting Arweave upload...')
-      console.log('[CreateStoryDialog] 🔥 ABOUT TO CALL publishToArweave function')
       const arweaveTimeoutMs = 20000
       const wrappedUpload = publishToArweave(
         newsContent,
@@ -285,27 +249,22 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         ],
         publicKey?.toString()
       ).catch((e: any) => {
-        console.error('[CreateStoryDialog] Arweave upload error:', e)
+        // console.error('[CreateStoryDialog] Arweave upload error:', e)
         return { success: false, error: e instanceof Error ? e.message : String(e) }
       })
 
-      console.log('[CreateStoryDialog] Waiting for Arweave upload with timeout:', arweaveTimeoutMs + 'ms')
-      console.log('[CreateStoryDialog] 🚀 CALLING Promise.race for Arweave upload...')
       const arweaveResult: any = await Promise.race([
         wrappedUpload,
         new Promise<ReturnType<typeof publishToArweave>>(resolve =>
           setTimeout(() => {
-            console.log('[CreateStoryDialog] Arweave upload timed out, using fallback')
             resolve({ success: true, arweaveId: 'timeout', arweaveUrl: 'https://arweave.net/timeout', newsId: `news-${Date.now()}` } as any)
           }, arweaveTimeoutMs)
         ),
       ])
-      console.log('[CreateStoryDialog] 🎉 Arweave upload Promise.race completed!')
 
-      console.log('[CreateStoryDialog] Arweave upload result:', arweaveResult)
 
       if (!arweaveResult.success) {
-        console.error('[CreateStoryDialog] Arweave upload failed:', arweaveResult.error)
+        // console.error('[CreateStoryDialog] Arweave upload failed:', arweaveResult.error)
         throw new Error(`Arweave upload failed: ${arweaveResult.error}`)
       }
 
@@ -326,37 +285,26 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       
       // Generate unique nonce for this transaction
       const uniqueNonce = generateUniqueNonce()
-      console.log('[CreateStoryDialog] Generated unique nonce:', uniqueNonce)
       
       let txSignature: string | undefined
       try {
-        console.log('[CreateStoryDialog] Step 3: Starting blockchain transaction...')
         
         // Check wallet connection first
         if (!connected || !publicKey) {
-          console.error('[CreateStoryDialog] Wallet not connected')
+          // console.error('[CreateStoryDialog] Wallet not connected')
           throw new Error('Please connect your wallet to publish a story')
         }
         
         // Test program creation for debugging
         if (testProgram) {
-          console.log('[CreateStoryDialog] Testing program creation...')
           const testResult = testProgram()
-          console.log('[CreateStoryDialog] Program test result:', testResult)
         }
         
         // Add timeout to onchain call
         const onchainTimeoutMs = 30000 // 30 seconds
-        console.log('[CreateStoryDialog] Publishing onchain with params:', {
-          headline: formData.headline,
-          arweaveLink: safeArweaveResult.arweaveUrl,
-          initialSupply: formData.initialSupply,
-          basePrice: formData.basePrice,
-          nonce: uniqueNonce
-        })
         
         if (!publishOnchain) {
-          console.error('[CreateStoryDialog] publishOnchain function not available')
+          // console.error('[CreateStoryDialog] publishOnchain function not available')
           throw new Error('Onchain publish failed: Please ensure your wallet is connected and try again')
         }
         
@@ -373,10 +321,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
           )
         ]) as string
 
-        console.log('[CreateStoryDialog] Blockchain transaction completed, signature:', txSignature)
 
         if (!txSignature) {
-          console.error('[CreateStoryDialog] No signature returned from blockchain transaction')
+          // console.error('[CreateStoryDialog] No signature returned from blockchain transaction')
           throw new Error('Failed to publish onchain - no signature returned')
         }
       } catch (onchainError) {
@@ -409,10 +356,8 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       const isBlockchainSkipped = txSignature.startsWith('already-processed-')
-      console.log('[CreateStoryDialog] Blockchain transaction result:', { txSignature, isBlockchainSkipped })
       
       // Save to database only after successful onchain transaction
-      console.log('[CreateStoryDialog] Step 4: Saving story to database...')
       
       const storyData = {
         headline: formData.headline,
@@ -426,7 +371,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         tags: formData.tags,
       }
       
-      console.log('[CreateStoryDialog] Sending story data to API:', storyData)
       
       const response = await fetch('/api/story', {
         method: 'POST',
@@ -436,11 +380,10 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         body: JSON.stringify(storyData),
       })
 
-      console.log('[CreateStoryDialog] API response status:', response.status)
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error('[CreateStoryDialog] API error response:', errorData)
+        // console.error('[CreateStoryDialog] API error response:', errorData)
         
         // Handle specific error cases
         if (response.status === 409) {
@@ -451,7 +394,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       }
 
       const savedStory = await response.json()
-      console.log('[CreateStoryDialog] Story saved successfully:', savedStory)
 
 
       toast({
@@ -482,12 +424,12 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         onStoryCreated()
       }
     } catch (error) {
-      console.error('[CreateStoryDialog] Story creation failed with error:', error)
-      console.error('[CreateStoryDialog] Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      })
+      // console.error('[CreateStoryDialog] Story creation failed with error:', error)
+      // console.error('[CreateStoryDialog] Error details:', {
+      //   name: error instanceof Error ? error.name : 'Unknown',
+      //   message: error instanceof Error ? error.message : String(error),
+      //   stack: error instanceof Error ? error.stack : undefined
+      // })
       
       toast({
         title: "Error",
@@ -495,7 +437,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         variant: "destructive",
       })
     } finally {
-      console.log('[CreateStoryDialog] Story creation process completed, resetting states')
       setLoading(false)
       setIsSubmitting(false)
     }
@@ -538,13 +479,9 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
   // Handle button click to check wallet connection before opening dialog
   const handleButtonClick = () => {
-    console.log('[CreateStoryDialog] Button clicked:', {
-      connected,
-      publicKey: publicKey?.toString()
-    })
+    // console.log removed for production
 
     if (!connected || !publicKey) {
-      console.log('[CreateStoryDialog] No wallet connected, opening wallet modal')
       toast({
         title: "Wallet Required",
         description: "Please connect your wallet first",
@@ -554,7 +491,6 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       return
     }
 
-    console.log('[CreateStoryDialog] Wallet connected, opening dialog')
     setOpen(true)
   }
 

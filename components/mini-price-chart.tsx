@@ -55,7 +55,6 @@ export function MiniPriceChart({
           setData(priceData.priceHistory || [])
         }
       } catch (error) {
-        console.error("Error fetching mini price data:", error)
       } finally {
         setLoading(false)
       }

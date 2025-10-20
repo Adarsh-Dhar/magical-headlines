@@ -40,7 +40,7 @@ export default function LeaderboardPage() {
         const data = await response.json()
         setTraders(data.traders || [])
       } catch (err) {
-        console.error('Error fetching leaderboard data:', err)
+        // console.error('Error fetching leaderboard data:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         setLoading(false)

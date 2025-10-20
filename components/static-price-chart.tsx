@@ -93,7 +93,6 @@ export function StaticPriceChart({
               setIsEstimated(true)
             }
           } catch (error) {
-            console.error('Error fetching market data:', error)
             setError('Failed to load market data')
           }
         }
@@ -116,7 +115,6 @@ export function StaticPriceChart({
         setData(result.priceHistory)
         setIsEstimated(false) // Real data
       } catch (err) {
-        console.error('Error fetching price data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load price data')
       } finally {
         setLoading(false)

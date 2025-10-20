@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(newsAccountData);
   } catch (error) {
-    console.error("Error fetching news account:", error);
+    // console.error("Error fetching news account:", error);
     return NextResponse.json(
       { error: "Failed to fetch news account" },
       { status: 500 }

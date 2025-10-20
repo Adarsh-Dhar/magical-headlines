@@ -77,7 +77,7 @@ export function usePriceChartData({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to fetch price data";
       setError(errorMessage);
-      console.error("Error fetching price history:", err);
+      // console.error("Error fetching price history:", err);
     } finally {
       setLoading(false);
     }

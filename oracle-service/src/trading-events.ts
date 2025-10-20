@@ -1,8 +1,59 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../node_modules/.prisma/client';
 import { PublicKey } from '@solana/web3.js';
 import { parseTokensPurchasedEvent, parseTokensSoldEvent, TradingEventData } from './types/events';
 
 const prisma = new PrismaClient();
+
+function alignToUtcMinute(date: Date): Date {
+  const ms = date.getTime();
+  return new Date(Math.floor(ms / 60000) * 60000);
+}
+
+async function upsertTokenVolumeMinute(
+  tokenId: string,
+  timestamp: Date,
+  volumeSol: number,
+  tradeType: 'BUY' | 'SELL'
+) {
+  const minute = alignToUtcMinute(timestamp);
+  
+  console.log(`Upserting volume for token ${tokenId}, minute ${minute.toISOString()}, volume ${volumeSol} SOL, type ${tradeType}`);
+  
+  const existing = await prisma.tokenVolumeMinute.findUnique({
+    where: {
+      UniqueTokenMinute: { tokenId, minute }
+    }
+  });
+
+  if (existing) {
+    const updated = await prisma.tokenVolumeMinute.update({
+      where: { id: existing.id },
+      data: {
+        volumeSol: existing.volumeSol + volumeSol,
+        tradeCount: existing.tradeCount + 1,
+        buyVolumeSol: tradeType === 'BUY' 
+          ? existing.buyVolumeSol + volumeSol 
+          : existing.buyVolumeSol,
+        sellVolumeSol: tradeType === 'SELL' 
+          ? existing.sellVolumeSol + volumeSol 
+          : existing.sellVolumeSol,
+      }
+    });
+    console.log(`Updated existing volume record: ${updated.volumeSol} SOL total`);
+  } else {
+    const created = await prisma.tokenVolumeMinute.create({
+      data: {
+        tokenId,
+        minute,
+        volumeSol,
+        tradeCount: 1,
+        buyVolumeSol: tradeType === 'BUY' ? volumeSol : 0,
+        sellVolumeSol: tradeType === 'SELL' ? volumeSol : 0,
+      }
+    });
+    console.log(`Created new volume record: ${created.volumeSol} SOL`);
+  }
+}
 
 export async function processTokensPurchasedEvent(event: any, signature: string) {
   try {
@@ -36,6 +87,14 @@ export async function processTokensPurchasedEvent(event: any, signature: string)
         timestamp: new Date()
       }
     });
+
+    // Update minute-level volume
+    await upsertTokenVolumeMinute(
+      token.id,
+      trade.timestamp,
+      eventData.cost, // SOL volume for this trade
+      'BUY'
+    );
 
     // Update token statistics
     await updateTokenStatistics(token.id);
@@ -78,6 +137,14 @@ export async function processTokensSoldEvent(event: any, signature: string) {
       }
     });
 
+    // Update minute-level volume
+    await upsertTokenVolumeMinute(
+      token.id,
+      trade.timestamp,
+      eventData.refund, // SOL volume for this trade
+      'SELL'
+    );
+
     // Update token statistics
     await updateTokenStatistics(token.id);
 
@@ -103,21 +170,43 @@ async function createOrUpdateUser(walletAddress: string) {
 }
 
 async function findTokenByMarketAccount(eventData: any) {
-  // This is a simplified approach - in a real implementation,
-  // you'd need to map the market account to the token
-  // For now, we'll try to find tokens that might be related
-  
   try {
-    // Get all tokens and try to match by checking if the market account exists
-    const tokens = await prisma.token.findMany({
-      include: {
-        story: true
+    // Try to find token by market account if available
+    if (eventData.marketAccount) {
+      const token = await prisma.token.findUnique({
+        where: { marketAccount: eventData.marketAccount },
+        include: { story: true }
+      });
+      if (token) {
+        console.log(`Found token by market account: ${token.id}`);
+        return token;
       }
-    });
+    }
 
-    // This is a placeholder - you'd need to implement proper mapping
-    // based on your contract's PDA structure
-    return tokens[0] || null;
+    // Fallback: try to find by news account if available
+    if (eventData.newsAccount) {
+      const token = await prisma.token.findUnique({
+        where: { newsAccount: eventData.newsAccount },
+        include: { story: true }
+      });
+      if (token) {
+        console.log(`Found token by news account: ${token.id}`);
+        return token;
+      }
+    }
+
+    // Last resort: return first available token (for testing)
+    const tokens = await prisma.token.findMany({
+      include: { story: true }
+    });
+    
+    if (tokens.length > 0) {
+      console.log(`Using fallback token: ${tokens[0].id}`);
+      return tokens[0];
+    }
+
+    console.log('No tokens found in database');
+    return null;
   } catch (error) {
     console.error('Error finding token by market account:', error);
     return null;

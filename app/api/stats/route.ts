@@ -46,7 +46,7 @@ export async function GET() {
 
     return NextResponse.json({ activeStories, totalTraders, totalVolume24h })
   } catch (error) {
-    console.error("Error computing stats:", error)
+    // console.error("Error computing stats:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

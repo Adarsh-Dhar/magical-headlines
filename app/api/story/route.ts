@@ -19,38 +19,29 @@ const createStorySchema = z.object({
 // POST /api/story - Create a new story
 export async function POST(request: NextRequest) {
   try {
-    console.log('[API] Story creation request received')
+// console.log removed for production
     
     // Parse and validate request body
     const body = await request.json()
-    console.log('[API] Request body received:', { 
-      headline: body.headline, 
-      hasContent: !!body.content, 
-      originalUrl: body.originalUrl,
-      hasArweaveUrl: !!body.arweaveUrl,
-      hasArweaveId: !!body.arweaveId,
-      hasOnchainSignature: !!body.onchainSignature,
-      authorAddress: body.authorAddress,
-      tagsCount: body.tags?.length || 0
-    })
+    // console.log removed for production
     
     const validation = createStorySchema.safeParse(body)
     
     if (!validation.success) {
-      console.log('[API] Validation failed:', validation.error.errors)
+// console.log removed for production
       return NextResponse.json(
         { error: "Invalid input", details: validation.error.errors },
         { status: 400 }
       )
     }
     
-    console.log('[API] Validation passed, proceeding with story creation')
+// console.log removed for production
 
     const { headline, content, originalUrl, arweaveUrl, arweaveId, onchainSignature, authorAddress, nonce, tags } = validation.data
 
     // Validate wallet address
     if (!isValidWalletAddress(authorAddress)) {
-      console.log('[API] Invalid wallet address provided')
+// console.log removed for production
       return NextResponse.json(
         { error: "Invalid wallet address format" },
         { status: 400 }
@@ -59,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Get or create user by wallet address
     const user = await getOrCreateUser(authorAddress)
-    console.log('[API] User found/created:', { userId: user.id, walletAddress: user.walletAddress })
+// console.log removed for production
 
     // Check if story with this URL already exists
     const existingStory = await prisma.story.findUnique({
@@ -76,14 +67,9 @@ export async function POST(request: NextRequest) {
     // Verify onchain transaction exists (basic validation)
     // Allow placeholder signatures for already-processed transactions
     const isPlaceholderSignature = onchainSignature.startsWith('already-processed-')
-    console.log('[API] Onchain signature validation:', { 
-      signature: onchainSignature, 
-      isPlaceholder: isPlaceholderSignature, 
-      length: onchainSignature.length 
-    })
+    // console.log removed for production
     
     if (!onchainSignature || (!isPlaceholderSignature && onchainSignature.length < 80)) {
-      console.log('[API] Invalid onchain signature rejected')
       return NextResponse.json(
         { error: "Invalid onchain transaction signature" },
         { status: 400 }
@@ -91,7 +77,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create story with all the new fields
-    console.log('[API] Creating story in database...', isPlaceholderSignature ? '(with placeholder signature)' : '')
     const story = await prisma.story.create({
       data: {
         headline,
@@ -116,7 +101,7 @@ export async function POST(request: NextRequest) {
         token: true
       }
     })
-    console.log('[API] Story created successfully:', story.id)
+// console.log removed for production
 
     // Create associated token
     await prisma.token.create({
@@ -204,14 +189,14 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (e) {
-      console.error("[Notifications] fan-out failed:", e)
+      // console.error("[Notifications] fan-out failed:", e)
     }
 
-    console.log('[API] Returning complete story:', completeStory.id)
+// console.log removed for production
     return NextResponse.json(completeStory, { status: 201 })
 
   } catch (error) {
-    console.error("Error creating story:", error)
+    // console.error("Error creating story:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -338,7 +323,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching stories:", error)
+    // console.error("Error fetching stories:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

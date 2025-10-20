@@ -9,8 +9,52 @@ This repository contains:
 - Arweave upload integration powered by `@ardrive/turbo-sdk`
 - Real-time user notifications via Server-Sent Events (SSE)
 
-The project maps cleanly to the “Trading News App” RFP for MagicBlock’s Cypherpunk Hackathon. See the MagicBlock section for Ephemeral Rollups (ERs) integration guidance.
+The project maps cleanly to the "Trading News App" RFP for MagicBlock's Cypherpunk Hackathon. See the MagicBlock section for Ephemeral Rollups (ERs) integration guidance.
 
+## Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   pnpm install
+   cd oracle-service && pnpm install && cd ..
+   ```
+
+2. **Set up environment:**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your values
+   ```
+
+3. **Set up the database:**
+   ```bash
+   pnpm prisma migrate dev
+   pnpm prisma generate
+   ```
+
+4. **Start both services (recommended):**
+   ```bash
+   ./start-dev.sh
+   ```
+   
+   Or start individually:
+   ```bash
+   # Terminal 1: Next.js app
+   pnpm dev
+   
+   # Terminal 2: Oracle service
+   cd oracle-service
+   pnpm build && pnpm start
+   ```
+
+5. **Visit the app:**
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Debug Volume Data
+
+Check recent volume data for a token:
+```bash
+curl "http://localhost:3000/api/debug/volume?tokenId=YOUR_TOKEN_ID&limit=5"
+```
 
 ## Tech Stack
 - Next.js 15 (app router) + React 19 + Tailwind v4

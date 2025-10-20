@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const count = await prisma.like.count({ where: { storyId } })
     return NextResponse.json({ liked, count })
   } catch (error) {
-    console.error('[API] Likes POST failed:', error)
+    // console.error('[API] Likes POST failed:', error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -33,18 +33,18 @@ function getProgram() {
 
 export async function syncHistoricalTradingData() {
   try {
-    console.log('🔄 Starting historical trading data sync...');
+    // console.log('🔄 Starting historical trading data sync...');
     
     const program = getProgram();
     const connection = getConnection();
     
     // Get all news accounts
     const newsAccounts = await program.account.newsAccount.all();
-    console.log(`📊 Found ${newsAccounts.length} news accounts`);
+    // console.log(`📊 Found ${newsAccounts.length} news accounts`);
     
     // Get all market accounts
     const marketAccounts = await program.account.market.all();
-    console.log(`📊 Found ${marketAccounts.length} market accounts`);
+    // console.log(`📊 Found ${marketAccounts.length} market accounts`);
     
     // Create a map of news account to market account
     const marketMap = new Map();
@@ -60,7 +60,7 @@ export async function syncHistoricalTradingData() {
       try {
         const marketData = marketMap.get(newsAccount.publicKey.toString());
         if (!marketData) {
-          console.log(`⚠️  No market data found for news account ${newsAccount.publicKey.toString()}`);
+          // console.log(`⚠️  No market data found for news account ${newsAccount.publicKey.toString()}`);
           continue;
         }
         
@@ -126,7 +126,7 @@ export async function syncHistoricalTradingData() {
         });
         
         if (existingTrades > 0) {
-          console.log(`✅ Token ${token.id} already has ${existingTrades} trades, skipping...`);
+          // console.log(`✅ Token ${token.id} already has ${existingTrades} trades, skipping...`);
           continue;
         }
         
@@ -171,7 +171,7 @@ export async function syncHistoricalTradingData() {
               syncedTrades++;
             }
           } catch (error) {
-            console.error(`Error parsing transaction ${signature}:`, error);
+            // console.error(`Error parsing transaction ${signature}:`, error);
           }
         }
         
@@ -188,19 +188,19 @@ export async function syncHistoricalTradingData() {
           });
         }
         
-        console.log(`✅ Synced token ${token.id} for story: ${newsAccount.account.headline}`);
+        // console.log(`✅ Synced token ${token.id} for story: ${newsAccount.account.headline}`);
         
       } catch (error) {
-        console.error(`❌ Error syncing news account ${newsAccount.publicKey.toString()}:`, error);
+        // console.error(`❌ Error syncing news account ${newsAccount.publicKey.toString()}:`, error);
       }
     }
     
-    console.log(`🎉 Sync complete!`);
-    console.log(`   ✅ Synced users: ${syncedUsers}`);
-    console.log(`   ✅ Synced trades: ${syncedTrades}`);
+    // console.log(`🎉 Sync complete!`);
+    // console.log(`   ✅ Synced users: ${syncedUsers}`);
+    // console.log(`   ✅ Synced trades: ${syncedTrades}`);
     
   } catch (error) {
-    console.error('❌ Failed to sync historical trading data:', error);
+    // console.error('❌ Failed to sync historical trading data:', error);
   } finally {
     await prisma.$disconnect();
   }
@@ -208,7 +208,7 @@ export async function syncHistoricalTradingData() {
 
 export async function syncMissingTrades() {
   try {
-    console.log('🔄 Syncing missing trades...');
+    // console.log('🔄 Syncing missing trades...');
     
     // Find tokens without trades
     const tokensWithoutTrades = await prisma.token.findMany({
@@ -222,7 +222,7 @@ export async function syncMissingTrades() {
       }
     });
     
-    console.log(`📊 Found ${tokensWithoutTrades.length} tokens without trades`);
+    // console.log(`📊 Found ${tokensWithoutTrades.length} tokens without trades`);
     
     let syncedTrades = 0;
     
@@ -269,23 +269,23 @@ export async function syncMissingTrades() {
           }
           
           if (hasRealTrades) {
-            console.log(`✅ Synced real trades for token ${token.id}`);
+            // console.log(`✅ Synced real trades for token ${token.id}`);
           } else {
-            console.log(`⚠️  No real trades found for token ${token.id}, skipping...`);
+            // console.log(`⚠️  No real trades found for token ${token.id}, skipping...`);
           }
         } else {
-          console.log(`⚠️  No market address for token ${token.id}, skipping...`);
+          // console.log(`⚠️  No market address for token ${token.id}, skipping...`);
         }
         
       } catch (error) {
-        console.error(`❌ Error syncing trades for token ${token.id}:`, error);
+        // console.error(`❌ Error syncing trades for token ${token.id}:`, error);
       }
     }
     
-    console.log(`🎉 Created ${syncedTrades} missing trades`);
+    // console.log(`🎉 Created ${syncedTrades} missing trades`);
     
   } catch (error) {
-    console.error('❌ Failed to sync missing trades:', error);
+    // console.error('❌ Failed to sync missing trades:', error);
   } finally {
     await prisma.$disconnect();
   }
@@ -303,7 +303,7 @@ if (require.main === module) {
       syncMissingTrades();
       break;
     default:
-      console.log('Usage: tsx sync-blockchain-data.ts [sync-historical|sync-missing]');
+      // console.log('Usage: tsx sync-blockchain-data.ts [sync-historical|sync-missing]');
       process.exit(1);
   }
 }

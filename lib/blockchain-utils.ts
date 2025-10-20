@@ -70,7 +70,7 @@ export async function fetchMarketAccount(address: string): Promise<MarketAccount
       delegationStatus: marketAccount.delegationStatus
     };
   } catch (error) {
-    console.error('Error fetching market account:', error);
+    // console.error('Error fetching market account:', error);
     return null;
   }
 }
@@ -93,7 +93,7 @@ export async function fetchNewsAccount(address: string): Promise<NewsAccountData
       nonce: Number(newsAccount.nonce)
     };
   } catch (error) {
-    console.error('Error fetching news account:', error);
+    // console.error('Error fetching news account:', error);
     return null;
   }
 }
@@ -156,7 +156,7 @@ export async function parseTransactionEvents(signature: string): Promise<Trading
     
     return events;
   } catch (error) {
-    console.error('Error parsing transaction events:', error);
+    // console.error('Error parsing transaction events:', error);
     return [];
   }
 }
@@ -181,7 +181,7 @@ function parseTokensPurchasedLog(log: string): { buyer: string; amount: number; 
     
     return null;
   } catch (error) {
-    console.error('Error parsing TokensPurchased log:', error);
+    // console.error('Error parsing TokensPurchased log:', error);
     return null;
   }
 }
@@ -206,7 +206,7 @@ function parseTokensSoldLog(log: string): { seller: string; amount: number; refu
     
     return null;
   } catch (error) {
-    console.error('Error parsing TokensSold log:', error);
+    // console.error('Error parsing TokensSold log:', error);
     return null;
   }
 }
@@ -283,7 +283,7 @@ export async function getMarketTransactionSignatures(marketAddress: string, limi
     const signatures = await connection.getSignaturesForAddress(marketPubkey, { limit });
     return signatures.map(sig => sig.signature);
   } catch (error) {
-    console.error('Error fetching transaction signatures:', error);
+    // console.error('Error fetching transaction signatures:', error);
     return [];
   }
 }
@@ -318,7 +318,7 @@ export async function findTokenByMarketAccount(marketAddress: string): Promise<{
       tokenId: token?.id
     };
   } catch (error) {
-    console.error('Error finding token by market account:', error);
+    // console.error('Error finding token by market account:', error);
     return null;
   }
 }

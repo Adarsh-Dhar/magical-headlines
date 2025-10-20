@@ -31,7 +31,7 @@ export function usePriceUpdates(tokenIds: string[], intervalMs: number = 30000) 
           }
           return null
         } catch (error) {
-          console.warn(`Failed to fetch price for token ${tokenId}:`, error)
+          // console.warn(`Failed to fetch price for token ${tokenId}:`, error)
           return null
         }
       })
@@ -48,7 +48,7 @@ export function usePriceUpdates(tokenIds: string[], intervalMs: number = 30000) 
       setPrices(prev => ({ ...prev, ...newPrices }))
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to fetch prices")
-      console.error("Error fetching prices:", error)
+      // console.error("Error fetching prices:", error)
     } finally {
       setLoading(false)
     }

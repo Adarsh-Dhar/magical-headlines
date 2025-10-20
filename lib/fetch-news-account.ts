@@ -82,7 +82,7 @@ export async function fetchNewsAccount(
       nonce: Number(nonce),
     };
   } catch (error) {
-    console.error("Failed to fetch news account:", error);
+    // console.error("Failed to fetch news account:", error);
     return null;
   }
 }
@@ -169,13 +169,13 @@ export async function fetchAllNewsAccounts(
         });
       } catch (error) {
         // Skip invalid accounts
-        console.log("Skipping invalid account:", account.pubkey.toString());
+        // console.log("Skipping invalid account:", account.pubkey.toString());
       }
     }
     
     return newsAccounts;
   } catch (error) {
-    console.error("Failed to fetch all news accounts:", error);
+    // console.error("Failed to fetch all news accounts:", error);
     return [];
   }
 }

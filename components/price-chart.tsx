@@ -49,6 +49,7 @@ interface PriceChartProps {
   height?: number
   liveUpdates?: boolean
   refreshInterval?: number
+  onchainVolumeSOL?: number
 }
 
 const chartConfig: ChartConfig = {
@@ -72,107 +73,142 @@ export function PriceChart({
   showVolume = false,
   height = 300,
   liveUpdates = true,
-  refreshInterval = 5000
+  refreshInterval = 5000,
+  onchainVolumeSOL
 }: PriceChartProps) {
   // State for current volume and data
   const [currentVolume, setCurrentVolume] = useState(0.1006); // Latest volume from trading status
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isEstimated, setIsEstimated] = useState(false);
+  const [onchainSeries, setOnchainSeries] = useState<Array<{ timestamp: string; volume: number }>>([]);
 
   // Real-time updates
   useEffect(() => {
     if (!liveUpdates) return;
 
     const interval = setInterval(async () => {
-      // Fetch real-time data instead of simulating
       try {
         if (tokenId) {
           const response = await fetch(`/api/tokens/${tokenId}/price-history?timeframe=1h&limit=10`);
+          
           if (response.ok) {
             const data = await response.json();
             if (data.priceHistory && data.priceHistory.length > 0) {
               const latest = data.priceHistory[data.priceHistory.length - 1];
               setCurrentVolume(latest.volume || 0);
               setLastUpdate(new Date());
+            } else if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0) {
+              // Sample on-chain volume when no trades are returned
+              const newPoint = { timestamp: new Date().toISOString(), volume: onchainVolumeSOL };
+              setOnchainSeries(prev => {
+                const updated = [...prev, newPoint].slice(-200);
+                // If this is the first point, create a baseline from 24h ago
+                if (prev.length === 0) {
+                  const now = new Date();
+                  const baseline = { timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), volume: onchainVolumeSOL };
+                  return [baseline, ...updated];
+                }
+                return updated;
+              });
+              setCurrentVolume(onchainVolumeSOL);
+              setLastUpdate(new Date());
+            } else {
             }
+          } else {
           }
         }
       } catch (error) {
-        console.error('Error fetching real-time data:', error);
       }
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [liveUpdates, refreshInterval, tokenId]);
+  }, [liveUpdates, refreshInterval, tokenId, onchainVolumeSOL]);
 
   // Fetch real price history data
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
+  const [dataSource, setDataSource] = useState<'database' | 'onchain' | 'none'>('none');
 
   useEffect(() => {
     const fetchPriceHistory = async () => {
       if (!tokenId) {
+        setFetchError('No token ID provided');
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
+        setFetchError(null);
+        
         const response = await fetch(`/api/tokens/${tokenId}/price-history?timeframe=24h&limit=100`);
         
-        if (response.ok) {
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
+        
           const data = await response.json();
-          setChartData(data.priceHistory || []);
+        
+        if (!data.priceHistory || data.priceHistory.length === 0) {
+          // No DB trades; fall back to plotting on-chain volume samples if available
+          if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0) {
+            const now = new Date();
+            const initialPoint = { timestamp: now.toISOString(), volume: onchainVolumeSOL };
+            // Create a simple time series with the current volume
+            const timeSeries = [
+              { timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), volume: onchainVolumeSOL },
+              { timestamp: now.toISOString(), volume: onchainVolumeSOL }
+            ];
+            setOnchainSeries(timeSeries);
+            setChartData([]);
+            setDataSource('onchain');
+            setIsEstimated(false);
+            setLastSuccessfulFetch(now);
+            // Price/volume log only
+          } else {
+            setFetchError('No trading data available. Oracle service may not be running or no trades have occurred.');
+            setChartData([]);
+            setDataSource('none');
+          }
+        } else {
+          setChartData(data.priceHistory);
           setVolumeChange(data.volumeChange || 0);
           setIsVolumeUp(data.isVolumeUp !== undefined ? data.isVolumeUp : true);
-          setIsEstimated(false); // Real data
-        } else {
-          // Fallback to blockchain-based estimates if API fails
-          try {
-            if (marketAddress) {
-              const marketData = await fetchMarketAccount(marketAddress);
-              if (marketData) {
-                const estimatedHistory = estimatePriceHistory(marketData.currentPrice, '24h');
-                setChartData(estimatedHistory);
-                setVolumeChange(0);
-                setIsVolumeUp(true);
-                setIsEstimated(true);
-              } else {
-                // Final fallback to basic estimates
-                const estimatedHistory = estimatePriceHistory(0.01, '24h');
-                setChartData(estimatedHistory);
-                setVolumeChange(0);
-                setIsVolumeUp(true);
-                setIsEstimated(true);
-              }
-            } else {
-              // Final fallback to basic estimates
-              const estimatedHistory = estimatePriceHistory(0.01, '24h');
-              setChartData(estimatedHistory);
-              setVolumeChange(0);
-              setIsVolumeUp(true);
-              setIsEstimated(true);
-            }
-          } catch (error) {
-            console.error('Error generating price estimates:', error);
-            // Final fallback to basic estimates
-            const estimatedHistory = estimatePriceHistory(0.01, '24h');
-            setChartData(estimatedHistory);
-            setVolumeChange(0);
-            setIsVolumeUp(true);
-            setIsEstimated(true);
-          }
+          setDataSource('database');
+          setLastSuccessfulFetch(new Date());
+          
+          // Log price data
+          const volumes = data.priceHistory.map((p: any) => p.volume);
+          const totalVolume = volumes.reduce((a: number, b: number) => a + b, 0);
         }
       } catch (error) {
-        console.error('Error fetching price history:', error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        setFetchError(`Failed to load chart data: ${errorMsg}`);
         setChartData([]);
+        setDataSource('none');
       } finally {
         setLoading(false);
       }
     };
 
     fetchPriceHistory();
-  }, [tokenId, currentVolume, lastUpdate]);
+  }, [tokenId, currentVolume, lastUpdate, onchainVolumeSOL]);
+
+  // Update chart when on-chain volume changes
+  useEffect(() => {
+    if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0 && dataSource === 'onchain') {
+      const now = new Date();
+      const newPoint = { timestamp: now.toISOString(), volume: onchainVolumeSOL };
+      setOnchainSeries(prev => {
+        const updated = [...prev, newPoint].slice(-200);
+        return updated;
+      });
+      setCurrentVolume(onchainVolumeSOL);
+      setLastUpdate(now);
+    }
+  }, [onchainVolumeSOL, dataSource]);
 
   const formatPrice = (price: number) => {
     if (price < 0.01) {
@@ -230,16 +266,26 @@ export function PriceChart({
             </div>
             <p className="text-sm text-muted-foreground truncate max-w-xs">
               Trading Volume (SOL)
-              {isEstimated && (
-                <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
-                  Estimated Data
+              {dataSource === 'database' && (
+                <span className="ml-2 text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                  Real Data
+                </span>
+              )}
+              {dataSource === 'onchain' && (
+                <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                  On-Chain Data
+                </span>
+              )}
+              {dataSource === 'none' && (
+                <span className="ml-2 text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                  {fetchError ? 'Error' : 'No Data'}
                 </span>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {chartData.length} data points
+              {dataSource === 'onchain' ? onchainSeries.length : chartData.length} data points
             </Badge>
             <Badge 
               variant={isVolumeUp ? "default" : "destructive"}
@@ -258,8 +304,20 @@ export function PriceChart({
 
         {/* Chart */}
         <div style={{ height }}>
+          {fetchError || (chartData.length === 0 && onchainSeries.length === 0) ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center p-8">
+                <p className="text-red-500 font-medium mb-2">
+                  {fetchError || 'No trading data available'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Ensure the oracle service is running to capture trading events
+                </p>
+              </div>
+            </div>
+          ) : (
           <ChartContainer config={chartConfig} className="h-full">
-            <AreaChart data={chartData}>
+              <AreaChart data={chartData.length > 0 ? chartData : onchainSeries}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="timestamp" 
@@ -296,6 +354,7 @@ export function PriceChart({
               />
             </AreaChart>
           </ChartContainer>
+          )}
         </div>
 
         {/* Stats */}

@@ -1,5 +1,4 @@
 "use client";
-// @ts-nocheck
 
 import React, { useMemo, useCallback } from "react";
 import * as anchor from "@coral-xyz/anchor";
@@ -147,13 +146,18 @@ export function useContract() {
       } as Idl;
       
       if (process.env.NODE_ENV === 'development') {
-        // console.log removed for production
-      }
+          address: minimalIdl.address,
+          instructionsCount: minimalIdl.instructions?.length || 0,
+          accountsCount: minimalIdl.accounts?.length || 0,
+          eventsCount: minimalIdl.events?.length || 0,
+          errorsCount: minimalIdl.errors?.length || 0,
+          typesCount: minimalIdl.types?.length || 0
+        });
         
-      // Debug: Check if publish_news instruction exists in IDL
-      const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
-      if (publishNewsInstruction) {
-        // console.log removed for production
+        // Debug: Check if publish_news instruction exists in IDL
+        const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
+        if (publishNewsInstruction) {
+        }
       }
       
       const program = new Program(minimalIdl, provider) as Program;
@@ -173,11 +177,11 @@ export function useContract() {
       
       if (!program.methods || !hasPublishNewsMethod) {
         // console.error("Program missing required methods:", {
-        //   hasMethods: !!program.methods,
-        //   hasPublishNews: !!(program.methods?.publish_news),
-        //   hasPublishNewsCamel: !!(program.methods?.publishNews),
-        //   allMethods: Object.keys(program.methods || {})
-        // });
+          hasMethods: !!program.methods,
+          hasPublishNews: !!(program.methods?.publish_news),
+          hasPublishNewsCamel: !!(program.methods?.publishNews),
+          allMethods: Object.keys(program.methods || {})
+        });
         return null;
       }
       
@@ -192,7 +196,15 @@ export function useContract() {
   
   // Only log in development mode to reduce console spam
   if (process.env.NODE_ENV === 'development') {
-    // console.log removed for production
+      program: !!program,
+      programType: typeof program,
+      hasMethods: !!(program?.methods),
+      hasAccounts: !!(program?.account),
+      publishNewsAvailable: !!(program?.methods?.publish_news || program?.methods?.publishNews),
+      walletConnected: walletAdapter.connected,
+      walletPublicKey: !!walletAdapter.publicKey,
+      walletSignTransaction: !!walletAdapter.signTransaction
+    });
   }
 
   const publishNews = useCallback(
@@ -211,12 +223,12 @@ export function useContract() {
       
       if (!currentProgram) {
         // console.error("Program not ready:", {
-        //   program: !!program,
-        //   publicKey: !!walletAdapter.publicKey,
-        //   connected: walletAdapter.connected,
-        //   signTransaction: !!walletAdapter.signTransaction,
-        //   walletAdapter: walletAdapter
-        // });
+          program: !!program,
+          publicKey: !!walletAdapter.publicKey,
+          connected: walletAdapter.connected,
+          signTransaction: !!walletAdapter.signTransaction,
+          walletAdapter: walletAdapter
+        });
         
         if (!walletAdapter.connected) {
           throw new Error("Wallet not connected. Please connect your wallet first.");
@@ -305,10 +317,10 @@ export function useContract() {
       
       if (!publishMethod) {
         // console.error("Publish method not found:", {
-        //   hasPublish_news: !!currentProgram.methods.publish_news,
-        //   hasPublishNews: !!currentProgram.methods.publishNews,
-        //   allMethods: Object.keys(currentProgram.methods || {})
-        // });
+          hasPublish_news: !!currentProgram.methods.publish_news,
+          hasPublishNews: !!currentProgram.methods.publishNews,
+          allMethods: Object.keys(currentProgram.methods || {})
+        });
         throw new Error("Publish method not found in program");
       }
       
@@ -839,7 +851,11 @@ export function useContract() {
           
           await Promise.all(batch.map(async (tokenAccount) => {
             try {
-              // console.log removed for production
+                mint: tokenAccount.mint,
+                amount: tokenAccount.amount,
+                rawAmount: tokenAccount.rawAmount,
+                decimals: tokenAccount.decimals
+              });
               
               const mintPda = new PublicKey(tokenAccount.mint);
               
@@ -873,7 +889,16 @@ export function useContract() {
                   
                   // For news tokens, use the actual token amount from the account
                   // Debug: log the raw values to understand the units
-                  // console.log removed for production
+                    mint: tokenAccount.mint,
+                    rawAmount: tokenAccount.rawAmount,
+                    rawAmountType: typeof tokenAccount.rawAmount,
+                    uiAmount: tokenAccount.amount,
+                    decimals: tokenAccount.decimals,
+                    rawAmountAsNumber: parseFloat(tokenAccount.rawAmount),
+                    calculatedAmount: parseFloat(tokenAccount.rawAmount) / Math.pow(10, tokenAccount.decimals),
+                    // Let's also check if the raw amount is actually much larger
+                    rawAmountLength: tokenAccount.rawAmount ? tokenAccount.rawAmount.length : 0
+                  });
                   
                   let actualAmount = 0;
                   if (tokenAccount.rawAmount) {
@@ -934,7 +959,15 @@ export function useContract() {
                     }
                   });
                   
-                  // console.log removed for production
+                    mint: tokenAccount.mint,
+                    headline: newsAccountData.headline,
+                    rawAmount: tokenAccount.rawAmount,
+                    decimals: tokenAccount.decimals,
+                    uiAmount: tokenAccount.amount,
+                    actualAmount: actualAmount,
+                    currentPrice: currentPrice,
+                    totalValue: totalValue
+                  });
                 }
               } catch (marketError) {
                 // This mint authority is not a market account, skip
@@ -957,7 +990,16 @@ export function useContract() {
         const totalTokensHeld = newsTokens.reduce((sum, token) => sum + token.amount, 0);
         const totalValue = newsTokens.reduce((sum, token) => sum + token.totalValue, 0);
         
-        // console.log removed for production
+          totalNewsTokens: newsTokens.length,
+          totalTokensHeld: totalTokensHeld,
+          totalValue: totalValue,
+          tokens: newsTokens.map(t => ({
+            mint: t.mint.slice(0, 8) + "...",
+            headline: t.headline,
+            amount: t.amount,
+            value: t.totalValue
+          }))
+        });
         
         return newsTokens;
       } catch (error) {
@@ -1012,7 +1054,11 @@ export function useContract() {
           }
         });
         
-        // console.log removed for production
+          totalTokenAccounts: tokenAccounts.length,
+          nonZeroTokenAccounts: nonZeroTokens,
+          totalTokensHeld: totalTokens,
+          averageTokensPerAccount: tokenAccounts.length > 0 ? totalTokens / tokenAccounts.length : 0
+        });
         
         return {
           totalTokenAccounts: tokenAccounts.length,
@@ -1031,7 +1077,13 @@ export function useContract() {
   // Debug function to test program creation
   const testProgram = useCallback(() => {
     const testProgram = getProgram();
-    // console.log removed for production
+      success: !!testProgram,
+      hasMethods: !!(testProgram?.methods),
+      hasPublishNews: !!(testProgram?.methods?.publish_news || testProgram?.methods?.publishNews),
+      walletConnected: walletAdapter.connected,
+      walletPublicKey: !!walletAdapter.publicKey,
+      walletSignTransaction: !!walletAdapter.signTransaction
+    });
     return testProgram;
   }, [getProgram, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction]);
 

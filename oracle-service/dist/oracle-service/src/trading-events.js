@@ -11,9 +11,53 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processTokensPurchasedEvent = processTokensPurchasedEvent;
 exports.processTokensSoldEvent = processTokensSoldEvent;
-const client_1 = require("@prisma/client");
+const client_1 = require("../node_modules/.prisma/client");
 const events_1 = require("./types/events");
 const prisma = new client_1.PrismaClient();
+function alignToUtcMinute(date) {
+    const ms = date.getTime();
+    return new Date(Math.floor(ms / 60000) * 60000);
+}
+function upsertTokenVolumeMinute(tokenId, timestamp, volumeSol, tradeType) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const minute = alignToUtcMinute(timestamp);
+        console.log(`Upserting volume for token ${tokenId}, minute ${minute.toISOString()}, volume ${volumeSol} SOL, type ${tradeType}`);
+        const existing = yield prisma.tokenVolumeMinute.findUnique({
+            where: {
+                UniqueTokenMinute: { tokenId, minute }
+            }
+        });
+        if (existing) {
+            const updated = yield prisma.tokenVolumeMinute.update({
+                where: { id: existing.id },
+                data: {
+                    volumeSol: existing.volumeSol + volumeSol,
+                    tradeCount: existing.tradeCount + 1,
+                    buyVolumeSol: tradeType === 'BUY'
+                        ? existing.buyVolumeSol + volumeSol
+                        : existing.buyVolumeSol,
+                    sellVolumeSol: tradeType === 'SELL'
+                        ? existing.sellVolumeSol + volumeSol
+                        : existing.sellVolumeSol,
+                }
+            });
+            console.log(`Updated existing volume record: ${updated.volumeSol} SOL total`);
+        }
+        else {
+            const created = yield prisma.tokenVolumeMinute.create({
+                data: {
+                    tokenId,
+                    minute,
+                    volumeSol,
+                    tradeCount: 1,
+                    buyVolumeSol: tradeType === 'BUY' ? volumeSol : 0,
+                    sellVolumeSol: tradeType === 'SELL' ? volumeSol : 0,
+                }
+            });
+            console.log(`Created new volume record: ${created.volumeSol} SOL`);
+        }
+    });
+}
 function processTokensPurchasedEvent(event, signature) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -39,6 +83,7 @@ function processTokensPurchasedEvent(event, signature) {
                     timestamp: new Date()
                 }
             });
+            yield upsertTokenVolumeMinute(token.id, trade.timestamp, eventData.cost, 'BUY');
             yield updateTokenStatistics(token.id);
             console.log('Successfully processed TokensPurchased event:', trade.id);
         }
@@ -72,6 +117,7 @@ function processTokensSoldEvent(event, signature) {
                     timestamp: new Date()
                 }
             });
+            yield upsertTokenVolumeMinute(token.id, trade.timestamp, eventData.refund, 'SELL');
             yield updateTokenStatistics(token.id);
             console.log('Successfully processed TokensSold event:', trade.id);
         }
@@ -100,12 +146,35 @@ function createOrUpdateUser(walletAddress) {
 function findTokenByMarketAccount(eventData) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const tokens = yield prisma.token.findMany({
-                include: {
-                    story: true
+            if (eventData.marketAccount) {
+                const token = yield prisma.token.findUnique({
+                    where: { marketAccount: eventData.marketAccount },
+                    include: { story: true }
+                });
+                if (token) {
+                    console.log(`Found token by market account: ${token.id}`);
+                    return token;
                 }
+            }
+            if (eventData.newsAccount) {
+                const token = yield prisma.token.findUnique({
+                    where: { newsAccount: eventData.newsAccount },
+                    include: { story: true }
+                });
+                if (token) {
+                    console.log(`Found token by news account: ${token.id}`);
+                    return token;
+                }
+            }
+            const tokens = yield prisma.token.findMany({
+                include: { story: true }
             });
-            return tokens[0] || null;
+            if (tokens.length > 0) {
+                console.log(`Using fallback token: ${tokens[0].id}`);
+                return tokens[0];
+            }
+            console.log('No tokens found in database');
+            return null;
         }
         catch (error) {
             console.error('Error finding token by market account:', error);

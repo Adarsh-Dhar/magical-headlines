@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching news tokens:", error)
+    // console.error("Error fetching news tokens:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

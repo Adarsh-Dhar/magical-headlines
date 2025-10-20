@@ -12,6 +12,8 @@ export async function GET(
     const timeframe = searchParams.get("timeframe") || "24h"; // 1h, 24h, 7d, 30d
     const limit = parseInt(searchParams.get("limit") || "100");
 
+    // console.log(`📥 [API] Price history request - Token: ${tokenId}, Timeframe: ${timeframe}`);
+
     // Calculate time range based on timeframe
     const now = new Date();
     let startTime: Date;
@@ -65,11 +67,14 @@ export async function GET(
     });
 
     if (!token) {
+      // console.log(`❌ [API] Token not found: ${tokenId}`);
       return NextResponse.json(
         { error: "Token not found" },
         { status: 404 }
       );
     }
+
+    // console.log(`📊 [API] Query result - ${token.trades.length} trades found`);
 
     // If no trades, create a basic price history with current price
     if (token.trades.length === 0) {
@@ -167,20 +172,22 @@ export async function GET(
     const earlierVolume = earlierTrades.reduce((sum, trade) => sum + trade.amount, 0);
 
     // Debug logging
-    console.log(`[Volume Change Debug] Token ${tokenId}:`);
-    console.log(`  Total trades: ${token.trades.length}`);
-    console.log(`  Recent trades (after ${halfTime.toISOString()}): ${recentTrades.length}`);
-    console.log(`  Earlier trades (before ${halfTime.toISOString()}): ${earlierTrades.length}`);
-    console.log(`  Recent volume: ${recentVolume}`);
-    console.log(`  Earlier volume: ${earlierVolume}`);
+    // console.log(`[Volume Change Debug] Token ${tokenId}:`);
+    // console.log(`  Total trades: ${token.trades.length}`);
+    // console.log(`  Recent trades (after ${halfTime.toISOString()}): ${recentTrades.length}`);
+    // console.log(`  Earlier trades (before ${halfTime.toISOString()}): ${earlierTrades.length}`);
+    // console.log(`  Recent volume: ${recentVolume}`);
+    // console.log(`  Earlier volume: ${earlierVolume}`);
 
     const volumeChange = earlierVolume > 0 
       ? ((recentVolume - earlierVolume) / earlierVolume) * 100 
       : 0;
     const isVolumeUp = volumeChange >= 0;
 
-    console.log(`  Volume change: ${volumeChange.toFixed(2)}%`);
-    console.log(`  Is volume up: ${isVolumeUp}`);
+    // console.log(`  Volume change: ${volumeChange.toFixed(2)}%`);
+    // console.log(`  Is volume up: ${isVolumeUp}`);
+
+    // console.log(`✅ [API] Returning ${priceHistory.length} data points to client`);
 
     return NextResponse.json({
       tokenId: token.id,
@@ -203,7 +210,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error("Error fetching price history:", error);
+    // console.error(`❌ [API] Error fetching price history for token ${tokenId}:`, error);
     return NextResponse.json(
       { error: "Failed to fetch price history" },
       { status: 500 }

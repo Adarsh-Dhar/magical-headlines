@@ -42,7 +42,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error("Error fetching market data from blockchain:", error);
+    // console.error("Error fetching market data from blockchain:", error);
     return NextResponse.json(
       { error: "Failed to fetch market data from blockchain" },
       { status: 500 }
