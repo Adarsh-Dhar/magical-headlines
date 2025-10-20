@@ -38,6 +38,8 @@ interface CandlestickChartProps {
   marketAddress?: string
   newsAccountAddress?: string
   mintAddress?: string
+  // When true, renders with locally generated test data instead of fetching
+  useTestData?: boolean
 }
 
 export function CandlestickChart({
@@ -51,6 +53,7 @@ export function CandlestickChart({
   ,marketAddress
   ,newsAccountAddress
   ,mintAddress
+  ,useTestData = false
 }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -189,6 +192,39 @@ export function CandlestickChart({
       default: return 60 * 1000
     }
   }
+
+  // Generate synthetic OHLC + volume data for testing
+  const generateTestData = useCallback((
+    candleCount: number,
+    startPrice: number,
+    intervalKey: string
+  ): { ohlc: OHLCData[]; vols: Array<{ time: UTCTimestamp, value: number; color?: string }> } => {
+    const ms = getIntervalMs(intervalKey)
+    const nowSec = Math.floor(Date.now() / 1000)
+    const startSec = nowSec - Math.floor((candleCount - 1) * (ms / 1000))
+
+    let lastClose = Math.max(startPrice, 0.00000001)
+    const ohlc: OHLCData[] = []
+    const vols: Array<{ time: UTCTimestamp, value: number; color?: string }> = []
+
+    for (let i = 0; i < candleCount; i++) {
+      const time = (startSec + Math.floor((i * ms) / 1000)) as UTCTimestamp
+      // random walk with slight volatility
+      const baseVol = Math.max(lastClose * 0.005, 0.0000001)
+      const delta = (Math.random() - 0.5) * 2 * baseVol
+      const open = lastClose
+      const close = Math.max(0.00000001, open + delta)
+      const high = Math.max(open, close) + Math.abs(delta) * (0.5 + Math.random())
+      const low = Math.max(0.00000001, Math.min(open, close) - Math.abs(delta) * (0.5 + Math.random()))
+      const volume = Math.floor(100 + Math.random() * 900)
+
+      ohlc.push({ time, open, high, low, close, volume })
+      vols.push({ time, value: volume })
+      lastClose = close
+    }
+
+    return { ohlc, vols }
+  }, [])
 
   // Initialize chart
   useEffect(() => {
@@ -329,10 +365,22 @@ export function CandlestickChart({
     volumeSeriesRef.current.setData(volumes as any)
   }, [volumes])
 
-  // Initial data fetch
+  // Initial data load (test data or fetch)
   useEffect(() => {
+    if (useTestData) {
+      setLoading(true)
+      const basePrice = typeof initialPrice === 'number' && initialPrice > 0 ? initialPrice : 1
+      const { ohlc, vols } = generateTestData(120, basePrice, interval)
+      setData(ohlc)
+      setVolumes(vols)
+      setSimulating(false)
+      setError(null)
+      setLastUpdate(new Date())
+      setLoading(false)
+      return
+    }
     fetchOHLCData()
-  }, [fetchOHLCData])
+  }, [fetchOHLCData, useTestData, interval, initialPrice, generateTestData])
 
   // Removed periodic polling to avoid frequent requests; updates happen on mount
   // and via optimistic updates from buy/sell actions.
