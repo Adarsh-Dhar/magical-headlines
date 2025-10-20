@@ -365,6 +365,51 @@ export type NewsPlatform = {
             ];
         },
         {
+            "name": "getCurrentPrice";
+            "docs": [
+                "Get the current price for buying 1 token"
+            ];
+            "discriminator": [
+                82,
+                101,
+                90,
+                124,
+                192,
+                68,
+                89,
+                159
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                }
+            ];
+            "args": [];
+            "returns": "u64";
+        },
+        {
             "name": "getNewsByAuthor";
             "docs": [
                 "Get news tokens by a specific author",
@@ -979,6 +1024,19 @@ export type NewsPlatform = {
     ];
     "events": [
         {
+            "name": "currentPriceRetrieved";
+            "discriminator": [
+                172,
+                231,
+                7,
+                52,
+                84,
+                76,
+                184,
+                67
+            ];
+        },
+        {
             "name": "marketAutoDelegated";
             "discriminator": [
                 193,
@@ -1180,6 +1238,26 @@ export type NewsPlatform = {
         }
     ];
     "types": [
+        {
+            "name": "currentPriceRetrieved";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "price";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "circulatingSupply";
+                        "type": "u64";
+                    }
+                ];
+            };
+        },
         {
             "name": "curveType";
             "type": {

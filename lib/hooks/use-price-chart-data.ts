@@ -46,7 +46,7 @@ export function usePriceChartData({
   timeframe = "24h",
   limit = 100,
   liveUpdates = true,
-  refreshInterval = 5000,
+  refreshInterval = 0,
 }: UsePriceChartDataProps) {
   const [historicalData, setHistoricalData] = useState<PriceHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,13 +156,7 @@ export function usePriceChartData({
     fetchHistoricalData();
   }, [fetchHistoricalData]);
 
-  // Update historical data periodically when live updates are disabled
-  useEffect(() => {
-    if (!liveUpdates) {
-      const interval = setInterval(fetchHistoricalData, refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [liveUpdates, refreshInterval, fetchHistoricalData]);
+  // Disable periodic updates to avoid frequent requests; caller can refetch manually
 
   const refetch = useCallback(() => {
     fetchHistoricalData();

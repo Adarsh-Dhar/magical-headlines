@@ -64,7 +64,8 @@ export function usePriceUpdates(tokenIds: string[], intervalMs: number = 30000) 
     fetchPrices()
 
     // Set up interval for periodic updates
-    intervalRef.current = setInterval(fetchPrices, intervalMs)
+    // Disable periodic polling to reduce RPC usage; trigger fetchPrices manually when needed
+    // intervalRef.current = setInterval(fetchPrices, intervalMs)
 
     return () => {
       if (intervalRef.current) {

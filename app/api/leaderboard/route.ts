@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Connection, PublicKey } from "@solana/web3.js"
+import { Connection, PublicKey, Keypair } from "@solana/web3.js"
 import { Program, AnchorProvider } from "@coral-xyz/anchor"
 import * as anchor from "@coral-xyz/anchor"
 import { prisma } from "@/lib/prisma"
@@ -45,19 +45,25 @@ export async function GET(request: NextRequest) {
       "confirmed"
     )
 
-    // Create program instance
+    // Create program instance with a minimal read-only wallet to satisfy Anchor
     const programId = getProgramId()
-    const program = new Program(NEWS_PLATFORM_IDL as any, new AnchorProvider(
-      connection,
-      {} as any, // We don't need a wallet for read-only operations
-      { commitment: "confirmed" }
-    ))
+    const readOnlyWallet = {
+      publicKey: Keypair.generate().publicKey,
+      signAllTransactions: async (txs: any[]) => txs,
+      signTransaction: async (tx: any) => tx,
+    } as any
+    const provider = new AnchorProvider(connection, readOnlyWallet, { commitment: "confirmed" })
+    const program = new Program(NEWS_PLATFORM_IDL as any, provider)
 
-    // Get all news accounts
-    const newsAccounts = await program.account.newsAccount.all()
-    
-    // Get all market accounts
-    const marketAccounts = await program.account.market.all()
+    // Safely fetch on-chain accounts; fall back to empty on failure
+    let newsAccounts: any[] = []
+    let marketAccounts: any[] = []
+    try {
+      newsAccounts = await program.account.newsAccount.all()
+    } catch {}
+    try {
+      marketAccounts = await program.account.market.all()
+    } catch {}
 
     // Create a map of news account to market data
     const marketMap = new Map()
@@ -65,7 +71,7 @@ export async function GET(request: NextRequest) {
       marketMap.set(market.account.newsAccount.toString(), market)
     })
 
-    // Fetch all users from database to get their names
+    // Fetch all users from database to get their names (tolerate empty DB)
     const users = await prisma.user.findMany({
       select: {
         walletAddress: true,
@@ -81,13 +87,11 @@ export async function GET(request: NextRequest) {
 
     // Fetch all trades to calculate real volume
     const trades = await prisma.trade.findMany({
-          include: {
-            token: {
-              include: {
-                story: true
-              }
-            }
-          }
+      include: {
+        token: {
+          include: { story: true }
+        }
+      }
     })
 
     // Create a map of token IDs to their corresponding news account addresses

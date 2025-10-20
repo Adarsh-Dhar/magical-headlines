@@ -45,10 +45,9 @@ export function MarketStats() {
       }
     }
     fetchStats()
-    const id = setInterval(fetchStats, 30_000)
+    // Disable periodic polling to reduce requests
     return () => {
       cancelled = true
-      clearInterval(id)
     }
   }, [])
 
@@ -95,8 +94,8 @@ export function MarketStats() {
       }
     }
     computeLiveTotal()
-    const interval = setInterval(computeLiveTotal, 30_000)
-    return () => { cancelled = true; clearInterval(interval) }
+    // Disable periodic polling for live total
+    return () => { cancelled = true }
   }, [pdas, getMarketDelegationStatus])
 
   const stats: StatItem[] = useMemo(() => [

@@ -72,8 +72,8 @@ export function PriceChart({
   className,
   showVolume = false,
   height = 300,
-  liveUpdates = true,
-  refreshInterval = 5000,
+  liveUpdates = false,
+  refreshInterval = 0,
   onchainVolumeSOL
 }: PriceChartProps) {
   // State for current volume and data
@@ -82,47 +82,7 @@ export function PriceChart({
   const [isEstimated, setIsEstimated] = useState(false);
   const [onchainSeries, setOnchainSeries] = useState<Array<{ timestamp: string; volume: number }>>([]);
 
-  // Real-time updates
-  useEffect(() => {
-    if (!liveUpdates) return;
-
-    const interval = setInterval(async () => {
-      try {
-        if (tokenId) {
-          const response = await fetch(`/api/tokens/${tokenId}/price-history?timeframe=1h&limit=10`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.priceHistory && data.priceHistory.length > 0) {
-              const latest = data.priceHistory[data.priceHistory.length - 1];
-              setCurrentVolume(latest.volume || 0);
-              setLastUpdate(new Date());
-            } else if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0) {
-              // Sample on-chain volume when no trades are returned
-              const newPoint = { timestamp: new Date().toISOString(), volume: onchainVolumeSOL };
-              setOnchainSeries(prev => {
-                const updated = [...prev, newPoint].slice(-200);
-                // If this is the first point, create a baseline from 24h ago
-                if (prev.length === 0) {
-                  const now = new Date();
-                  const baseline = { timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), volume: onchainVolumeSOL };
-                  return [baseline, ...updated];
-                }
-                return updated;
-              });
-              setCurrentVolume(onchainVolumeSOL);
-              setLastUpdate(new Date());
-            } else {
-            }
-          } else {
-          }
-        }
-      } catch (error) {
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [liveUpdates, refreshInterval, tokenId, onchainVolumeSOL]);
+  // Real-time polling disabled to avoid frequent requests
 
   // Fetch real price history data
   const [chartData, setChartData] = useState<any[]>([]);

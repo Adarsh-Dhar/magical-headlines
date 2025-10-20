@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
-import { PriceChart } from "@/components/price-chart"
-import { VolumeMinuteChart } from "@/components/volume-minute-chart"
+import { CandlestickChart } from "@/components/candlestick-chart"
 import { useEffect, useState, useCallback, useMemo, memo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -119,53 +118,6 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const marketCap = useMemo(() => token ? token.marketCap : 0, [token?.marketCap])
   const isAuthor = useMemo(() => !!(publicKey && story?.submitter?.walletAddress === publicKey.toString()), [publicKey, story?.submitter?.walletAddress])
 
-  // Chart props memoization
-  const chartProps = useMemo(() => {
-    const baseProps = {
-      height: 400,
-      showVolume: true,
-      liveUpdates: true,
-      refreshInterval: 2000,
-      onchainVolumeSOL: delegationStatus ? (delegationStatus.totalVolume / 1e9) : undefined
-    }
-
-    if (story?.token) {
-      if (story.authorAddress && story.nonce && pdas && 
-          typeof pdas.findNewsPda === 'function' && 
-          typeof pdas.findMarketPda === 'function' && 
-          typeof pdas.findMintPda === 'function') {
-        const authorAddress = new PublicKey(story.authorAddress)
-        const nonce = parseInt(story.nonce)
-        const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
-        const marketPda = pdas.findMarketPda(newsAccountPubkey)
-        const mintPda = pdas.findMintPda(newsAccountPubkey)
-        
-        return {
-          ...baseProps,
-          tokenId: story.token.id,
-          marketAddress: marketPda.toString(),
-          newsAccountAddress: newsAccountPubkey.toString(),
-          mintAddress: mintPda.toString()
-        }
-      } else {
-        return {
-          ...baseProps,
-          tokenId: story.token.id,
-          marketAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf",
-          newsAccountAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf",
-          mintAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
-        }
-      }
-    } else {
-      return {
-        ...baseProps,
-        tokenId: story?.id || '',
-        marketAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf",
-        newsAccountAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf",
-        mintAddress: "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf"
-      }
-    }
-  }, [story?.token, story?.authorAddress, story?.nonce, story?.id, pdas, delegationStatus])
 
   // All useCallback hooks - must be called in same order every time
   const fetchStory = useCallback(async () => {
@@ -222,54 +174,26 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         const nonce = parseInt(story.nonce)
         const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
         const marketPda = pdas.findMarketPda(newsAccountPubkey)
-        
-        // First try to get market data using getMarketDelegationStatus
-        let marketData = null
-        try {
-          if (getMarketDelegationStatus && typeof getMarketDelegationStatus === 'function') {
-            marketData = await getMarketDelegationStatus(marketPda)
-          }
-        } catch (marketError) {
-        }
-        
-        // Calculate price using market data
-        if (marketData) {
-          const basePrice = Number(marketData.basePrice) / 1e9 // Convert to SOL
-          const circulatingSupply = Number(marketData.circulatingSupply)
-          const totalVolume = Number(marketData.totalVolume) / 1e9 // Convert to SOL
-          
-          // Exponential calculation: base * (1 + supply/10000)
-          const multiplier = Math.min(10000 + circulatingSupply, 20000) / 10000
+
+        // Prefer local calculation when delegationStatus is available to avoid extra RPCs
+        if (delegationStatus) {
+          const basePrice = Number(delegationStatus.basePrice) / 1e9
+          const circulatingSupply = Number(delegationStatus.circulatingSupply)
+          const multiplier = (10000 + circulatingSupply) / 10000
           const calculatedPrice = basePrice * multiplier
-          
           if (calculatedPrice > 0) {
             setCurrentPrice(calculatedPrice)
             return
           }
         }
-        
-        // Fallback: Use volume-based price estimation
-        if (delegationStatus && delegationStatus.totalVolume > 0) {
-          const volumeSOL = delegationStatus.totalVolume / 1e9
-          const supply = delegationStatus.circulatingSupply
-          
-          // Rough price estimate: volume / supply * 0.1 (conservative multiplier)
-          const estimatedPrice = (volumeSOL / supply) * 0.1
-          
-          if (estimatedPrice > 0.000001) { // Only use if reasonable
-            setCurrentPrice(estimatedPrice)
-            return
-          }
-        }
-        
-        // Fallback: try contract call
+
+        // Fallback: try contract call once
         if (getCurrentPrice && typeof getCurrentPrice === 'function') {
           try {
             const price = await getCurrentPrice({
               market: marketPda,
               newsAccount: newsAccountPubkey
             })
-            
             if (price && price > 0 && !isNaN(price)) {
               setCurrentPrice(price)
             } else {
@@ -287,7 +211,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         setIsLoadingPrice(false)
       }
     }
-  }, [story?.authorAddress, story?.nonce, pdas, getCurrentPrice, getMarketDelegationStatus, delegationStatus])
+  }, [story?.authorAddress, story?.nonce, pdas, getCurrentPrice, delegationStatus])
 
   const handleBuy = useCallback(async () => {
     if (!story?.token) {
@@ -353,6 +277,21 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       })
       setTradingSuccess(`Successfully bought ${amount} tokens! Transaction: ${signature}`)
       setBuyAmount("")
+
+      // Optimistic UI update for price and supply
+      setDelegationStatus(prev => {
+        if (!prev) return prev
+        const updatedSupply = prev.circulatingSupply + amount
+        const calculatedPrice = (Number(prev.basePrice) / 1e9) * ((10000 + updatedSupply) / 10000)
+        setCurrentPrice(calculatedPrice)
+        
+        // Update candlestick chart with new price
+        if (typeof window !== 'undefined' && (window as any).updateCandlestickChart) {
+          (window as any).updateCandlestickChart(calculatedPrice)
+        }
+        
+        return { ...prev, circulatingSupply: updatedSupply }
+      })
       
       // Provisional write to minute volume for immediate UI feedback
       try {
@@ -441,6 +380,21 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       })
       setTradingSuccess(`Successfully sold ${amount} tokens!`)
       setSellAmount("")
+
+      // Optimistic UI update for price and supply after sell
+      setDelegationStatus(prev => {
+        if (!prev) return prev
+        const updatedSupply = Math.max(0, prev.circulatingSupply - amount)
+        const calculatedPrice = (Number(prev.basePrice) / 1e9) * ((10000 + updatedSupply) / 10000)
+        setCurrentPrice(calculatedPrice)
+        
+        // Update candlestick chart with new price
+        if (typeof window !== 'undefined' && (window as any).updateCandlestickChart) {
+          (window as any).updateCandlestickChart(calculatedPrice)
+        }
+        
+        return { ...prev, circulatingSupply: updatedSupply }
+      })
       
       // Provisional write to minute volume for immediate UI feedback
       try {
@@ -551,15 +505,20 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     fetchDelegationStatus()
   }, [story?.authorAddress, story?.nonce, getMarketDelegationStatus, pdas])
 
-  useEffect(() => {
-    refetchCurrentPrice()
-  }, [refetchCurrentPrice])
+  // Remove eager price refetch on mount to avoid duplicate RPCs
 
   useEffect(() => {
+    // When delegation status arrives, compute price locally without extra RPCs
     if (delegationStatus) {
-      refetchCurrentPrice()
+      const basePrice = Number(delegationStatus.basePrice) / 1e9
+      const circulatingSupply = Number(delegationStatus.circulatingSupply)
+      const multiplier = (10000 + circulatingSupply) / 10000
+      const calculatedPrice = basePrice * multiplier
+      if (calculatedPrice > 0) {
+        setCurrentPrice(calculatedPrice)
+      }
     }
-  }, [delegationStatus, refetchCurrentPrice])
+  }, [delegationStatus])
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -819,7 +778,25 @@ const StoryDetailPage = memo(function StoryDetailPage() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <PriceChart {...chartProps} />
+            {story?.token ? (
+              <CandlestickChart 
+                tokenId={story.token.id} 
+                live={true} 
+                interval="1m"
+                height={400}
+                marketAddress={story.token?.market || ''}
+                newsAccountAddress={story.token?.newsAccount || ''}
+                mintAddress={story.token?.mint || ''}
+              />
+            ) : (
+              <Card className="p-6">
+                <div className="flex items-center justify-center" style={{ height: 400 }}>
+                  <div className="text-center">
+                    <p className="text-muted-foreground">No token data available for charting</p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             <Card className="p-6" id="comments">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>

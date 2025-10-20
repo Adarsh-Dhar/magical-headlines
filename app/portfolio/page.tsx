@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { TrendingUpIcon, TrendingDownIcon, WalletIcon, RefreshCwIcon } from "lucide-react"
 import { useContract } from "@/lib/use-contract"
 import { useWallet } from "@solana/wallet-adapter-react"
@@ -20,6 +21,7 @@ interface PortfolioHolding {
   amount: number;
   currentPrice: number;
   totalValue: number;
+  marketSharePercent?: number;
   marketData: {
     currentSupply: string;
     circulatingSupply: string;
@@ -86,9 +88,21 @@ export default function PortfolioPage() {
   const avgPrice = totalTokens > 0 ? totalValue / totalTokens : 0
   
   // Calculate additional metrics
-  const totalSupply = portfolioHoldings.reduce((sum, h) => sum + parseInt(h.marketData.currentSupply), 0)
+  const totalSupply = portfolioHoldings.reduce((sum, h) => sum + parseFloat(h.marketData.currentSupply || '0'), 0)
   const totalPercentageOwned = totalSupply > 0 ? (totalTokens / totalSupply) * 100 : 0
   const uniqueStories = portfolioHoldings.length
+
+  // helpers
+  const formatPercent = (p: number, dp = 6) => {
+    const threshold = Math.pow(10, -dp)
+    if (p > 0 && p < threshold) return `< ${threshold.toFixed(dp)}%`
+    return `${p.toFixed(dp)}%`
+  }
+  const formatTotalTokens = (n: number) => {
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+    if (n > 0) return n.toFixed(9)
+    return '0'
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,7 +142,7 @@ export default function PortfolioPage() {
               </div>
               <span className="text-sm text-muted-foreground">Total Tokens</span>
             </div>
-            <p className="text-3xl font-bold text-primary">{totalTokens.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-primary">{formatTotalTokens(totalTokens)}</p>
             <p className="text-xs text-muted-foreground mt-1">Tokens owned</p>
           </Card>
 
@@ -139,7 +153,7 @@ export default function PortfolioPage() {
               </div>
               <span className="text-sm text-muted-foreground">Market Share</span>
             </div>
-            <p className="text-3xl font-bold text-blue-600">{totalPercentageOwned.toFixed(2)}%</p>
+            <p className="text-3xl font-bold text-blue-600">{formatPercent(totalPercentageOwned, 6)}</p>
             <p className="text-xs text-muted-foreground mt-1">Of total supply</p>
           </Card>
 
@@ -221,11 +235,12 @@ export default function PortfolioPage() {
               </thead>
               <tbody>
                 {portfolioHoldings.map((holding) => {
-                  const totalSupply = parseInt(holding.marketData.currentSupply);
+                  const totalSupply = parseFloat(holding.marketData.currentSupply || '0');
                   const userBalance = holding.amount;
-                  // Market supply is already in the correct units
-                  const actualTotalSupply = totalSupply;
-                  const percentageOwned = actualTotalSupply > 0 ? (userBalance / actualTotalSupply) * 100 : 0;
+                  // Prefer precomputed market share percent; fallback to compute
+                  const percentageOwned = typeof holding.marketSharePercent === 'number'
+                    ? holding.marketSharePercent
+                    : (totalSupply > 0 ? (userBalance / totalSupply) * 100 : 0);
                   
                   return (
                     <tr key={holding.mint} className="border-t hover:bg-accent/50 transition-colors">
@@ -261,18 +276,14 @@ export default function PortfolioPage() {
                               percentageOwned >= 5 ? 'text-yellow-600' : 
                               'text-muted-foreground'
                             }`}>
-                              {percentageOwned > 0 ? percentageOwned.toFixed(6) : '0.000000'}%
+                              {formatPercent(percentageOwned, 6)}
                             </span>
+                            <Badge variant="secondary" className="ml-2">
+                              Share
+                            </Badge>
                           </div>
-                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                percentageOwned >= 10 ? 'bg-green-500' : 
-                                percentageOwned >= 5 ? 'bg-yellow-500' : 
-                                'bg-gray-400'
-                              }`}
-                              style={{ width: `${Math.min(percentageOwned, 100)}%` }}
-                            ></div>
+                          <div className="w-32">
+                            <Progress value={Math.min(percentageOwned, 100)} />
                           </div>
                           <span className="text-xs text-muted-foreground mt-1">
                             of total supply
@@ -289,7 +300,7 @@ export default function PortfolioPage() {
                       </td>
                       <td className="p-4 text-right">
                         <span className="text-sm text-muted-foreground">
-                          {actualTotalSupply.toLocaleString()}
+                          {totalSupply.toLocaleString(undefined, { maximumFractionDigits: 9 })}
                         </span>
                       </td>
                     </tr>

@@ -401,11 +401,34 @@ export function useContract() {
         owner: buyer,
       });
       
-
-      // Debug: Check market account state
+      // Log price before buy
       try {
-        const marketAccount = await (program.account as any).market.fetch(params.market);
+        // Prefer contract view to avoid account decode issues
+        const priceLamports = await program.methods
+          .getCurrentPrice()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+          })
+          .view();
+        const priceBefore = Number(priceLamports) / 1e9;
+
+        // Best-effort supply logging (optional)
+        let circulatingSupply: number | null = null;
+        try {
+          const marketAccount = await (program.account as any).market.fetch(params.market);
+          circulatingSupply = Number(marketAccount.circulatingSupply);
+        } catch (_) {
+          // ignore decode errors
+        }
+
+        if (circulatingSupply !== null) {
+          console.log(`[BUY] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Supply: ${circulatingSupply}, Buying: ${params.amount} tokens`);
+        } else {
+          console.log(`[BUY] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Buying: ${params.amount} tokens`);
+        }
       } catch (error) {
+        console.log(`[BUY] Could not fetch price before buy:`, error);
       }
       
       // Retry logic for blockhash issues
@@ -414,7 +437,7 @@ export function useContract() {
       
       while (retries > 0) {
         try {
-          return await program.methods
+          const signature = await program.methods
             .buy(new anchor.BN(params.amount))
             .accounts({
               market: params.market,
@@ -427,6 +450,35 @@ export function useContract() {
               systemProgram: SystemProgram.programId,
             })
             .rpc();
+          
+          // Log price after buy
+          try {
+            const priceLamports = await program.methods
+              .getCurrentPrice()
+              .accounts({
+                market: params.market,
+                newsAccount: params.newsAccount,
+              })
+              .view();
+            const priceAfter = Number(priceLamports) / 1e9;
+
+            // Best-effort supply logging
+            let circulatingSupply: number | null = null;
+            try {
+              const marketAccount = await (program.account as any).market.fetch(params.market);
+              circulatingSupply = Number(marketAccount.circulatingSupply);
+            } catch (_) {}
+            
+            if (circulatingSupply !== null) {
+              console.log(`[BUY] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Supply: ${circulatingSupply}, Transaction: ${signature.slice(0, 8)}...`);
+            } else {
+              console.log(`[BUY] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Transaction: ${signature.slice(0, 8)}...`);
+            }
+          } catch (error) {
+            console.log(`[BUY] Could not fetch price after buy:`, error);
+          }
+          
+          return signature;
         } catch (error) {
           lastError = error;
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -458,7 +510,33 @@ export function useContract() {
         owner: buyer,
       });
       
-      return await program.methods
+      // Log price before sell
+      try {
+        const priceLamports = await program.methods
+          .getCurrentPrice()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+          })
+          .view();
+        const priceBefore = Number(priceLamports) / 1e9;
+
+        let circulatingSupply: number | null = null;
+        try {
+          const marketAccount = await (program.account as any).market.fetch(params.market);
+          circulatingSupply = Number(marketAccount.circulatingSupply);
+        } catch (_) {}
+        
+        if (circulatingSupply !== null) {
+          console.log(`[SELL] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Supply: ${circulatingSupply}, Selling: ${params.amount} tokens`);
+        } else {
+          console.log(`[SELL] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Selling: ${params.amount} tokens`);
+        }
+      } catch (error) {
+        console.log(`[SELL] Could not fetch price before sell:`, error);
+      }
+      
+      const signature = await program.methods
         .sell(new anchor.BN(params.amount))
         .accounts({
           market: params.market,
@@ -471,6 +549,34 @@ export function useContract() {
           systemProgram: SystemProgram.programId,
         })
         .rpc();
+      
+      // Log price after sell
+      try {
+        const priceLamports = await program.methods
+          .getCurrentPrice()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+          })
+          .view();
+        const priceAfter = Number(priceLamports) / 1e9;
+
+        let circulatingSupply: number | null = null;
+        try {
+          const marketAccount = await (program.account as any).market.fetch(params.market);
+          circulatingSupply = Number(marketAccount.circulatingSupply);
+        } catch (_) {}
+        
+        if (circulatingSupply !== null) {
+          console.log(`[SELL] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Supply: ${circulatingSupply}, Transaction: ${signature.slice(0, 8)}...`);
+        } else {
+          console.log(`[SELL] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Transaction: ${signature.slice(0, 8)}...`);
+        }
+      } catch (error) {
+        console.log(`[SELL] Could not fetch price after sell:`, error);
+      }
+      
+      return signature;
     },
     [program, walletAdapter.publicKey]
   );
@@ -671,7 +777,7 @@ export function useContract() {
             for (let i = 0; i < amount; i++) {
               const supply = circulatingSupply + i;
               // Use the same calculation as the contract: base_price * (1 + supply/10000)
-              const multiplier = Math.min(10000 + supply, 20000); // Cap at 2x to prevent overflow
+              const multiplier = 10000 + supply; // Remove cap to allow proper bonding curve behavior
               const price = Math.floor((basePrice * multiplier) / 10000);
               totalCost += price;
             }
@@ -693,7 +799,7 @@ export function useContract() {
             // Default to exponential if curve type is unknown
             for (let i = 0; i < amount; i++) {
               const supply = circulatingSupply + i;
-              const multiplier = Math.min(10000 + supply, 20000);
+              const multiplier = 10000 + supply;
               const price = Math.floor((basePrice * multiplier) / 10000);
               totalCost += price;
             }
@@ -736,6 +842,15 @@ export function useContract() {
       if (!program) throw new Error("Program not ready");
       try {
         const marketAccount = await (program.account as any).market.fetch(marketAddress);
+        
+        // Log token price when fetching market status
+        const basePrice = Number(marketAccount.basePrice) / 1e9;
+        const circulatingSupply = Number(marketAccount.circulatingSupply);
+        const multiplier = (10000 + circulatingSupply) / 10000;
+        const currentPrice = basePrice * multiplier;
+        
+        console.log(`[TOKEN PRICE] Market ${marketAddress.toString().slice(0, 8)}... - Price: $${currentPrice.toFixed(10)}, Supply: ${circulatingSupply}, Base: $${basePrice.toFixed(10)}`);
+        
         return {
           isDelegated: marketAccount.isDelegated,
           rollupAuthority: marketAccount.rollupAuthority,
@@ -894,22 +1009,30 @@ export function useContract() {
                   // Calculate total value
                   const totalValue = actualAmount * currentPrice;
                   
-                  // Get the actual total supply from the mint account
-                  // The market's current_supply represents available tokens for trading
-                  // The total supply is the mint's total supply
+                  // Get the mint account data (supply and decimals)
                   const mintAccountInfo = await connection.getAccountInfo(mintPda);
                   let actualTotalSupply = 0;
+                  let mintDecimals = 9;
                   if (mintAccountInfo) {
-                    // Parse mint account to get total supply
-                    // Mint account structure: https://docs.solana.com/developing/programming-model/accounts#mint-account
                     const mintData = mintAccountInfo.data;
-                    if (mintData.length >= 36) {
-                      // Total supply is at offset 36-44 (8 bytes, little-endian u64)
+                    if (mintData.length >= 45) {
+                      // Total supply is at offset 36-44 (u64 LE); decimals at offset 44 (u8)
                       const supplyBytes = mintData.slice(36, 44);
+                      mintDecimals = mintData[44];
                       const supply = new DataView(supplyBytes.buffer).getBigUint64(0, true);
-                      actualTotalSupply = Number(supply) / Math.pow(10, tokenAccount.decimals);
+                      actualTotalSupply = Number(supply) / Math.pow(10, mintDecimals);
                     }
                   }
+
+                  // Normalize user amount strictly with mint decimals
+                  let normalizedUserAmount = 0;
+                  if (tokenAccount.rawAmount) {
+                    const rawAmountNum = Number(tokenAccount.rawAmount);
+                    normalizedUserAmount = rawAmountNum / Math.pow(10, mintDecimals);
+                  }
+
+                  // Compute market share percent using mint total supply
+                  const marketSharePercent = actualTotalSupply > 0 ? (normalizedUserAmount / actualTotalSupply) * 100 : 0;
                   
                   newsTokens.push({
                     newsAccount: newsAccount.toString(),
@@ -920,9 +1043,10 @@ export function useContract() {
                     summaryLink: newsAccountData.summaryLink,
                     author: newsAccountData.authority.toString(),
                     publishedAt: newsAccountData.publishedAt,
-                    amount: actualAmount,
+                    amount: normalizedUserAmount,
                     currentPrice: currentPrice,
                     totalValue: totalValue,
+                    marketSharePercent,
                     marketData: {
                       currentSupply: actualTotalSupply.toString(),
                       circulatingSupply: marketAccount.circulatingSupply.toString(),
@@ -966,6 +1090,50 @@ export function useContract() {
       }
     },
     [program, walletAdapter.publicKey, fetchUserTokenAccounts, connection, estimateBuyCost]
+  );
+
+  // Compute user's market share for a given mint using mint total supply
+  const getUserMarketShare = useCallback(
+    async (mintPda: PublicKey) => {
+      if (!walletAdapter.publicKey || !connection) throw new Error("Wallet not ready");
+      
+      // Derive the user's associated token account
+      const ata = await anchor.utils.token.associatedAddress({
+        mint: mintPda,
+        owner: walletAdapter.publicKey,
+      });
+      
+      // Fetch mint total supply and decimals from mint account
+      const mintAccountInfo = await connection.getAccountInfo(mintPda);
+      let totalSupply = 0;
+      let mintDecimals = 9;
+      if (mintAccountInfo) {
+        const mintData = mintAccountInfo.data;
+        if (mintData.length >= 45) {
+          const supplyBytes = mintData.slice(36, 44);
+          mintDecimals = mintData[44];
+          const supply = new DataView(supplyBytes.buffer).getBigUint64(0, true);
+          totalSupply = Number(supply) / Math.pow(10, mintDecimals);
+        }
+      }
+
+      // Fetch user's token balance and normalize with mint decimals
+      const parsedAta = await connection.getParsedAccountInfo(ata);
+      let userAmount = 0;
+      try {
+        const info: any = parsedAta.value;
+        if (info?.data?.parsed?.info?.tokenAmount) {
+          const tokenAmount = info.data.parsed.info.tokenAmount;
+          const raw = Number(tokenAmount.amount);
+          userAmount = raw / Math.pow(10, mintDecimals);
+        }
+      } catch (_) {}
+      
+      const percent = totalSupply > 0 ? (userAmount / totalSupply) * 100 : 0;
+      
+      return { userAmount, totalSupply, percent } as const;
+    },
+    [walletAdapter.publicKey, connection]
   );
 
   // Helper function to find news account from mint
@@ -1059,6 +1227,7 @@ export function useContract() {
     // user token functions
     fetchUserTokenAccounts,
     fetchUserNewsTokens,
+    getUserMarketShare,
     getTotalTokenStats,
     // pda helpers exposed for UI composition
     pdas: {

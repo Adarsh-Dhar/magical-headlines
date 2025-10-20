@@ -365,6 +365,51 @@
             ]
         },
         {
+            "name": "get_current_price",
+            "docs": [
+                "Get the current price for buying 1 token"
+            ],
+            "discriminator": [
+                82,
+                101,
+                90,
+                124,
+                192,
+                68,
+                89,
+                159
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                }
+            ],
+            "args": [],
+            "returns": "u64"
+        },
+        {
             "name": "get_news_by_author",
             "docs": [
                 "Get news tokens by a specific author",
@@ -979,6 +1024,19 @@
     ],
     "events": [
         {
+            "name": "CurrentPriceRetrieved",
+            "discriminator": [
+                172,
+                231,
+                7,
+                52,
+                84,
+                76,
+                184,
+                67
+            ]
+        },
+        {
             "name": "MarketAutoDelegated",
             "discriminator": [
                 193,
@@ -1180,6 +1238,26 @@
         }
     ],
     "types": [
+        {
+            "name": "CurrentPriceRetrieved",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "price",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "circulating_supply",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
         {
             "name": "CurveType",
             "type": {

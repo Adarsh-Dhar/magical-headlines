@@ -26,7 +26,7 @@ export function useLivePrice({
   newsAccountAddress,
   mintAddress,
   enabled = true,
-  refreshInterval = 5000, // 5 seconds
+  refreshInterval = 0, // pass >0 (e.g., 5000) to enable polling
 }: UseLivePriceProps) {
   const [data, setData] = useState<LivePriceData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,24 +68,20 @@ export function useLivePrice({
     }
   }, [program, marketAddress, enabled, estimateBuyCost, getMarketDelegationStatus]);
 
-  // Initial fetch
+  // Initial fetch + optional polling
   useEffect(() => {
-    if (enabled) {
-      fetchLivePrice();
-    }
-  }, [enabled, fetchLivePrice]);
+    if (!enabled) return;
 
-  // Set up polling
-  useEffect(() => {
-    if (!enabled || refreshInterval <= 0) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
+    // Immediate fetch
+    fetchLivePrice();
 
-    intervalRef.current = setInterval(fetchLivePrice, refreshInterval);
+    // Setup polling if interval specified
+    if (refreshInterval && refreshInterval > 0) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        fetchLivePrice();
+      }, refreshInterval);
+    }
 
     return () => {
       if (intervalRef.current) {
