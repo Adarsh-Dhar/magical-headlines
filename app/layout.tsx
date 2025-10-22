@@ -6,6 +6,7 @@ import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { Providers } from "@/components/providers"
 import { SolanaProvider } from "./provider"
+import { ChunkRecovery } from "@/components/chunk-recovery"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className="font-sans">
         <SolanaProvider>
           <Providers>
+            <ChunkRecovery />
             <Navigation />
             {children}
           </Providers>

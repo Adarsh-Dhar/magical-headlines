@@ -2,17 +2,36 @@
 
 import React from "react"
 import { Card } from "@/components/ui/card"
+import { useLivePrice } from "@/lib/hooks/use-live-price"
 
 interface SimpleChartProps {
   className?: string
   height?: number
+  marketAddress?: string
+  newsAccountAddress?: string
+  mintAddress?: string
+  live?: boolean
 }
 
-export function SimpleChart({ className = "", height = 400 }: SimpleChartProps) {
-  // Create demo data for a simple line chart
+export function SimpleChart({ 
+  className = "", 
+  height = 400, 
+  marketAddress,
+  newsAccountAddress,
+  mintAddress,
+  live = true
+}: SimpleChartProps) {
+  const { data: livePriceData } = useLivePrice({
+    marketAddress: marketAddress || "",
+    newsAccountAddress: newsAccountAddress || "",
+    mintAddress: mintAddress || "",
+    enabled: live && !!marketAddress && !!newsAccountAddress && !!mintAddress,
+    refreshInterval: 5000,
+  })
+  // Create demo data for a simple line chart with live price
   const data = React.useMemo(() => {
     const points = []
-    const basePrice = 0.0020121000
+    const basePrice = livePriceData?.currentPrice || 0.0020121000
     const now = Date.now()
     
     for (let i = 0; i < 50; i++) {
@@ -23,7 +42,7 @@ export function SimpleChart({ className = "", height = 400 }: SimpleChartProps) 
     }
     
     return points
-  }, [])
+  }, [livePriceData?.currentPrice])
 
   const minY = Math.min(...data.map(d => d.y))
   const maxY = Math.max(...data.map(d => d.y))

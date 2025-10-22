@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
 import { CandlestickChart } from "@/components/candlestick-chart"
-import { useEffect, useState, useCallback, useMemo, memo } from "react"
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useContract } from "@/lib/use-contract"
@@ -108,6 +108,9 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     autoDelegated: false,
     commitRecommended: false,
   })
+
+  // Prevent infinite refetch loops when contract function identities change between renders
+  const lastDelegationFetchKeyRef = useRef<string | null>(null)
 
   // All useMemo hooks - must be called in same order every time
   const token = useMemo(() => story?.token, [story?.token])
@@ -478,32 +481,34 @@ const StoryDetailPage = memo(function StoryDetailPage() {
 
   useEffect(() => {
     const fetchDelegationStatus = async () => {
-      if (story?.authorAddress && story?.nonce && getMarketDelegationStatus && pdas && 
-          typeof getMarketDelegationStatus === 'function' && 
-          typeof pdas.findNewsPda === 'function' && 
-          typeof pdas.findMarketPda === 'function') {
-        try {
-          const authorAddress = new PublicKey(story.authorAddress)
-          const nonce = parseInt(story.nonce)
-          const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
-          const marketPda = pdas.findMarketPda(newsAccountPubkey)
-          
-          const status = await getMarketDelegationStatus(marketPda)
-          setDelegationStatus({
-            isDelegated: status.isDelegated,
-            rollupAuthority: status.rollupAuthority?.toString() || null,
-            currentSupply: Number(status.currentSupply),
-            circulatingSupply: Number(status.circulatingSupply),
-            initialSupply: Number(status.initialSupply),
-            basePrice: Number(status.basePrice),
-            totalVolume: Number(status.totalVolume),
-          })
-        } catch (error) {
-        }
+      if (!story?.authorAddress || !story?.nonce) return
+      if (!pdas || typeof pdas.findNewsPda !== 'function' || typeof pdas.findMarketPda !== 'function') return
+      if (!getMarketDelegationStatus || typeof getMarketDelegationStatus !== 'function') return
+
+      const key = `${story.authorAddress}-${story.nonce}`
+      if (lastDelegationFetchKeyRef.current === key) return
+      lastDelegationFetchKeyRef.current = key
+
+      try {
+        const authorAddress = new PublicKey(story.authorAddress)
+        const nonce = parseInt(story.nonce)
+        const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+        const marketPda = pdas.findMarketPda(newsAccountPubkey)
+        const status = await getMarketDelegationStatus(marketPda)
+        setDelegationStatus({
+          isDelegated: status.isDelegated,
+          rollupAuthority: status.rollupAuthority?.toString() || null,
+          currentSupply: Number(status.currentSupply),
+          circulatingSupply: Number(status.circulatingSupply),
+          initialSupply: Number(status.initialSupply),
+          basePrice: Number(status.basePrice),
+          totalVolume: Number(status.totalVolume),
+        })
+      } catch (error) {
       }
     }
     fetchDelegationStatus()
-  }, [story?.authorAddress, story?.nonce, getMarketDelegationStatus, pdas])
+  }, [story?.authorAddress, story?.nonce])
 
   // Remove eager price refetch on mount to avoid duplicate RPCs
 

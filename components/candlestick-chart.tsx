@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { createChart, ColorType, CrosshairMode, Time, CandlestickSeries } from "lightweight-charts"
 import { SimpleChart } from "./simple-chart"
+import { useLivePrice } from "@/lib/hooks/use-live-price"
+import { useMinuteCandles } from "@/lib/hooks/use-price-chart-data"
 
 interface CandlestickChartProps {
   tokenId: string
@@ -33,35 +35,61 @@ export function CandlestickChart({
   const seriesRef = useRef<any | null>(null)
   const [isChartReady, setIsChartReady] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
+  const [candleData, setCandleData] = useState<any[]>([])
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0)
 
-  // Create demo data immediately
-  const demoData = React.useMemo(() => {
-    const now = Math.floor(Date.now() / 1000)
-    const basePrice = 0.0020121000
-    const data = []
-    
-    for (let i = 0; i < 50; i++) {
-      const time = now - (49 - i) * 3600 // Last 50 hours
-      const variation = Math.sin(i * 0.2) * 0.0003
-      const price = basePrice + variation
-      
-      data.push({
-        time: time as Time,
-        open: price,
-        high: price + Math.abs(variation) + 0.0002,
-        low: price - Math.abs(variation) - 0.0002,
-        close: price + (Math.sin(i * 0.2 + 0.5) * 0.0001),
-      })
+  // Get live price (for indicator)
+  const { data: livePriceData } = useLivePrice({
+    marketAddress: marketAddress || "",
+    newsAccountAddress: newsAccountAddress || "",
+    mintAddress: mintAddress || "",
+    enabled: live && !!marketAddress && !!newsAccountAddress && !!mintAddress,
+    refreshInterval: 5000, // Update every 5 seconds
+  })
+
+  // Get 24h/1m candles derived from price-history + merged live price
+  const { candles, loading, error } = useMinuteCandles({
+    tokenId,
+    marketAddress,
+    newsAccountAddress,
+    mintAddress,
+    refreshInterval: 5000,
+  })
+
+  // Reflect hook candles into local state for chart draw; avoid redundant sets
+  useEffect(() => {
+    if (!candles || candles.length === 0) return
+    const lastClose = candleData[candleData.length - 1]?.close
+    const nextLastClose = candles[candles.length - 1]?.close
+    if (candleData.length !== candles.length || lastClose !== nextLastClose) {
+      setCandleData(candles as any[])
+      setLastUpdateTime(Date.now())
     }
-    
-    return data
-  }, [])
+  }, [candles, candleData])
+
+  // Update chart when candle data changes
+  useEffect(() => {
+    if (!seriesRef.current || !chartRef.current || candleData.length === 0) return
+
+    console.log('📊 Updating chart with new data:', {
+      dataLength: candleData.length,
+      latestPrice: candleData[candleData.length - 1]?.close,
+      firstPrice: candleData[0]?.close,
+      priceRange: {
+        min: Math.min(...candleData.map(c => c.low)),
+        max: Math.max(...candleData.map(c => c.high))
+      }
+    })
+
+    seriesRef.current.setData(candleData)
+    chartRef.current.timeScale().fitContent()
+  }, [candleData])
 
   // Initialize chart
   useEffect(() => {
     if (!containerRef.current || chartRef.current) return
 
-    console.log('🚀 Creating chart with demo data...')
+    console.log('🚀 Creating chart with real 24h/1m data...')
 
     // Set a timeout to use fallback if chart doesn't render
     const fallbackTimer = setTimeout(() => {
@@ -112,19 +140,26 @@ export function CandlestickChart({
         wickDownColor: '#f43f5e',
         borderUpColor: '#10b981',
         borderDownColor: '#f43f5e',
+        priceFormat: {
+          type: 'price',
+          precision: 9,
+          minMove: 0.00000001,
+        },
       })
 
       chartRef.current = chart
       seriesRef.current = series
 
-      // Set demo data immediately
-      series.setData(demoData)
-      chart.timeScale().fitContent()
+      // Set initial data
+      if (candleData.length > 0) {
+        series.setData(candleData)
+        chart.timeScale().fitContent()
+      }
 
       console.log('✅ Chart created and data set:', {
         chart: !!chart,
         series: !!series,
-        dataLength: demoData.length
+        dataLength: candleData.length
       })
 
       setIsChartReady(true)
@@ -153,15 +188,38 @@ export function CandlestickChart({
       console.error('❌ Chart creation failed:', error)
       setUseFallback(true)
     }
-  }, [height, demoData])
+  }, [height, candleData])
 
   // Use fallback chart if lightweight-charts fails
   if (useFallback) {
-    return <SimpleChart className={className} height={height} />
+    return (
+      <SimpleChart 
+        className={className} 
+        height={height}
+        marketAddress={marketAddress}
+        newsAccountAddress={newsAccountAddress}
+        mintAddress={mintAddress}
+        live={live}
+      />
+    )
   }
 
   return (
     <Card className={`p-6 ${className}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Price Chart</h3>
+        {live && livePriceData && (
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-gray-600">Live</span>
+            </div>
+            <span className="text-sm text-gray-500">
+              ${livePriceData.currentPrice.toFixed(8)}
+            </span>
+          </div>
+        )}
+      </div>
       <div 
         ref={containerRef} 
         className="w-full" 
