@@ -73,6 +73,56 @@ export type NewsPlatform = {
             ];
         },
         {
+            "name": "awardTrophy";
+            "docs": [
+                "Award a trophy to a user"
+            ];
+            "discriminator": [
+                65,
+                149,
+                0,
+                95,
+                225,
+                132,
+                103,
+                234
+            ];
+            "accounts": [
+                {
+                    "name": "profile";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "user";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "user";
+                },
+                {
+                    "name": "admin";
+                    "signer": true;
+                }
+            ];
+            "args": [];
+        },
+        {
             "name": "buy";
             "docs": [
                 "Buy tokens from the bonding curve with automatic delegation"
@@ -490,6 +540,95 @@ export type NewsPlatform = {
             "args": [];
         },
         {
+            "name": "initializeProfile";
+            "docs": [
+                "Initialize a user profile for tracking PnL and stats"
+            ];
+            "discriminator": [
+                32,
+                145,
+                77,
+                213,
+                58,
+                39,
+                251,
+                234
+            ];
+            "accounts": [
+                {
+                    "name": "profile";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "user";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "user";
+                    "writable": true;
+                    "signer": true;
+                },
+                {
+                    "name": "systemProgram";
+                    "address": "11111111111111111111111111111111";
+                }
+            ];
+            "args": [];
+        },
+        {
+            "name": "initializeSeason";
+            "docs": [
+                "Initialize a new season"
+            ];
+            "discriminator": [
+                48,
+                218,
+                111,
+                51,
+                235,
+                207,
+                4,
+                119
+            ];
+            "accounts": [
+                {
+                    "name": "season";
+                    "writable": true;
+                },
+                {
+                    "name": "admin";
+                    "writable": true;
+                    "signer": true;
+                },
+                {
+                    "name": "systemProgram";
+                    "address": "11111111111111111111111111111111";
+                }
+            ];
+            "args": [
+                {
+                    "name": "seasonId";
+                    "type": "u64";
+                }
+            ];
+        },
+        {
             "name": "publishNews";
             "docs": [
                 "Publishes a new news story and creates a tradable token"
@@ -715,6 +854,162 @@ export type NewsPlatform = {
                     "type": "u64";
                 }
             ];
+        },
+        {
+            "name": "recordTradePnl";
+            "docs": [
+                "Record trade PnL for a user"
+            ];
+            "discriminator": [
+                46,
+                223,
+                161,
+                64,
+                215,
+                41,
+                219,
+                241
+            ];
+            "accounts": [
+                {
+                    "name": "position";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    112,
+                                    111,
+                                    115,
+                                    105,
+                                    116,
+                                    105,
+                                    111,
+                                    110
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "user";
+                            },
+                            {
+                                "kind": "account";
+                                "path": "market";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "profile";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "user";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "season";
+                    "writable": true;
+                },
+                {
+                    "name": "market";
+                    "writable": true;
+                },
+                {
+                    "name": "user";
+                    "writable": true;
+                    "signer": true;
+                },
+                {
+                    "name": "systemProgram";
+                    "address": "11111111111111111111111111111111";
+                }
+            ];
+            "args": [
+                {
+                    "name": "tradeType";
+                    "type": {
+                        "defined": {
+                            "name": "tradeType";
+                        };
+                    };
+                },
+                {
+                    "name": "amount";
+                    "type": "u64";
+                },
+                {
+                    "name": "price";
+                    "type": "u64";
+                }
+            ];
+        },
+        {
+            "name": "resetSeasonPnl";
+            "docs": [
+                "Reset season PnL for a user (admin only)"
+            ];
+            "discriminator": [
+                218,
+                241,
+                207,
+                119,
+                226,
+                77,
+                183,
+                12
+            ];
+            "accounts": [
+                {
+                    "name": "profile";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "user";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "user";
+                },
+                {
+                    "name": "admin";
+                    "signer": true;
+                }
+            ];
+            "args": [];
         },
         {
             "name": "sell";
@@ -1009,6 +1304,45 @@ export type NewsPlatform = {
             ];
         },
         {
+            "name": "profile";
+            "discriminator": [
+                184,
+                101,
+                165,
+                188,
+                95,
+                63,
+                127,
+                188
+            ];
+        },
+        {
+            "name": "season";
+            "discriminator": [
+                76,
+                67,
+                93,
+                156,
+                180,
+                157,
+                248,
+                47
+            ];
+        },
+        {
+            "name": "tradePosition";
+            "discriminator": [
+                37,
+                143,
+                119,
+                76,
+                200,
+                164,
+                122,
+                202
+            ];
+        },
+        {
             "name": "whitelistedAuthority";
             "discriminator": [
                 166,
@@ -1115,6 +1449,19 @@ export type NewsPlatform = {
             ];
         },
         {
+            "name": "profileInitialized";
+            "discriminator": [
+                1,
+                31,
+                122,
+                19,
+                193,
+                205,
+                23,
+                27
+            ];
+        },
+        {
             "name": "rollupCommitted";
             "discriminator": [
                 243,
@@ -1125,6 +1472,19 @@ export type NewsPlatform = {
                 71,
                 172,
                 163
+            ];
+        },
+        {
+            "name": "seasonStarted";
+            "discriminator": [
+                13,
+                80,
+                245,
+                91,
+                31,
+                220,
+                154,
+                47
             ];
         },
         {
@@ -1177,6 +1537,32 @@ export type NewsPlatform = {
                 225,
                 94,
                 45
+            ];
+        },
+        {
+            "name": "tradeRecorded";
+            "discriminator": [
+                153,
+                142,
+                127,
+                129,
+                64,
+                214,
+                134,
+                138
+            ];
+        },
+        {
+            "name": "trophyAwarded";
+            "discriminator": [
+                221,
+                236,
+                21,
+                237,
+                108,
+                172,
+                89,
+                52
             ];
         }
     ];
@@ -1235,6 +1621,21 @@ export type NewsPlatform = {
             "code": 6010;
             "name": "constraintSeeds";
             "msg": "A seeds constraint was violated";
+        },
+        {
+            "code": 6011;
+            "name": "seasonNotActive";
+            "msg": "Season is not currently active";
+        },
+        {
+            "code": 6012;
+            "name": "seasonNotEnded";
+            "msg": "Season has not ended yet";
+        },
+        {
+            "code": 6013;
+            "name": "seasonAlreadyExists";
+            "msg": "Season already exists";
         }
     ];
     "types": [
@@ -1534,6 +1935,66 @@ export type NewsPlatform = {
             };
         },
         {
+            "name": "profile";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "user";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "totalPnl";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "totalVolume";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "tradesCount";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "wins";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "trophies";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "currentSeasonPnl";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "lastTradeTimestamp";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "bump";
+                        "type": "u8";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "profileInitialized";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "user";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "timestamp";
+                        "type": "i64";
+                    }
+                ];
+            };
+        },
+        {
             "name": "rollupCommitted";
             "type": {
                 "kind": "struct";
@@ -1549,6 +2010,62 @@ export type NewsPlatform = {
                     {
                         "name": "reserves";
                         "type": "u64";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "season";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "seasonId";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "startTimestamp";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "endTimestamp";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "isActive";
+                        "type": "bool";
+                    },
+                    {
+                        "name": "totalParticipants";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "totalVolume";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "bump";
+                        "type": "u8";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "seasonStarted";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "seasonId";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "startTimestamp";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "endTimestamp";
+                        "type": "i64";
                     }
                 ];
             };
@@ -1628,6 +2145,116 @@ export type NewsPlatform = {
                     },
                     {
                         "name": "newSupply";
+                        "type": "u64";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "tradePosition";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "user";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "totalBought";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "totalSold";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "avgBuyPrice";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "realizedPnl";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "bump";
+                        "type": "u8";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "tradeRecorded";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "user";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "tradeType";
+                        "type": {
+                            "defined": {
+                                "name": "tradeType";
+                            };
+                        };
+                    },
+                    {
+                        "name": "amount";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "price";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "pnlDelta";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "totalPnl";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "seasonPnl";
+                        "type": "i64";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "tradeType";
+            "type": {
+                "kind": "enum";
+                "variants": [
+                    {
+                        "name": "buy";
+                    },
+                    {
+                        "name": "sell";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "trophyAwarded";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "user";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "totalTrophies";
                         "type": "u64";
                     }
                 ];

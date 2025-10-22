@@ -5,6 +5,8 @@ import { NewsFeed } from "@/components/news-feed"
 import { TrendingStories } from "@/components/trending-stories"
 import { MarketStats } from "@/components/market-stats"
 import { UserInfoLogger } from "@/components/user-info-logger"
+import { SeasonCountdown } from "@/components/season-countdown"
+import { UserProfile } from "@/components/user-profile"
 import { useContract } from "@/lib/use-contract"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
@@ -91,6 +93,12 @@ export default function HomePage() {
           <p className="text-lg text-muted-foreground text-balance">
             Where breaking news becomes tradable assets. Speculate on attention, profit from trends.
           </p>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6 mb-8">
+          <SeasonCountdown />
+          <UserProfile />
+          <div>{/* Space for additional component */}</div>
         </div>
 
         <MarketStats />

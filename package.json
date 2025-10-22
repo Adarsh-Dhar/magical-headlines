@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "manage-seasons": "tsx scripts/manage-seasons-cron.ts"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.32.0",

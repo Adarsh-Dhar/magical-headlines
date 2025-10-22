@@ -73,6 +73,56 @@
             ]
         },
         {
+            "name": "award_trophy",
+            "docs": [
+                "Award a trophy to a user"
+            ],
+            "discriminator": [
+                65,
+                149,
+                0,
+                95,
+                225,
+                132,
+                103,
+                234
+            ],
+            "accounts": [
+                {
+                    "name": "profile",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user"
+                },
+                {
+                    "name": "admin",
+                    "signer": true
+                }
+            ],
+            "args": []
+        },
+        {
             "name": "buy",
             "docs": [
                 "Buy tokens from the bonding curve with automatic delegation"
@@ -490,6 +540,95 @@
             "args": []
         },
         {
+            "name": "initialize_profile",
+            "docs": [
+                "Initialize a user profile for tracking PnL and stats"
+            ],
+            "discriminator": [
+                32,
+                145,
+                77,
+                213,
+                58,
+                39,
+                251,
+                234
+            ],
+            "accounts": [
+                {
+                    "name": "profile",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "initialize_season",
+            "docs": [
+                "Initialize a new season"
+            ],
+            "discriminator": [
+                48,
+                218,
+                111,
+                51,
+                235,
+                207,
+                4,
+                119
+            ],
+            "accounts": [
+                {
+                    "name": "season",
+                    "writable": true
+                },
+                {
+                    "name": "admin",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "season_id",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
             "name": "publish_news",
             "docs": [
                 "Publishes a new news story and creates a tradable token"
@@ -715,6 +854,162 @@
                     "type": "u64"
                 }
             ]
+        },
+        {
+            "name": "record_trade_pnl",
+            "docs": [
+                "Record trade PnL for a user"
+            ],
+            "discriminator": [
+                46,
+                223,
+                161,
+                64,
+                215,
+                41,
+                219,
+                241
+            ],
+            "accounts": [
+                {
+                    "name": "position",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    111,
+                                    115,
+                                    105,
+                                    116,
+                                    105,
+                                    111,
+                                    110
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "market"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "profile",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "season",
+                    "writable": true
+                },
+                {
+                    "name": "market",
+                    "writable": true
+                },
+                {
+                    "name": "user",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "trade_type",
+                    "type": {
+                        "defined": {
+                            "name": "TradeType"
+                        }
+                    }
+                },
+                {
+                    "name": "amount",
+                    "type": "u64"
+                },
+                {
+                    "name": "price",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "reset_season_pnl",
+            "docs": [
+                "Reset season PnL for a user (admin only)"
+            ],
+            "discriminator": [
+                218,
+                241,
+                207,
+                119,
+                226,
+                77,
+                183,
+                12
+            ],
+            "accounts": [
+                {
+                    "name": "profile",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    112,
+                                    114,
+                                    111,
+                                    102,
+                                    105,
+                                    108,
+                                    101
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "user"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "user"
+                },
+                {
+                    "name": "admin",
+                    "signer": true
+                }
+            ],
+            "args": []
         },
         {
             "name": "sell",
@@ -1009,6 +1304,45 @@
             ]
         },
         {
+            "name": "Profile",
+            "discriminator": [
+                184,
+                101,
+                165,
+                188,
+                95,
+                63,
+                127,
+                188
+            ]
+        },
+        {
+            "name": "Season",
+            "discriminator": [
+                76,
+                67,
+                93,
+                156,
+                180,
+                157,
+                248,
+                47
+            ]
+        },
+        {
+            "name": "TradePosition",
+            "discriminator": [
+                37,
+                143,
+                119,
+                76,
+                200,
+                164,
+                122,
+                202
+            ]
+        },
+        {
             "name": "WhitelistedAuthority",
             "discriminator": [
                 166,
@@ -1115,6 +1449,19 @@
             ]
         },
         {
+            "name": "ProfileInitialized",
+            "discriminator": [
+                1,
+                31,
+                122,
+                19,
+                193,
+                205,
+                23,
+                27
+            ]
+        },
+        {
             "name": "RollupCommitted",
             "discriminator": [
                 243,
@@ -1125,6 +1472,19 @@
                 71,
                 172,
                 163
+            ]
+        },
+        {
+            "name": "SeasonStarted",
+            "discriminator": [
+                13,
+                80,
+                245,
+                91,
+                31,
+                220,
+                154,
+                47
             ]
         },
         {
@@ -1177,6 +1537,32 @@
                 225,
                 94,
                 45
+            ]
+        },
+        {
+            "name": "TradeRecorded",
+            "discriminator": [
+                153,
+                142,
+                127,
+                129,
+                64,
+                214,
+                134,
+                138
+            ]
+        },
+        {
+            "name": "TrophyAwarded",
+            "discriminator": [
+                221,
+                236,
+                21,
+                237,
+                108,
+                172,
+                89,
+                52
             ]
         }
     ],
@@ -1235,6 +1621,21 @@
             "code": 6010,
             "name": "ConstraintSeeds",
             "msg": "A seeds constraint was violated"
+        },
+        {
+            "code": 6011,
+            "name": "SeasonNotActive",
+            "msg": "Season is not currently active"
+        },
+        {
+            "code": 6012,
+            "name": "SeasonNotEnded",
+            "msg": "Season has not ended yet"
+        },
+        {
+            "code": 6013,
+            "name": "SeasonAlreadyExists",
+            "msg": "Season already exists"
         }
     ],
     "types": [
@@ -1534,6 +1935,66 @@
             }
         },
         {
+            "name": "Profile",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "total_pnl",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "total_volume",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "trades_count",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "wins",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "trophies",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "current_season_pnl",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "last_trade_timestamp",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ProfileInitialized",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "timestamp",
+                        "type": "i64"
+                    }
+                ]
+            }
+        },
+        {
             "name": "RollupCommitted",
             "type": {
                 "kind": "struct",
@@ -1549,6 +2010,62 @@
                     {
                         "name": "reserves",
                         "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Season",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "season_id",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "start_timestamp",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "end_timestamp",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "is_active",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "total_participants",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_volume",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "SeasonStarted",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "season_id",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "start_timestamp",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "end_timestamp",
+                        "type": "i64"
                     }
                 ]
             }
@@ -1628,6 +2145,116 @@
                     },
                     {
                         "name": "new_supply",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TradePosition",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "total_bought",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_sold",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "avg_buy_price",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "realized_pnl",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TradeRecorded",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "trade_type",
+                        "type": {
+                            "defined": {
+                                "name": "TradeType"
+                            }
+                        }
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "price",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "pnl_delta",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "total_pnl",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "season_pnl",
+                        "type": "i64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TradeType",
+            "type": {
+                "kind": "enum",
+                "variants": [
+                    {
+                        "name": "Buy"
+                    },
+                    {
+                        "name": "Sell"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TrophyAwarded",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "total_trophies",
                         "type": "u64"
                     }
                 ]

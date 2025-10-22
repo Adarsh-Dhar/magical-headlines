@@ -28,7 +28,7 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "CSNDjcoYr6iLwfsVC5xyc1SQeEJ2TbZV6vHrNyKDbGLQ";
   return new PublicKey(id);
 }
 
@@ -88,6 +88,25 @@ const findMetadataPda = (mint: PublicKey) =>
       mint.toBuffer(),
     ],
     TOKEN_METADATA_PROGRAM_ID
+  )[0];
+
+// Game Layer PDA helpers
+const findProfilePda = (user: PublicKey) =>
+  PublicKey.findProgramAddressSync(
+    [Buffer.from("profile"), user.toBuffer()],
+    getProgramId()
+  )[0];
+
+const findSeasonPda = (seasonId: number) =>
+  PublicKey.findProgramAddressSync(
+    [Buffer.from("season"), new anchor.BN(seasonId).toArrayLike(Buffer, "le", 8)],
+    getProgramId()
+  )[0];
+
+const findPositionPda = (user: PublicKey, market: PublicKey) =>
+  PublicKey.findProgramAddressSync(
+    [Buffer.from("position"), user.toBuffer(), market.toBuffer()],
+    getProgramId()
   )[0];
 
 export function useContract() {
@@ -478,6 +497,23 @@ export function useContract() {
             console.log(`[BUY] Could not fetch price after buy:`, error);
           }
           
+          // Record PnL after successful buy
+          try {
+            const currentSeason = await fetch('/api/seasons').then(r => r.json())
+            if (currentSeason?.currentSeason?.isActive) {
+              const priceAfter = Number(priceLamports) / 1e9
+              await recordTradePnl({
+                market: params.market,
+                tradeType: 'Buy',
+                amount: typeof params.amount === 'number' ? params.amount : params.amount.toNumber(),
+                price: priceAfter * 1e9, // Convert to lamports
+                currentSeasonId: currentSeason.currentSeason.seasonId
+              })
+            }
+          } catch (error) {
+            console.log("Failed to record PnL:", error)
+          }
+          
           return signature;
         } catch (error) {
           lastError = error;
@@ -574,6 +610,23 @@ export function useContract() {
         }
       } catch (error) {
         console.log(`[SELL] Could not fetch price after sell:`, error);
+      }
+      
+      // Record PnL after successful sell
+      try {
+        const currentSeason = await fetch('/api/seasons').then(r => r.json())
+        if (currentSeason?.currentSeason?.isActive) {
+          const priceAfter = Number(priceLamports) / 1e9
+          await recordTradePnl({
+            market: params.market,
+            tradeType: 'Sell',
+            amount: typeof params.amount === 'number' ? params.amount : params.amount.toNumber(),
+            price: priceAfter * 1e9, // Convert to lamports
+            currentSeasonId: currentSeason.currentSeason.seasonId
+          })
+        }
+      } catch (error) {
+        console.log("Failed to record PnL:", error)
       }
       
       return signature;
@@ -1203,6 +1256,49 @@ export function useContract() {
     return testProgram;
   }, [getProgram, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction]);
 
+  // Game Layer methods
+  const initializeProfile = useCallback(async () => {
+    if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready")
+    
+    return await program.methods
+      .initializeProfile()
+      .accounts({
+        profile: findProfilePda(walletAdapter.publicKey),
+        user: walletAdapter.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc()
+  }, [program, walletAdapter.publicKey])
+
+  const recordTradePnl = useCallback(
+    async (params: { 
+      market: PublicKey
+      tradeType: 'Buy' | 'Sell'
+      amount: number
+      price: number
+      currentSeasonId: number
+    }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready")
+      
+      return await program.methods
+        .recordTradePnl(
+          { [params.tradeType.toLowerCase()]: {} },
+          new anchor.BN(params.amount),
+          new anchor.BN(params.price)
+        )
+        .accounts({
+          position: findPositionPda(walletAdapter.publicKey, params.market),
+          profile: findProfilePda(walletAdapter.publicKey),
+          season: findSeasonPda(params.currentSeasonId),
+          market: params.market,
+          user: walletAdapter.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc()
+    },
+    [program, walletAdapter.publicKey]
+  )
+
   return {
     program,
     // instruction wrappers
@@ -1229,6 +1325,9 @@ export function useContract() {
     fetchUserNewsTokens,
     getUserMarketShare,
     getTotalTokenStats,
+    // Game Layer methods
+    initializeProfile,
+    recordTradePnl,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,
@@ -1237,6 +1336,9 @@ export function useContract() {
       findOraclePda,
       findWhitelistPda,
       findMetadataPda,
+      findProfilePda,
+      findSeasonPda,
+      findPositionPda,
     },
     // debug function
     testProgram,

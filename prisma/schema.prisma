@@ -1,213 +1,230 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+}
 
-// 1. Defines the database connection and Prisma client generator.
 datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// --- ENUMS ---
-// Defines the type of a trade.
-enum TradeType {
-  BUY
-  SELL
-}
-
-
-// --- USER MODEL ---
-// Simplified user model identified by wallet address only.
-
-// User model represents a unique user, identified by their wallet address.
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  walletAddress String    @unique 
-
-  // User-specific application data
-  storiesSubmitted Story[]   @relation("SubmittedStories")
-  holdings         Holding[]
-  trades           Trade[]
-  likes            Like[]
-  comments         Comment[]
-  subscriptions    Subscription[]        @relation("SubscriberRelation")
-  subscribers      Subscription[]        @relation("AuthorRelation")
-  notifications    Notification[]        @relation("NotificationUser")
-  notificationsAuthored Notification[]   @relation("NotificationActor")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String         @id @default(cuid())
+  name                  String?
+  walletAddress         String         @unique
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  comments              Comment[]
+  holdings              Holding[]
+  likes                 Like[]
+  notificationsAuthored Notification[] @relation("NotificationActor")
+  notifications         Notification[] @relation("NotificationUser")
+  profile               Profile?
+  storiesSubmitted      Story[]        @relation("SubmittedStories")
+  subscribers           Subscription[] @relation("AuthorRelation")
+  subscriptions         Subscription[] @relation("SubscriberRelation")
+  trades                Trade[]
 }
 
-
-// --- APPLICATION-SPECIFIC MODELS ---
-
-// Story model represents a news article submitted by a user.
 model Story {
-  id          String @id @default(cuid())
-  headline    String
-  content     String
-  originalUrl String @unique
-  
-  // Arweave storage
-  arweaveUrl  String
-  arweaveId   String
-  
-  // Onchain data
+  id               String    @id @default(cuid())
+  headline         String
+  content          String
+  originalUrl      String    @unique
+  arweaveUrl       String
+  arweaveId        String
   onchainSignature String
-  authorAddress    String? // Wallet address of the story author
-  nonce           String? // Nonce used for PDA derivation
-
-  submitterId String
-  submitter   User   @relation("SubmittedStories", fields: [submitterId], references: [id])
-
-  tags  Tag[]
-  token Token? // A story has one corresponding token
-  likes Like[]
-  comments Comment[]
-
-  onMarket    Boolean   @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  submitterId      String
+  onMarket         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  authorAddress    String?
+  nonce            String?
+  comments         Comment[]
+  likes            Like[]
+  submitter        User      @relation("SubmittedStories", fields: [submitterId], references: [id])
+  token            Token?
+  tags             Tag[]     @relation("StoryToTag")
 }
 
-// Tag model for categorizing stories.
 model Tag {
   id      String  @id @default(cuid())
-  name    String  @unique 
-  stories Story[]
+  name    String  @unique
+  stories Story[] @relation("StoryToTag")
 }
 
-// Token model represents the tradable asset linked to a Story.
 model Token {
-  id               String    @id @default(cuid())
-  price            Float     @default(0.01)
-  priceChange24h   Float     @default(0)
-  volume24h        Float     @default(0)
-  marketCap        Float     @default(0)
-
-  // Onchain data
-  marketAccount    String?   @unique
-  mintAccount      String?   @unique
-  newsAccount      String?   @unique
-
-  storyId          String    @unique
-  story            Story     @relation(fields: [storyId], references: [id])
-
-  holders          Holding[]
-  trades           Trade[]
-  volumeMinutes    TokenVolumeMinute[]
-
-  createdAt        DateTime  @default(now())
+  id             String              @id @default(cuid())
+  price          Float               @default(0.01)
+  priceChange24h Float               @default(0)
+  volume24h      Float               @default(0)
+  marketCap      Float               @default(0)
+  storyId        String              @unique
+  createdAt      DateTime            @default(now())
+  marketAccount  String?             @unique
+  mintAccount    String?             @unique
+  newsAccount    String?             @unique
+  holders        Holding[]
+  story          Story               @relation(fields: [storyId], references: [id])
+  volumeMinutes  TokenVolumeMinute[]
+  trades         Trade[]
 }
 
-// Holding model represents a user's ownership of a specific token.
 model Holding {
-  id       String  @id @default(cuid())
-  amount   Float
+  id      String @id @default(cuid())
+  amount  Float
+  userId  String
+  tokenId String
+  token   Token  @relation(fields: [tokenId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
 
-  userId   String
-  user     User    @relation(fields: [userId], references: [id])
-
-  tokenId  String
-  token    Token   @relation(fields: [tokenId], references: [id])
-
-  @@unique([userId, tokenId], name: "UserTokenHolding") // A user can only have one holding entry per token
+  @@unique([userId, tokenId], name: "UserTokenHolding")
 }
 
-// Trade model logs every buy and sell transaction.
 model Trade {
   id           String    @id @default(cuid())
   type         TradeType
   amount       Float
   priceAtTrade Float
-
   traderId     String
-  trader       User      @relation(fields: [traderId], references: [id])
-
   tokenId      String
-  token        Token     @relation(fields: [tokenId], references: [id])
-
   timestamp    DateTime  @default(now())
+  token        Token     @relation(fields: [tokenId], references: [id])
+  trader       User      @relation(fields: [traderId], references: [id])
 }
 
-// Minute-granularity volume in SOL per token
 model TokenVolumeMinute {
   id            String   @id @default(cuid())
   tokenId       String
-  token         Token    @relation(fields: [tokenId], references: [id])
-
-  // Start of the UTC 1-minute bucket (seconds and ms set to 0)
   minute        DateTime
-
-  // Aggregates for the minute
   volumeSol     Float    @default(0)
   tradeCount    Int      @default(0)
   buyVolumeSol  Float    @default(0)
   sellVolumeSol Float    @default(0)
-
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  token         Token    @relation(fields: [tokenId], references: [id])
 
   @@unique([tokenId, minute], name: "UniqueTokenMinute")
   @@index([tokenId, minute])
 }
 
-// Like model represents a user's like on a story.
 model Like {
   id        String   @id @default(cuid())
   storyId   String
   userId    String
-  story     Story    @relation(fields: [storyId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
 
   @@unique([storyId, userId], name: "UserStoryLike")
 }
 
-// Comment model stores user comments on stories.
 model Comment {
   id        String   @id @default(cuid())
   storyId   String
   userId    String
   content   String
-  story     Story    @relation(fields: [storyId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
 }
 
-// Subscription model allows a user to subscribe to an author (by wallet/user)
 model Subscription {
-  id             String   @id @default(cuid())
-  subscriberId   String
-  authorId       String
-  subscriber     User     @relation("SubscriberRelation", fields: [subscriberId], references: [id])
-  author         User     @relation("AuthorRelation", fields: [authorId], references: [id])
-  createdAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  subscriberId String
+  authorId     String
+  createdAt    DateTime @default(now())
+  author       User     @relation("AuthorRelation", fields: [authorId], references: [id])
+  subscriber   User     @relation("SubscriberRelation", fields: [subscriberId], references: [id])
 
   @@unique([subscriberId, authorId], name: "UniqueSubscription")
 }
 
-// Notification model stores per-user notifications, e.g., when an author publishes a new story.
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  actorId   String   // author who triggered the notification
-  type      String   // e.g., "NEW_STORY"
+  actorId   String
+  type      String
   storyId   String
   headline  String
   read      Boolean  @default(false)
-
-  user      User     @relation("NotificationUser", fields: [userId], references: [id])
-  actor     User     @relation("NotificationActor", fields: [actorId], references: [id])
-
   createdAt DateTime @default(now())
+  actor     User     @relation("NotificationActor", fields: [actorId], references: [id])
+  user      User     @relation("NotificationUser", fields: [userId], references: [id])
 
   @@index([userId, read])
   @@index([storyId])
+}
+
+model Profile {
+  id                 String          @id @default(cuid())
+  userAddress        String          @unique
+  onchainAddress     String?         @unique
+  totalPnl           Float           @default(0)
+  totalVolume        Float           @default(0)
+  tradesCount        Int             @default(0)
+  wins               Int             @default(0)
+  trophies           Int             @default(0)
+  currentSeasonPnl   Float           @default(0)
+  lastTradeTimestamp DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  user               User            @relation(fields: [userAddress], references: [walletAddress])
+  seasonStats        SeasonStats[]
+  positions          TradePosition[]
+}
+
+model Season {
+  id                String        @id @default(cuid())
+  seasonId          Int           @unique
+  onchainAddress    String?       @unique
+  startTimestamp    DateTime
+  endTimestamp      DateTime
+  isActive          Boolean       @default(true)
+  totalParticipants Int           @default(0)
+  totalVolume       Float         @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  seasonStats       SeasonStats[]
+}
+
+model SeasonStats {
+  id          String   @id @default(cuid())
+  profileId   String
+  seasonId    String
+  pnl         Float    @default(0)
+  volume      Float    @default(0)
+  tradesCount Int      @default(0)
+  wins        Int      @default(0)
+  rank        Int?
+  trophyTier  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  season      Season   @relation(fields: [seasonId], references: [id])
+  profile     Profile  @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, seasonId])
+  @@index([seasonId, pnl])
+}
+
+model TradePosition {
+  id             String   @id @default(cuid())
+  userAddress    String
+  marketAddress  String
+  onchainAddress String?  @unique
+  totalBought    Float    @default(0)
+  totalSold      Float    @default(0)
+  avgBuyPrice    Float    @default(0)
+  realizedPnl    Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  profile        Profile  @relation(fields: [userAddress], references: [userAddress])
+
+  @@unique([userAddress, marketAddress])
+  @@index([userAddress])
+}
+
+enum TradeType {
+  BUY
+  SELL
 }

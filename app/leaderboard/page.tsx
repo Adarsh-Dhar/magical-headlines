@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { TrophyIcon, TrendingUpIcon, Loader2, Search } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+
 interface Trader {
   rank: number
   id: string
@@ -19,12 +20,37 @@ interface Trader {
   storiesPublished: number
 }
 
+interface PnLTrader {
+  rank: number
+  address: string
+  name: string
+  totalPnl: number
+  totalVolume: number
+  tradesCount: number
+  wins: number
+  trophies: number
+  currentSeasonPnl: number
+}
+
+interface SeasonTrader {
+  rank: number
+  address: string
+  name: string
+  seasonPnl: number
+  seasonVolume: number
+  seasonTrades: number
+  seasonWins: number
+}
+
 export default function LeaderboardPage() {
   const [traders, setTraders] = useState<Trader[]>([])
+  const [pnlLeaderboard, setPnlLeaderboard] = useState<PnLTrader[]>([])
+  const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonTrader[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
   const [appliedSearch, setAppliedSearch] = useState("")
+  const [activeTab, setActiveTab] = useState<'roi' | 'pnl' | 'season'>('roi')
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       try {
@@ -39,6 +65,8 @@ export default function LeaderboardPage() {
         
         const data = await response.json()
         setTraders(data.traders || [])
+        setPnlLeaderboard(data.pnlLeaderboard || [])
+        setSeasonLeaderboard(data.seasonLeaderboard || [])
       } catch (err) {
         // console.error('Error fetching leaderboard data:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
@@ -65,15 +93,27 @@ export default function LeaderboardPage() {
     }
   }
 
+  const getCurrentData = () => {
+    switch (activeTab) {
+      case 'pnl':
+        return pnlLeaderboard
+      case 'season':
+        return seasonLeaderboard
+      default:
+        return traders
+    }
+  }
+
   const filteredTraders = useMemo(() => {
     const query = appliedSearch.trim().toLowerCase()
-    if (!query) return traders
-    return traders.filter((t) => {
+    const currentData = getCurrentData()
+    if (!query) return currentData
+    return currentData.filter((t) => {
       const name = (t.name || "").toLowerCase()
       const address = (t.address || "").toLowerCase()
       return name.includes(query) || address.includes(query)
     })
-  }, [traders, appliedSearch])
+  }, [traders, pnlLeaderboard, seasonLeaderboard, appliedSearch, activeTab])
 
   const handleApplySearch = () => {
     setAppliedSearch(searchInput)
@@ -89,7 +129,33 @@ export default function LeaderboardPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-3">Leaderboard</h1>
-          <p className="text-lg text-muted-foreground">Top traders by return on investment</p>
+          <p className="text-lg text-muted-foreground">
+            {activeTab === 'roi' && 'Top traders by return on investment'}
+            {activeTab === 'pnl' && 'Top traders by total profit and loss'}
+            {activeTab === 'season' && 'Current season leaderboard'}
+          </p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6">
+          <Button 
+            variant={activeTab === 'roi' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('roi')}
+          >
+            ROI
+          </Button>
+          <Button 
+            variant={activeTab === 'pnl' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('pnl')}
+          >
+            All-Time PnL
+          </Button>
+          <Button 
+            variant={activeTab === 'season' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('season')}
+          >
+            Season
+          </Button>
         </div>
 
         {/* Search - only render after loading completes to avoid hydration mismatches */}
@@ -152,15 +218,35 @@ export default function LeaderboardPage() {
                   <tr>
                     <th className="text-left p-4 font-semibold">Rank</th>
                     <th className="text-left p-4 font-semibold">Trader</th>
-                    <th className="text-right p-4 font-semibold">ROI</th>
-                    <th className="text-right p-4 font-semibold">Tokens Owned</th>
-                    <th className="text-right p-4 font-semibold">Stories</th>
-                    <th className="text-right p-4 font-semibold">Volume</th>
+                    {activeTab === 'roi' && (
+                      <>
+                        <th className="text-right p-4 font-semibold">ROI</th>
+                        <th className="text-right p-4 font-semibold">Tokens Owned</th>
+                        <th className="text-right p-4 font-semibold">Stories</th>
+                        <th className="text-right p-4 font-semibold">Volume</th>
+                      </>
+                    )}
+                    {activeTab === 'pnl' && (
+                      <>
+                        <th className="text-right p-4 font-semibold">Total PnL</th>
+                        <th className="text-right p-4 font-semibold">Season PnL</th>
+                        <th className="text-right p-4 font-semibold">Trades</th>
+                        <th className="text-right p-4 font-semibold">Trophies</th>
+                      </>
+                    )}
+                    {activeTab === 'season' && (
+                      <>
+                        <th className="text-right p-4 font-semibold">Season PnL</th>
+                        <th className="text-right p-4 font-semibold">Trades</th>
+                        <th className="text-right p-4 font-semibold">Wins</th>
+                        <th className="text-right p-4 font-semibold">Volume</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTraders.map((trader) => (
-                    <tr key={trader.id} className="border-t hover:bg-accent/50 transition-colors">
+                  {filteredTraders.map((trader, index) => (
+                    <tr key={trader.address || `trader-${index}`} className="border-t hover:bg-accent/50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           {trader.rank <= 3 && (
@@ -185,30 +271,84 @@ export default function LeaderboardPage() {
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <span className={`flex items-center justify-end gap-1 font-bold ${
-                          trader.roi >= 0 ? "text-green-500" : "text-red-500"
-                        }`}>
-                          <TrendingUpIcon className={`w-4 h-4 ${trader.roi < 0 ? "rotate-180" : ""}`} />
-                          {trader.roi > 0 ? "+" : ""}{trader.roi}%
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="text-right">
-                          <div className="font-medium">{trader.totalTokensOwned.toFixed(2)}</div>
-                          {trader.currentHoldingsValue > 0 && (
-                            <div className="text-sm text-muted-foreground">
-                              ${trader.currentHoldingsValue.toFixed(2)}
+                      
+                      {activeTab === 'roi' && 'roi' in trader && (
+                        <>
+                          <td className="p-4 text-right">
+                            <span className={`flex items-center justify-end gap-1 font-bold ${
+                              trader.roi >= 0 ? "text-green-500" : "text-red-500"
+                            }`}>
+                              <TrendingUpIcon className={`w-4 h-4 ${trader.roi < 0 ? "rotate-180" : ""}`} />
+                              {trader.roi > 0 ? "+" : ""}{trader.roi}%
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="text-right">
+                              <div className="font-medium">{trader.totalTokensOwned.toFixed(2)}</div>
+                              {trader.currentHoldingsValue > 0 && (
+                                <div className="text-sm text-muted-foreground">
+                                  ${trader.currentHoldingsValue.toFixed(2)}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="font-medium">{trader.storiesPublished}</span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="font-medium">{formatVolume(trader.volume)}</span>
-                      </td>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{trader.storiesPublished}</span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{formatVolume(trader.volume)}</span>
+                          </td>
+                        </>
+                      )}
+                      
+                      {activeTab === 'pnl' && 'totalPnl' in trader && (
+                        <>
+                          <td className="p-4 text-right">
+                            <span className={`font-bold ${
+                              trader.totalPnl >= 0 ? "text-green-500" : "text-red-500"
+                            }`}>
+                              ${trader.totalPnl.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className={`font-bold ${
+                              trader.currentSeasonPnl >= 0 ? "text-green-500" : "text-red-500"
+                            }`}>
+                              ${trader.currentSeasonPnl.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{trader.tradesCount}</span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <TrophyIcon className="w-4 h-4 text-yellow-500" />
+                              <span className="font-medium">{trader.trophies}</span>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                      
+                      {activeTab === 'season' && 'seasonPnl' in trader && (
+                        <>
+                          <td className="p-4 text-right">
+                            <span className={`font-bold ${
+                              trader.seasonPnl >= 0 ? "text-green-500" : "text-red-500"
+                            }`}>
+                              ${trader.seasonPnl.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{trader.seasonTrades}</span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{trader.seasonWins}</span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-medium">{formatVolume(trader.seasonVolume)}</span>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>

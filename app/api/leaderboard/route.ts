@@ -11,7 +11,7 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "CSNDjcoYr6iLwfsVC5xyc1SQeEJ2TbZV6vHrNyKDbGLQ";
   return new PublicKey(id);
 }
 
@@ -215,8 +215,46 @@ export async function GET(request: NextRequest) {
         rank: index + 1
       }))
 
+    // Fetch PnL leaderboard
+    const pnlLeaderboard = await prisma.profile.findMany({
+      include: { user: true },
+      orderBy: { totalPnl: 'desc' },
+      take: limit
+    })
+
+    // Fetch current season leaderboard
+    const seasonLeaderboard = await prisma.seasonStats.findMany({
+      where: { season: { isActive: true } },
+      include: { 
+        profile: { include: { user: true } },
+        season: true 
+      },
+      orderBy: { pnl: 'desc' },
+      take: limit
+    })
+
     return NextResponse.json({
       traders: activeTraders,
+      pnlLeaderboard: pnlLeaderboard.map((profile, index) => ({
+        rank: index + 1,
+        address: profile.userAddress,
+        name: userMap.get(profile.userAddress) || `Wallet User ${profile.userAddress.slice(0, 8)}`,
+        totalPnl: profile.totalPnl,
+        totalVolume: profile.totalVolume,
+        tradesCount: profile.tradesCount,
+        wins: profile.wins,
+        trophies: profile.trophies,
+        currentSeasonPnl: profile.currentSeasonPnl
+      })),
+      seasonLeaderboard: seasonLeaderboard.map((stat, index) => ({
+        rank: index + 1,
+        address: stat.profile.userAddress,
+        name: userMap.get(stat.profile.userAddress) || `Wallet User ${stat.profile.userAddress.slice(0, 8)}`,
+        seasonPnl: stat.pnl,
+        seasonVolume: stat.volume,
+        seasonTrades: stat.tradesCount,
+        seasonWins: stat.wins
+      })),
       total: activeTraders.length
     })
 
