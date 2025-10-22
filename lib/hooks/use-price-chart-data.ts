@@ -174,3 +174,96 @@ export function usePriceChartData({
     liveData: livePriceData,
   };
 }
+
+// New: OHLC candles for 7d/1h
+export interface OhlcCandle {
+  time: number; // seconds since epoch UTC
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export function useCandlesData({
+  tokenId,
+  marketAddress,
+  newsAccountAddress,
+  mintAddress,
+  liveUpdates = true,
+  refreshInterval = 10000,
+}: {
+  tokenId: string;
+  marketAddress?: string;
+  newsAccountAddress?: string;
+  mintAddress?: string;
+  liveUpdates?: boolean;
+  refreshInterval?: number;
+}) {
+  const [candles, setCandles] = useState<OhlcCandle[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: live } = useLivePrice({
+    marketAddress: marketAddress || "",
+    newsAccountAddress: newsAccountAddress || "",
+    mintAddress: mintAddress || "",
+    enabled: liveUpdates && !!marketAddress && !!newsAccountAddress && !!mintAddress,
+    refreshInterval,
+  });
+
+  const fetchCandles = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/tokens/${tokenId}/ohlc?range=7d&interval=1h`);
+      if (!res.ok) throw new Error(`Failed to fetch candles: ${res.statusText}`);
+      const data: OhlcCandle[] = await res.json();
+      setCandles(data);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to fetch candles";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [tokenId]);
+
+  // seed
+  useEffect(() => {
+    fetchCandles();
+  }, [fetchCandles]);
+
+  // live update last candle and roll hourly
+  useEffect(() => {
+    if (!candles || !live || !live.currentPrice) return;
+    const last = candles[candles.length - 1];
+    const nowMs = live.timestamp;
+    const hourStartSec = Math.floor(nowMs / 1000 / 3600) * 3600;
+
+    let next = candles.slice();
+    if (!last || last.time < hourStartSec) {
+      const seed = last ? last.close : live.currentPrice;
+      next.push({ time: hourStartSec, open: seed, high: seed, low: seed, close: seed });
+    }
+
+    const idx = next.length - 1;
+    const c = next[idx];
+    const price = live.currentPrice;
+    const updated: OhlcCandle = {
+      time: c.time,
+      open: c.open,
+      high: Math.max(c.high, price),
+      low: Math.min(c.low, price),
+      close: price,
+    };
+    if (
+      updated.high !== c.high ||
+      updated.low !== c.low ||
+      updated.close !== c.close
+    ) {
+      next[idx] = updated;
+      setCandles(next);
+    }
+  }, [candles, live]);
+
+  return { candles, loading, error, refetch: fetchCandles };
+}

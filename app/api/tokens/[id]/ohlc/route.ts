@@ -1,113 +1,109 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-interface OHLCData {
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
+type Interval = "1h";
+
+interface OhlcItem {
+  time: number; // seconds since epoch (UTC)
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+function getQueryParam(request: NextRequest, key: string, fallback: string) {
+  const { searchParams } = new URL(request.url);
+  return searchParams.get(key) || fallback;
+}
+
+function floorToHour(date: Date): Date {
+  const d = new Date(date);
+  d.setUTCMinutes(0, 0, 0);
+  return d;
+}
+
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { searchParams } = new URL(request.url)
-    const interval = searchParams.get('interval') || '1m'
-    const limit = Math.min(parseInt(searchParams.get('limit') || '300'), 300)
-    
-    const tokenId = params.id
+    const { id: tokenId } = await context.params;
     if (!tokenId) {
-      return NextResponse.json({ error: 'Token ID required' }, { status: 400 })
+      return NextResponse.json({ error: "Missing token id" }, { status: 400 });
     }
 
-    // Get price history data
-    const priceHistoryResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/tokens/${tokenId}/price-history?timeframe=24h&limit=1000`,
-      { cache: 'no-store' }
-    )
+    // Only support 7d/1h for now; keep params for future extension
+    const range = getQueryParam(request, "range", "7d");
+    const interval = getQueryParam(request, "interval", "1h") as Interval;
 
-    if (!priceHistoryResponse.ok) {
-      return NextResponse.json({ error: 'Failed to fetch price history' }, { status: 500 })
+    if (range !== "7d" || interval !== "1h") {
+      return NextResponse.json({ error: "Unsupported range/interval" }, { status: 400 });
     }
 
-    const { priceHistory } = await priceHistoryResponse.json()
-    
-    if (!priceHistory || priceHistory.length === 0) {
-      return NextResponse.json({ error: 'No price data available' }, { status: 404 })
-    }
+    const now = new Date();
+    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Convert interval to milliseconds
-    const getIntervalMs = (interval: string): number => {
-      switch (interval) {
-        case '1m': return 60 * 1000
-        case '5m': return 5 * 60 * 1000
-        case '15m': return 15 * 60 * 1000
-        case '1h': return 60 * 60 * 1000
-        case '4h': return 4 * 60 * 60 * 1000
-        case '1d': return 24 * 60 * 60 * 1000
-        default: return 60 * 1000
+    // Fetch trades for token in the last 7 days
+    const trades = await prisma.trade.findMany({
+      where: {
+        tokenId,
+        timestamp: { gte: start },
+      },
+      orderBy: { timestamp: "asc" },
+      select: { timestamp: true, priceAtTrade: true },
+    });
+
+    // If no trades, fall back to flat candles from current token price
+    if (trades.length === 0) {
+      const token = await prisma.token.findUnique({ where: { id: tokenId }, select: { price: true } });
+      const basePrice = token?.price ?? 0;
+
+      const candles: OhlcItem[] = [];
+      const cursor = floorToHour(start);
+      while (cursor <= now) {
+        const tSec = Math.floor(cursor.getTime() / 1000);
+        candles.push({ time: tSec, open: basePrice, high: basePrice, low: basePrice, close: basePrice });
+        cursor.setUTCHours(cursor.getUTCHours() + 1);
       }
+
+      return NextResponse.json(candles);
     }
 
-    const intervalMs = getIntervalMs(interval)
-    
-    // Group data into OHLC buckets
-    const buckets = new Map<number, {
-      open: number
-      high: number
-      low: number
-      close: number
-      volume: number
-      count: number
-    }>()
+    // Aggregate by 1h buckets
+    const buckets = new Map<number, { open: number; high: number; low: number; close: number }>();
 
-    priceHistory.forEach((point: any) => {
-      const timestamp = new Date(point.timestamp).getTime()
-      const bucketTime = Math.floor(timestamp / intervalMs) * intervalMs
-      const price = point.price || 0
-      const volume = point.volume || 0
-
-      if (!buckets.has(bucketTime)) {
-        buckets.set(bucketTime, {
-          open: price,
-          high: price,
-          low: price,
-          close: price,
-          volume: volume,
-          count: 1
-        })
+    for (const tr of trades) {
+      const bucketStart = floorToHour(tr.timestamp);
+      const key = Math.floor(bucketStart.getTime() / 1000);
+      const price = tr.priceAtTrade;
+      if (!buckets.has(key)) {
+        buckets.set(key, { open: price, high: price, low: price, close: price });
       } else {
-        const bucket = buckets.get(bucketTime)!
-        bucket.high = Math.max(bucket.high, price)
-        bucket.low = Math.min(bucket.low, price)
-        bucket.close = price // Last price in the bucket
-        bucket.volume += volume
-        bucket.count += 1
+        const b = buckets.get(key)!;
+        // update high/low
+        if (price > b.high) b.high = price;
+        if (price < b.low) b.low = price;
+        // close is latest in ascending order iteration
+        b.close = price;
       }
-    })
+    }
 
-    // Convert to OHLC format and sort by time
-    const ohlcData: OHLCData[] = Array.from(buckets.entries())
-      .map(([time, data]) => ({
-        time: Math.floor(time / 1000), // Convert to seconds for lightweight-charts
-        open: data.open,
-        high: data.high,
-        low: data.low,
-        close: data.close,
-        volume: data.volume
-      }))
-      .sort((a, b) => a.time - b.time)
-      .slice(-limit) // Limit to requested number of candles
+    // Ensure continuity: fill missing hours with previous close
+    const candles: OhlcItem[] = [];
+    const cursor = floorToHour(start);
+    let prevClose: number | null = null;
+    while (cursor <= now) {
+      const key = Math.floor(cursor.getTime() / 1000);
+      const bucket = buckets.get(key);
+      if (bucket) {
+        candles.push({ time: key, open: bucket.open, high: bucket.high, low: bucket.low, close: bucket.close });
+        prevClose = bucket.close;
+      } else {
+        const price = prevClose ?? trades[0].priceAtTrade;
+        candles.push({ time: key, open: price, high: price, low: price, close: price });
+      }
+      cursor.setUTCHours(cursor.getUTCHours() + 1);
+    }
 
-    return NextResponse.json(ohlcData)
+    return NextResponse.json(candles);
   } catch (error) {
-    console.error('OHLC API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to build OHLC" }, { status: 500 });
   }
 }
