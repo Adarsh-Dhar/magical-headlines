@@ -65,6 +65,9 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const getCurrentPrice = contract?.getCurrentPrice
   const getMarketDelegationStatus = contract?.getMarketDelegationStatus
   const listenForDelegationEvents = contract?.listenForDelegationEvents
+  const stakeAuthorTokens = contract?.stakeAuthorTokens
+  const unstakeAuthorTokens = contract?.unstakeAuthorTokens
+  const claimStakingFees = contract?.claimStakingFees
   
   // All state declarations
   const [story, setStory] = useState<Story | null>(null)
@@ -90,6 +93,16 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const [isRequestingAirdrop, setIsRequestingAirdrop] = useState(false)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [isLoadingPrice, setIsLoadingPrice] = useState(false)
+  
+  // Staking state
+  const [stakedAmount, setStakedAmount] = useState<number>(0)
+  const [accumulatedFees, setAccumulatedFees] = useState<number>(0)
+  const [isAuthor, setIsAuthor] = useState<boolean>(false)
+  const [stakeInputAmount, setStakeInputAmount] = useState("")
+  const [unstakeInputAmount, setUnstakeInputAmount] = useState("")
+  const [isStaking, setIsStaking] = useState(false)
+  const [stakingError, setStakingError] = useState<string | null>(null)
+  const [stakingSuccess, setStakingSuccess] = useState<string | null>(null)
   
   // Delegation status and events
   const [delegationStatus, setDelegationStatus] = useState<{
@@ -119,7 +132,6 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const price = useMemo(() => token ? token.price : 0, [token?.price])
   const volume = useMemo(() => token ? token.volume24h : 0, [token?.volume24h])
   const marketCap = useMemo(() => token ? token.marketCap : 0, [token?.marketCap])
-  const isAuthor = useMemo(() => !!(publicKey && story?.submitter?.walletAddress === publicKey.toString()), [publicKey, story?.submitter?.walletAddress])
 
 
   // All useCallback hooks - must be called in same order every time
@@ -151,6 +163,31 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       setLoading(false)
     }
   }, [storyId])
+
+  const fetchStakingData = useCallback(async () => {
+    if (!story?.authorAddress || !story?.nonce || !pdas || !publicKey) return
+    
+    try {
+      const author = new PublicKey(story.authorAddress)
+      const nonceNum = parseInt(story.nonce)
+      const newsPda = pdas.findNewsPda(author, nonceNum)
+      const marketPda = pdas.findMarketPda(newsPda)
+      
+      // Check if current user is the author
+      const isCurrentUserAuthor = publicKey.equals(author)
+      setIsAuthor(isCurrentUserAuthor)
+      
+      if (isCurrentUserAuthor && getMarketDelegationStatus) {
+        const status = await getMarketDelegationStatus(marketPda)
+        if (status) {
+          setStakedAmount(Number(status.stakedAuthorTokens || 0))
+          setAccumulatedFees(Number(status.accumulatedFees || 0) / 1e9) // Convert lamports to SOL
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching staking data:', error)
+    }
+  }, [story, pdas, publicKey, getMarketDelegationStatus])
 
   const requestAirdrop = useCallback(async () => {
     if (!publicKey) return
@@ -423,6 +460,133 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     }
   }, [story?.token, connected, publicKey, sell, pdas, findActualNewsAccount, connection, sellAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory])
 
+  const handleStake = useCallback(async () => {
+    if (!story?.token || !isAuthor) return
+    
+    const amount = parseFloat(stakeInputAmount)
+    if (isNaN(amount) || amount <= 0) {
+      setStakingError('Please enter a valid amount greater than 0')
+      return
+    }
+    
+    try {
+      setIsStaking(true)
+      setStakingError(null)
+      setStakingSuccess(null)
+      
+      if (!story.authorAddress || !story.nonce || !pdas) {
+        throw new Error('Missing required data for staking')
+      }
+      
+      const author = new PublicKey(story.authorAddress)
+      const nonce = parseInt(story.nonce)
+      const newsPda = pdas.findNewsPda(author, nonce)
+      const marketPda = pdas.findMarketPda(newsPda)
+      const mintPda = pdas.findMintPda(newsPda)
+      
+      await stakeAuthorTokens({
+        market: marketPda,
+        mint: mintPda,
+        newsAccount: newsPda,
+        amount: amount
+      })
+      
+      setStakingSuccess(`Successfully staked ${amount} tokens!`)
+      setStakeInputAmount("")
+      
+      // Refresh staking data
+      await fetchStakingData()
+      
+    } catch (err) {
+      setStakingError(err instanceof Error ? err.message : 'Failed to stake tokens')
+    } finally {
+      setIsStaking(false)
+    }
+  }, [story, isAuthor, stakeInputAmount, stakeAuthorTokens, pdas, fetchStakingData])
+
+  const handleUnstake = useCallback(async () => {
+    if (!story?.token || !isAuthor) return
+    
+    const amount = parseFloat(unstakeInputAmount)
+    if (isNaN(amount) || amount <= 0) {
+      setStakingError('Please enter a valid amount greater than 0')
+      return
+    }
+    
+    if (amount > stakedAmount) {
+      setStakingError('Cannot unstake more than you have staked')
+      return
+    }
+    
+    try {
+      setIsStaking(true)
+      setStakingError(null)
+      setStakingSuccess(null)
+      
+      if (!story.authorAddress || !story.nonce || !pdas) {
+        throw new Error('Missing required data for unstaking')
+      }
+      
+      const author = new PublicKey(story.authorAddress)
+      const nonce = parseInt(story.nonce)
+      const newsPda = pdas.findNewsPda(author, nonce)
+      const marketPda = pdas.findMarketPda(newsPda)
+      const mintPda = pdas.findMintPda(newsPda)
+      
+      await unstakeAuthorTokens({
+        market: marketPda,
+        mint: mintPda,
+        newsAccount: newsPda,
+        amount: amount
+      })
+      
+      setStakingSuccess(`Successfully unstaked ${amount} tokens!`)
+      setUnstakeInputAmount("")
+      
+      // Refresh staking data
+      await fetchStakingData()
+      
+    } catch (err) {
+      setStakingError(err instanceof Error ? err.message : 'Failed to unstake tokens')
+    } finally {
+      setIsStaking(false)
+    }
+  }, [story, isAuthor, unstakeInputAmount, stakedAmount, unstakeAuthorTokens, pdas, fetchStakingData])
+
+  const handleClaimFees = useCallback(async () => {
+    if (!story?.token || !isAuthor) return
+    
+    try {
+      setIsStaking(true)
+      setStakingError(null)
+      setStakingSuccess(null)
+      
+      if (!story.authorAddress || !story.nonce || !pdas) {
+        throw new Error('Missing required data for claiming fees')
+      }
+      
+      const author = new PublicKey(story.authorAddress)
+      const nonce = parseInt(story.nonce)
+      const newsPda = pdas.findNewsPda(author, nonce)
+      const marketPda = pdas.findMarketPda(newsPda)
+      
+      await claimStakingFees({
+        market: marketPda,
+        newsAccount: newsPda
+      })
+      
+      setStakingSuccess(`Successfully claimed ${accumulatedFees.toFixed(6)} SOL in fees!`)
+      
+      // Refresh staking data
+      await fetchStakingData()
+      
+    } catch (err) {
+      setStakingError(err instanceof Error ? err.message : 'Failed to claim fees')
+    } finally {
+      setIsStaking(false)
+    }
+  }, [story, isAuthor, accumulatedFees, claimStakingFees, pdas, fetchStakingData])
+
   // All useEffect hooks - must be called in same order every time
   useEffect(() => {
     return () => {
@@ -435,6 +599,12 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       fetchStory()
     }
   }, [storyId, fetchStory])
+
+  useEffect(() => {
+    if (story) {
+      fetchStakingData()
+    }
+  }, [story, fetchStakingData])
 
   useEffect(() => {
     const fetchLikes = async () => {
@@ -1094,6 +1264,109 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                 </div>
               )}
             </Card>
+
+            {/* Author Staking Section - Only visible to authors */}
+            {isAuthor && (
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Author Staking</h2>
+                <div className="space-y-4">
+                  {/* Staking Stats */}
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="text-sm text-gray-600">Staked Tokens</p>
+                      <p className="text-lg font-semibold">{stakedAmount.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Accumulated Fees</p>
+                      <p className="text-lg font-semibold text-green-600">{accumulatedFees.toFixed(6)} SOL</p>
+                    </div>
+                  </div>
+
+                  {/* Stake Tokens */}
+                  <div className="space-y-2">
+                    <Label htmlFor="stakeAmount" className="text-sm font-medium">Stake Tokens</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="stakeAmount"
+                        type="number"
+                        placeholder="Amount to stake"
+                        value={stakeInputAmount}
+                        onChange={(e) => setStakeInputAmount(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        disabled={isStaking}
+                      />
+                      <Button 
+                        onClick={handleStake}
+                        disabled={isStaking || !stakeInputAmount}
+                        className="px-6"
+                      >
+                        {isStaking ? "Staking..." : "Stake"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Unstake Tokens */}
+                  <div className="space-y-2">
+                    <Label htmlFor="unstakeAmount" className="text-sm font-medium">Unstake Tokens</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="unstakeAmount"
+                        type="number"
+                        placeholder="Amount to unstake"
+                        value={unstakeInputAmount}
+                        onChange={(e) => setUnstakeInputAmount(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        disabled={isStaking}
+                      />
+                      <Button 
+                        onClick={handleUnstake}
+                        disabled={isStaking || !unstakeInputAmount || parseFloat(unstakeInputAmount) > stakedAmount}
+                        variant="outline"
+                        className="px-6"
+                      >
+                        {isStaking ? "Unstaking..." : "Unstake"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Claim Fees */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Claim Staking Fees</Label>
+                    <Button 
+                      onClick={handleClaimFees}
+                      disabled={isStaking || accumulatedFees <= 0}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      {isStaking ? "Claiming..." : `Claim ${accumulatedFees.toFixed(6)} SOL`}
+                    </Button>
+                  </div>
+
+                  {/* Staking Messages */}
+                  {stakingError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-600">{stakingError}</p>
+                    </div>
+                  )}
+                  
+                  {stakingSuccess && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-sm text-green-600">{stakingSuccess}</p>
+                    </div>
+                  )}
+
+                  {/* Info Text */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-600">
+                      💡 Stake your tokens to earn 5% of all trading fees on this market. 
+                      The more trading activity, the more you earn!
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Story Stats</h2>

@@ -12,6 +12,26 @@ export interface TokensSoldEvent {
   newSupply: number;
 }
 
+export interface TokensStakedEvent {
+  author: string;
+  market: string;
+  amount: number;
+  totalStaked: number;
+}
+
+export interface TokensUnstakedEvent {
+  author: string;
+  market: string;
+  amount: number;
+  totalStaked: number;
+}
+
+export interface FeesClaimedEvent {
+  author: string;
+  market: string;
+  amount: number;
+}
+
 export interface TradingEventData {
   type: 'purchased' | 'sold';
   trader: string;
@@ -38,5 +58,31 @@ export function parseTokensSoldEvent(event: any): TokensSoldEvent {
     amount: Number(event.amount),
     refund: Number(event.refund),
     newSupply: Number(event.newSupply)
+  };
+}
+
+export function parseTokensStakedEvent(event: any): TokensStakedEvent {
+  return {
+    author: event.author.toString(),
+    market: event.market.toString(),
+    amount: Number(event.amount),
+    totalStaked: Number(event.totalStaked)
+  };
+}
+
+export function parseTokensUnstakedEvent(event: any): TokensUnstakedEvent {
+  return {
+    author: event.author.toString(),
+    market: event.market.toString(),
+    amount: Number(event.amount),
+    totalStaked: Number(event.totalStaked)
+  };
+}
+
+export function parseFeesClaimedEvent(event: any): FeesClaimedEvent {
+  return {
+    author: event.author.toString(),
+    market: event.market.toString(),
+    amount: Number(event.amount)
   };
 }

@@ -1,6 +1,6 @@
-import { PrismaClient } from '../node_modules/.prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
-import { parseTokensPurchasedEvent, parseTokensSoldEvent, TradingEventData } from './types/events';
+import { parseTokensPurchasedEvent, parseTokensSoldEvent, parseTokensStakedEvent, parseTokensUnstakedEvent, parseFeesClaimedEvent, TradingEventData } from './types/events';
 
 const prisma = new PrismaClient();
 
@@ -151,6 +151,87 @@ export async function processTokensSoldEvent(event: any, signature: string) {
     console.log('Successfully processed TokensSold event:', trade.id);
   } catch (error) {
     console.error('Error processing TokensSold event:', error);
+  }
+}
+
+export async function processTokensStakedEvent(event: any, signature: string) {
+  try {
+    const eventData = parseTokensStakedEvent(event);
+    console.log('Processing TokensStaked event:', eventData);
+
+    // Find the token by looking up the market account
+    const token = await findTokenByMarketAccount(eventData);
+    
+    if (!token) {
+      console.log('Token not found for staking event, skipping...');
+      return;
+    }
+
+    // Update token staking data
+    await prisma.token.update({
+      where: { id: token.id },
+      data: {
+        stakedTokens: eventData.totalStaked
+      }
+    });
+
+    console.log('Successfully processed TokensStaked event for token:', token.id);
+  } catch (error) {
+    console.error('Error processing TokensStaked event:', error);
+  }
+}
+
+export async function processTokensUnstakedEvent(event: any, signature: string) {
+  try {
+    const eventData = parseTokensUnstakedEvent(event);
+    console.log('Processing TokensUnstaked event:', eventData);
+
+    // Find the token by looking up the market account
+    const token = await findTokenByMarketAccount(eventData);
+    
+    if (!token) {
+      console.log('Token not found for unstaking event, skipping...');
+      return;
+    }
+
+    // Update token staking data
+    await prisma.token.update({
+      where: { id: token.id },
+      data: {
+        stakedTokens: eventData.totalStaked
+      }
+    });
+
+    console.log('Successfully processed TokensUnstaked event for token:', token.id);
+  } catch (error) {
+    console.error('Error processing TokensUnstaked event:', error);
+  }
+}
+
+export async function processFeesClaimedEvent(event: any, signature: string) {
+  try {
+    const eventData = parseFeesClaimedEvent(event);
+    console.log('Processing FeesClaimed event:', eventData);
+
+    // Find the token by looking up the market account
+    const token = await findTokenByMarketAccount(eventData);
+    
+    if (!token) {
+      console.log('Token not found for fees claimed event, skipping...');
+      return;
+    }
+
+    // Reset accumulated fees to 0 after claim
+    await prisma.token.update({
+      where: { id: token.id },
+      data: {
+        accumulatedFees: 0
+      }
+    });
+
+    console.log('Successfully processed FeesClaimed event for token:', token.id);
+  } catch (error) {
+    console.error('Error processing FeesClaimed event:', error);
   }
 }
 

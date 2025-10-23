@@ -143,6 +143,48 @@ function startListener() {
                     console.error("❌ Error processing TokensSold event:", error);
                 }
             }));
+            program.addEventListener('tokensStaked', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    console.log("\n🔒 ========================================");
+                    console.log(`🔐 TOKENS STAKED EVENT!`);
+                    console.log(`🔑 Signature: ${signature}`);
+                    console.log(`📊 Slot: ${slot}`);
+                    console.log(`⏰ Time: ${new Date().toISOString()}`);
+                    console.log("🔒 ========================================\n");
+                    yield (0, trading_events_1.processTokensStakedEvent)(event, signature);
+                }
+                catch (error) {
+                    console.error("❌ Error processing TokensStaked event:", error);
+                }
+            }));
+            program.addEventListener('tokensUnstaked', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    console.log("\n🔓 ========================================");
+                    console.log(`🔓 TOKENS UNSTAKED EVENT!`);
+                    console.log(`🔑 Signature: ${signature}`);
+                    console.log(`📊 Slot: ${slot}`);
+                    console.log(`⏰ Time: ${new Date().toISOString()}`);
+                    console.log("🔓 ========================================\n");
+                    yield (0, trading_events_1.processTokensUnstakedEvent)(event, signature);
+                }
+                catch (error) {
+                    console.error("❌ Error processing TokensUnstaked event:", error);
+                }
+            }));
+            program.addEventListener('feesClaimed', (event, slot, signature) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    console.log("\n💰 ========================================");
+                    console.log(`💎 FEES CLAIMED EVENT!`);
+                    console.log(`🔑 Signature: ${signature}`);
+                    console.log(`📊 Slot: ${slot}`);
+                    console.log(`⏰ Time: ${new Date().toISOString()}`);
+                    console.log("💰 ========================================\n");
+                    yield (0, trading_events_1.processFeesClaimedEvent)(event, signature);
+                }
+                catch (error) {
+                    console.error("❌ Error processing FeesClaimed event:", error);
+                }
+            }));
             console.log("👂 Setting up account change listener...");
             connection.onProgramAccountChange(programId, (accountInfo, context) => __awaiter(this, void 0, void 0, function* () {
                 try {

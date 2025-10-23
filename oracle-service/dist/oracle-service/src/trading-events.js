@@ -11,7 +11,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processTokensPurchasedEvent = processTokensPurchasedEvent;
 exports.processTokensSoldEvent = processTokensSoldEvent;
-const client_1 = require("../node_modules/.prisma/client");
+exports.processTokensStakedEvent = processTokensStakedEvent;
+exports.processTokensUnstakedEvent = processTokensUnstakedEvent;
+exports.processFeesClaimedEvent = processFeesClaimedEvent;
+const client_1 = require("@prisma/client");
 const events_1 = require("./types/events");
 const prisma = new client_1.PrismaClient();
 function alignToUtcMinute(date) {
@@ -123,6 +126,75 @@ function processTokensSoldEvent(event, signature) {
         }
         catch (error) {
             console.error('Error processing TokensSold event:', error);
+        }
+    });
+}
+function processTokensStakedEvent(event, signature) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const eventData = (0, events_1.parseTokensStakedEvent)(event);
+            console.log('Processing TokensStaked event:', eventData);
+            const token = yield findTokenByMarketAccount(eventData);
+            if (!token) {
+                console.log('Token not found for staking event, skipping...');
+                return;
+            }
+            yield prisma.token.update({
+                where: { id: token.id },
+                data: {
+                    stakedTokens: eventData.totalStaked
+                }
+            });
+            console.log('Successfully processed TokensStaked event for token:', token.id);
+        }
+        catch (error) {
+            console.error('Error processing TokensStaked event:', error);
+        }
+    });
+}
+function processTokensUnstakedEvent(event, signature) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const eventData = (0, events_1.parseTokensUnstakedEvent)(event);
+            console.log('Processing TokensUnstaked event:', eventData);
+            const token = yield findTokenByMarketAccount(eventData);
+            if (!token) {
+                console.log('Token not found for unstaking event, skipping...');
+                return;
+            }
+            yield prisma.token.update({
+                where: { id: token.id },
+                data: {
+                    stakedTokens: eventData.totalStaked
+                }
+            });
+            console.log('Successfully processed TokensUnstaked event for token:', token.id);
+        }
+        catch (error) {
+            console.error('Error processing TokensUnstaked event:', error);
+        }
+    });
+}
+function processFeesClaimedEvent(event, signature) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const eventData = (0, events_1.parseFeesClaimedEvent)(event);
+            console.log('Processing FeesClaimed event:', eventData);
+            const token = yield findTokenByMarketAccount(eventData);
+            if (!token) {
+                console.log('Token not found for fees claimed event, skipping...');
+                return;
+            }
+            yield prisma.token.update({
+                where: { id: token.id },
+                data: {
+                    accumulatedFees: 0
+                }
+            });
+            console.log('Successfully processed FeesClaimed event for token:', token.id);
+        }
+        catch (error) {
+            console.error('Error processing FeesClaimed event:', error);
         }
     });
 }

@@ -63,6 +63,8 @@ model Token {
   marketAccount  String?             @unique
   mintAccount    String?             @unique
   newsAccount    String?             @unique
+  stakedTokens   Float               @default(0)
+  accumulatedFees Float              @default(0)
   holders        Holding[]
   story          Story               @relation(fields: [storyId], references: [id])
   volumeMinutes  TokenVolumeMinute[]

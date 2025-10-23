@@ -20,6 +20,14 @@ import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
 
 // Debug: Log instruction names
 if (NEWS_PLATFORM_IDL?.instructions) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log("IDL Instructions:", NEWS_PLATFORM_IDL.instructions.map((ix: any) => ix.name));
+    console.log("Staking instructions in IDL:", {
+      stake_author_tokens: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'stake_author_tokens'),
+      unstake_author_tokens: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'unstake_author_tokens'),
+      claim_staking_fees: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'claim_staking_fees'),
+    });
+  }
 }
 
 // Constants
@@ -166,6 +174,15 @@ export function useContract() {
       } as Idl;
       
       if (process.env.NODE_ENV === 'development') {
+        console.log("Program ID from env:", programId.toString());
+        console.log("Program ID from IDL:", NEWS_PLATFORM_IDL.address);
+        console.log("IDL address matches:", programId.toString() === NEWS_PLATFORM_IDL.address);
+        console.log("IDL loaded correctly:", !!NEWS_PLATFORM_IDL);
+        console.log("IDL instructions count:", NEWS_PLATFORM_IDL.instructions?.length);
+        console.log("IDL has stake_author_tokens:", NEWS_PLATFORM_IDL.instructions?.some((ix: any) => ix.name === 'stake_author_tokens'));
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
         // console.log removed for production
       }
         
@@ -178,9 +195,105 @@ export function useContract() {
       const program = new Program(minimalIdl, provider) as Program;
       
       if (process.env.NODE_ENV === 'development') {
+        console.log("Program created successfully");
+        console.log("Program methods object:", program.methods);
+        console.log("Program methods type:", typeof program.methods);
+        
+        // Check if program is deployed
+        connection.getAccountInfo(programId).then(programInfo => {
+          console.log("Program deployed:", !!programInfo);
+          console.log("Program owner:", programInfo?.owner.toString());
+        }).catch(error => {
+          console.error("Error checking program deployment:", error);
+        });
       }
       
       // Debug: Log all available methods
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Available program methods:", Object.keys(program.methods || {}));
+        console.log("Staking methods check:", {
+          stake_author_tokens: !!(program.methods?.stake_author_tokens),
+          stakeAuthorTokens: !!(program.methods?.stakeAuthorTokens),
+          unstake_author_tokens: !!(program.methods?.unstake_author_tokens),
+          unstakeAuthorTokens: !!(program.methods?.unstakeAuthorTokens),
+          claim_staking_fees: !!(program.methods?.claim_staking_fees),
+          claimStakingFees: !!(program.methods?.claimStakingFees),
+        });
+        
+        // Test if we can access the method
+        try {
+          console.log("Testing stakeAuthorTokens method:", typeof program.methods.stakeAuthorTokens);
+          if (program.methods.stakeAuthorTokens) {
+            console.log("stakeAuthorTokens method exists and is:", typeof program.methods.stakeAuthorTokens);
+            
+            // Try to inspect the method more deeply
+            console.log("stakeAuthorTokens method details:", {
+              name: program.methods.stakeAuthorTokens.name,
+              toString: program.methods.stakeAuthorTokens.toString(),
+              // Check if it has the expected properties
+              hasAccounts: 'accounts' in program.methods.stakeAuthorTokens,
+              hasRpc: 'rpc' in program.methods.stakeAuthorTokens,
+            });
+          }
+        } catch (error) {
+          console.error("Error accessing stakeAuthorTokens method:", error);
+        }
+        
+        // Also test a known working method for comparison
+        try {
+          console.log("Testing buy method for comparison:", typeof program.methods.buy);
+          if (program.methods.buy) {
+            console.log("buy method details:", {
+              name: program.methods.buy.name,
+              hasAccounts: 'accounts' in program.methods.buy,
+              hasRpc: 'rpc' in program.methods.buy,
+            });
+          }
+        } catch (error) {
+          console.error("Error accessing buy method:", error);
+        }
+        
+        // Test if we can create a method call without executing it
+        try {
+          console.log("Testing stakeAuthorTokens method call creation...");
+          const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
+          console.log("stakeAuthorTokens call created successfully:", typeof testCall);
+          console.log("Call has accounts method:", 'accounts' in testCall);
+          console.log("Call has rpc method:", 'rpc' in testCall);
+        } catch (error) {
+          console.error("Error creating stakeAuthorTokens call:", error);
+        }
+        
+        // Test if we can create a buy method call for comparison
+        try {
+          console.log("Testing buy method call creation...");
+          const testBuyCall = program.methods.buy(new anchor.BN(1));
+          console.log("buy call created successfully:", typeof testBuyCall);
+          console.log("Buy call has accounts method:", 'accounts' in testBuyCall);
+          console.log("Buy call has rpc method:", 'rpc' in testBuyCall);
+        } catch (error) {
+          console.error("Error creating buy call:", error);
+        }
+        
+        // Check if the program has the expected instruction discriminator
+        try {
+          console.log("Checking program instruction discriminators...");
+          connection.getAccountInfo(programId).then(programInfo => {
+            if (programInfo) {
+              console.log("Program account info:", {
+                owner: programInfo.owner.toString(),
+                executable: programInfo.executable,
+                dataLength: programInfo.data.length,
+                lamports: programInfo.lamports
+              });
+            }
+          }).catch(error => {
+            console.error("Error checking program info:", error);
+          });
+        } catch (error) {
+          console.error("Error checking program info:", error);
+        }
+      }
       
       // Check if Anchor converted snake_case to camelCase
       const hasPublishNews = !!(program.methods?.publishNews);
@@ -470,7 +583,8 @@ export function useContract() {
             })
             .rpc();
           
-          // Log price after buy
+          // Log price after buy and get price for PnL recording
+          let priceAfter = 0;
           try {
             const priceLamports = await program.methods
               .getCurrentPrice()
@@ -479,7 +593,7 @@ export function useContract() {
                 newsAccount: params.newsAccount,
               })
               .view();
-            const priceAfter = Number(priceLamports) / 1e9;
+            priceAfter = Number(priceLamports) / 1e9;
 
             // Best-effort supply logging
             let circulatingSupply: number | null = null;
@@ -501,7 +615,6 @@ export function useContract() {
           try {
             const currentSeason = await fetch('/api/seasons').then(r => r.json())
             if (currentSeason?.currentSeason?.isActive) {
-              const priceAfter = Number(priceLamports) / 1e9
               await recordTradePnl({
                 market: params.market,
                 tradeType: 'Buy',
@@ -586,7 +699,8 @@ export function useContract() {
         })
         .rpc();
       
-      // Log price after sell
+      // Log price after sell and get price for PnL recording
+      let priceAfter = 0;
       try {
         const priceLamports = await program.methods
           .getCurrentPrice()
@@ -595,7 +709,7 @@ export function useContract() {
             newsAccount: params.newsAccount,
           })
           .view();
-        const priceAfter = Number(priceLamports) / 1e9;
+        priceAfter = Number(priceLamports) / 1e9;
 
         let circulatingSupply: number | null = null;
         try {
@@ -616,7 +730,6 @@ export function useContract() {
       try {
         const currentSeason = await fetch('/api/seasons').then(r => r.json())
         if (currentSeason?.currentSeason?.isActive) {
-          const priceAfter = Number(priceLamports) / 1e9
           await recordTradePnl({
             market: params.market,
             tradeType: 'Sell',
@@ -912,9 +1025,24 @@ export function useContract() {
           initialSupply: marketAccount.initialSupply,
           basePrice: marketAccount.basePrice,
           totalVolume: marketAccount.totalVolume,
+          // Add staking-related fields with safe access
+          stakedAuthorTokens: marketAccount.stakedAuthorTokens || marketAccount.staked_author_tokens || 0,
+          accumulatedFees: marketAccount.accumulatedFees || marketAccount.accumulated_fees || 0,
         };
       } catch (error) {
-        throw error;
+        console.error("Error fetching market account:", error);
+        // Return a default structure if account fetch fails
+        return {
+          isDelegated: false,
+          rollupAuthority: null,
+          currentSupply: 0,
+          circulatingSupply: 0,
+          initialSupply: 0,
+          basePrice: 0,
+          totalVolume: 0,
+          stakedAuthorTokens: 0,
+          accumulatedFees: 0,
+        };
       }
     },
     [program]
@@ -1299,6 +1427,223 @@ export function useContract() {
     [program, walletAdapter.publicKey]
   )
 
+  const stakeAuthorTokens = useCallback(
+    async (params: { market: PublicKey; mint: PublicKey; newsAccount: PublicKey; amount: number }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        // First, let's check if the method actually exists and is callable
+        if (!program.methods.stakeAuthorTokens) {
+          throw new Error("stakeAuthorTokens method not available on deployed program");
+        }
+        
+        // Derive the author's token account
+        const authorTokenAccount = await anchor.utils.token.associatedAddress({
+          mint: params.mint,
+          owner: walletAdapter.publicKey,
+        });
+        
+        console.log("Staking parameters:", {
+          market: params.market.toString(),
+          newsAccount: params.newsAccount.toString(),
+          mint: params.mint.toString(),
+          author: walletAdapter.publicKey.toString(),
+          authorTokenAccount: authorTokenAccount.toString(),
+          amount: params.amount
+        });
+        
+        // Log that we're about to execute the staking transaction
+        console.log("Executing staking transaction...");
+        
+        // Use the correct camelCase method name
+        const signature = await program.methods
+          .stakeAuthorTokens(new anchor.BN(params.amount))
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+            mint: params.mint,
+            author: walletAdapter.publicKey,
+            authorTokenAccount: authorTokenAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        console.log("Staking transaction successful:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error in stakeAuthorTokens:", error);
+        console.error("Error details:", {
+          name: (error as any).name,
+          message: (error as any).message,
+          code: (error as any).code,
+          logs: (error as any).logs
+        });
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  const unstakeAuthorTokens = useCallback(
+    async (params: { market: PublicKey; mint: PublicKey; newsAccount: PublicKey; amount: number }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        // Derive the author's token account
+        const authorTokenAccount = await anchor.utils.token.associatedAddress({
+          mint: params.mint,
+          owner: walletAdapter.publicKey,
+        });
+        
+        console.log("Unstaking parameters:", {
+          market: params.market.toString(),
+          newsAccount: params.newsAccount.toString(),
+          mint: params.mint.toString(),
+          author: walletAdapter.publicKey.toString(),
+          authorTokenAccount: authorTokenAccount.toString(),
+          amount: params.amount
+        });
+        
+        // Use the correct camelCase method name
+        const signature = await program.methods
+          .unstakeAuthorTokens(new anchor.BN(params.amount))
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+            mint: params.mint,
+            author: walletAdapter.publicKey,
+            authorTokenAccount: authorTokenAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        console.log("Unstaking transaction successful:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error in unstakeAuthorTokens:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  const claimStakingFees = useCallback(
+    async (params: { market: PublicKey; newsAccount: PublicKey }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        console.log("Claiming fees parameters:", {
+          market: params.market.toString(),
+          newsAccount: params.newsAccount.toString(),
+          author: walletAdapter.publicKey.toString()
+        });
+        
+        // Use the correct camelCase method name
+        const signature = await program.methods
+          .claimStakingFees()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+            author: walletAdapter.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        console.log("Claim fees transaction successful:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error in claimStakingFees:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  // Admin functions for season management
+  const initializeSeason = useCallback(
+    async (seasonId: number) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        console.log("Initializing season:", seasonId);
+        
+        const signature = await program.methods
+          .initializeSeason(new anchor.BN(seasonId))
+          .accounts({
+            season: findSeasonPda(seasonId),
+            admin: walletAdapter.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        console.log("Season initialized successfully:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error initializing season:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  const awardTrophy = useCallback(
+    async (userAddress: string) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        const userPubkey = new PublicKey(userAddress);
+        console.log("Awarding trophy to:", userAddress);
+        
+        const signature = await program.methods
+          .awardTrophy()
+          .accounts({
+            profile: findProfilePda(userPubkey),
+            user: userPubkey,
+            admin: walletAdapter.publicKey,
+          })
+          .rpc();
+        
+        console.log("Trophy awarded successfully:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error awarding trophy:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
+  const resetSeasonPnl = useCallback(
+    async (userAddress: string) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        const userPubkey = new PublicKey(userAddress);
+        console.log("Resetting season PnL for:", userAddress);
+        
+        const signature = await program.methods
+          .resetSeasonPnl()
+          .accounts({
+            profile: findProfilePda(userPubkey),
+            user: userPubkey,
+            admin: walletAdapter.publicKey,
+          })
+          .rpc();
+        
+        console.log("Season PnL reset successfully:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error resetting season PnL:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
   return {
     program,
     // instruction wrappers
@@ -1328,6 +1673,14 @@ export function useContract() {
     // Game Layer methods
     initializeProfile,
     recordTradePnl,
+    // Staking methods
+    stakeAuthorTokens,
+    unstakeAuthorTokens,
+    claimStakingFees,
+    // Admin methods
+    initializeSeason,
+    awardTrophy,
+    resetSeasonPnl,
     // pda helpers exposed for UI composition
     pdas: {
       findNewsPda,

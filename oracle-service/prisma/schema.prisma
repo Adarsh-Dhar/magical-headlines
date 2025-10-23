@@ -93,6 +93,10 @@ model Token {
   mintAccount      String?   @unique
   newsAccount      String?   @unique
 
+  // Staking fields
+  stakedTokens     Float     @default(0)
+  accumulatedFees  Float     @default(0)
+
   storyId          String    @unique
   story            Story     @relation(fields: [storyId], references: [id])
 

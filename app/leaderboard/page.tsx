@@ -5,6 +5,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { TrophyIcon, TrendingUpIcon, Loader2, Search } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useWallet } from "@solana/wallet-adapter-react"
+import { SeasonAdminPanel } from "@/components/season-admin-panel"
+import { useContract } from "@/lib/use-contract"
+import { isAdmin } from "@/lib/admin-utils"
 
 interface Trader {
   rank: number
@@ -42,15 +46,28 @@ interface SeasonTrader {
   seasonWins: number
 }
 
+interface Season {
+  seasonId: number
+  startTimestamp: string
+  endTimestamp: string
+  isActive: boolean
+  totalParticipants: number
+}
+
 export default function LeaderboardPage() {
+  const { publicKey } = useWallet()
+  const { awardTrophy, resetSeasonPnl } = useContract()
   const [traders, setTraders] = useState<Trader[]>([])
   const [pnlLeaderboard, setPnlLeaderboard] = useState<PnLTrader[]>([])
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonTrader[]>([])
+  const [currentSeason, setCurrentSeason] = useState<Season | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
   const [appliedSearch, setAppliedSearch] = useState("")
   const [activeTab, setActiveTab] = useState<'roi' | 'pnl' | 'season'>('roi')
+  
+  const isUserAdmin = isAdmin(publicKey?.toString())
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       try {
@@ -75,8 +92,118 @@ export default function LeaderboardPage() {
       }
     }
 
+    const fetchSeasonData = async () => {
+      try {
+        const response = await fetch('/api/seasons')
+        if (response.ok) {
+          const data = await response.json()
+          setCurrentSeason(data.currentSeason)
+        }
+      } catch (err) {
+        console.error('Error fetching season data:', err)
+      }
+    }
+
     fetchLeaderboardData()
+    fetchSeasonData()
   }, [])
+
+  const handleSeasonEnd = async () => {
+    try {
+      const response = await fetch('/api/seasons/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'end_season' })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to end season')
+      }
+      
+      // Refresh data after season end
+      const leaderboardResponse = await fetch('/api/leaderboard?limit=50')
+      if (leaderboardResponse.ok) {
+        const data = await leaderboardResponse.json()
+        setTraders(data.traders || [])
+        setPnlLeaderboard(data.pnlLeaderboard || [])
+        setSeasonLeaderboard(data.seasonLeaderboard || [])
+      }
+      
+      const seasonResponse = await fetch('/api/seasons')
+      if (seasonResponse.ok) {
+        const data = await seasonResponse.json()
+        setCurrentSeason(data.currentSeason)
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const handleAwardTrophy = async (userAddress: string) => {
+    const response = await fetch('/api/seasons/manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'award_trophy_manual',
+        userAddress 
+      })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to award trophy')
+    }
+    
+    const result = await response.json()
+    return result
+  }
+
+  const handleResetSeasonPnl = async (userAddress: string) => {
+    const response = await fetch('/api/seasons/manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'reset_season_pnl_manual',
+        userAddress 
+      })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to reset season PnL')
+    }
+    
+    const result = await response.json()
+    return result
+  }
+
+  const handleRefresh = () => {
+    // Refresh both leaderboard and season data
+    const fetchData = async () => {
+      try {
+        const [leaderboardResponse, seasonResponse] = await Promise.all([
+          fetch('/api/leaderboard?limit=50'),
+          fetch('/api/seasons')
+        ])
+        
+        if (leaderboardResponse.ok) {
+          const data = await leaderboardResponse.json()
+          setTraders(data.traders || [])
+          setPnlLeaderboard(data.pnlLeaderboard || [])
+          setSeasonLeaderboard(data.seasonLeaderboard || [])
+        }
+        
+        if (seasonResponse.ok) {
+          const data = await seasonResponse.json()
+          setCurrentSeason(data.currentSeason)
+        }
+      } catch (err) {
+        console.error('Error refreshing data:', err)
+      }
+    }
+    
+    fetchData()
+  }
 
   const formatAddress = (address: string) => {
     if (address.length <= 10) return address
@@ -135,6 +262,16 @@ export default function LeaderboardPage() {
             {activeTab === 'season' && 'Current season leaderboard'}
           </p>
         </div>
+
+        {/* Admin Panel */}
+        <SeasonAdminPanel
+          currentSeason={currentSeason}
+          isAdmin={isUserAdmin}
+          onSeasonEnd={handleSeasonEnd}
+          onRefresh={handleRefresh}
+          onAwardTrophy={handleAwardTrophy}
+          onResetSeasonPnl={handleResetSeasonPnl}
+        />
 
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6">

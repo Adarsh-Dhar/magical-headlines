@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseTokensPurchasedEvent = parseTokensPurchasedEvent;
 exports.parseTokensSoldEvent = parseTokensSoldEvent;
+exports.parseTokensStakedEvent = parseTokensStakedEvent;
+exports.parseTokensUnstakedEvent = parseTokensUnstakedEvent;
+exports.parseFeesClaimedEvent = parseFeesClaimedEvent;
 function parseTokensPurchasedEvent(event) {
     return {
         buyer: event.buyer.toString(),
@@ -16,6 +19,29 @@ function parseTokensSoldEvent(event) {
         amount: Number(event.amount),
         refund: Number(event.refund),
         newSupply: Number(event.newSupply)
+    };
+}
+function parseTokensStakedEvent(event) {
+    return {
+        author: event.author.toString(),
+        market: event.market.toString(),
+        amount: Number(event.amount),
+        totalStaked: Number(event.totalStaked)
+    };
+}
+function parseTokensUnstakedEvent(event) {
+    return {
+        author: event.author.toString(),
+        market: event.market.toString(),
+        amount: Number(event.amount),
+        totalStaked: Number(event.totalStaked)
+    };
+}
+function parseFeesClaimedEvent(event) {
+    return {
+        author: event.author.toString(),
+        market: event.market.toString(),
+        amount: Number(event.amount)
     };
 }
 //# sourceMappingURL=events.js.map

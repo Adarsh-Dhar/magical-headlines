@@ -16,7 +16,7 @@ async function initializeFirstSeasonInDB() {
     
     // Create the first season
     const now = new Date()
-    const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000) // 24 hours from now
+    const endTime = new Date(now.getTime() + 60 * 60 * 1000) // 1 hour from now
     
     const season = await prisma.season.create({
       data: {

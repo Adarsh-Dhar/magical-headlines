@@ -17,6 +17,7 @@ export function SeasonCountdown() {
   const [season, setSeason] = useState<Season | null>(null)
   const [timeLeft, setTimeLeft] = useState<string>("")
   const [loading, setLoading] = useState(true)
+  const [seasonEnded, setSeasonEnded] = useState(false)
 
   useEffect(() => {
     const fetchSeason = async () => {
@@ -51,15 +52,33 @@ export function SeasonCountdown() {
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
         const s = Math.floor((diff % (1000 * 60)) / 1000)
         setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`)
+        setSeasonEnded(false)
       } else {
         setTimeLeft("00:00:00")
+        if (!seasonEnded) {
+          setSeasonEnded(true)
+          // Auto-refresh season data when season ends
+          setTimeout(() => {
+            fetchSeason()
+          }, 2000)
+        }
       }
     }
 
     updateCountdown()
     const interval = setInterval(updateCountdown, 1000)
     return () => clearInterval(interval)
-  }, [season])
+  }, [season, seasonEnded])
+
+  const fetchSeason = async () => {
+    try {
+      const response = await fetch('/api/seasons')
+      const data = await response.json()
+      setSeason(data.currentSeason)
+    } catch (error) {
+      console.error('Error fetching season:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -88,21 +107,44 @@ export function SeasonCountdown() {
       
       {season.isActive ? (
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <ClockIcon className="w-4 h-4" />
-            <span className="text-sm text-muted-foreground">Time Remaining</span>
-          </div>
-          <div className="text-3xl font-mono font-bold text-primary">
-            {timeLeft}
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            {season.totalParticipants} participants
-          </p>
+          {seasonEnded ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <TrophyIcon className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm font-medium text-yellow-700">Season Ended - Processing Results...</span>
+              </div>
+              <div className="text-2xl font-mono font-bold text-yellow-600">
+                00:00:00
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Trophies being awarded to top players...
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <ClockIcon className="w-4 h-4" />
+                <span className="text-sm text-muted-foreground">Time Remaining</span>
+              </div>
+              <div className="text-3xl font-mono font-bold text-primary">
+                {timeLeft}
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {season.totalParticipants} participants
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center">
-          <p className="text-sm text-muted-foreground mb-2">Season Ended</p>
-          <p className="font-semibold">Check back for results!</p>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <TrophyIcon className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-medium text-yellow-700">Season {season.seasonId} Ended</span>
+          </div>
+          <p className="font-semibold mb-2">Check the leaderboard for results!</p>
+          <p className="text-sm text-muted-foreground">
+            New season starting soon...
+          </p>
         </div>
       )}
     </Card>

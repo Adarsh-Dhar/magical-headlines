@@ -7,7 +7,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getConnection, getProgramId } from "./config";
 import { handleNewArticle } from "./article";
-import { processTokensPurchasedEvent, processTokensSoldEvent } from "./trading-events";
+import { processTokensPurchasedEvent, processTokensSoldEvent, processTokensStakedEvent, processTokensUnstakedEvent, processFeesClaimedEvent } from "./trading-events";
 import IDL from "../../contract/target/idl/news_platform.json";
 import type { NewsPlatform } from "../../contract/target/types/news_platform";
 
@@ -119,6 +119,51 @@ async function startListener() {
         await processTokensSoldEvent(event, signature);
       } catch (error) {
         console.error("❌ Error processing TokensSold event:", error);
+      }
+    });
+
+    program.addEventListener('tokensStaked', async (event, slot, signature) => {
+      try {
+        console.log("\n🔒 ========================================");
+        console.log(`🔐 TOKENS STAKED EVENT!`);
+        console.log(`🔑 Signature: ${signature}`);
+        console.log(`📊 Slot: ${slot}`);
+        console.log(`⏰ Time: ${new Date().toISOString()}`);
+        console.log("🔒 ========================================\n");
+        
+        await processTokensStakedEvent(event, signature);
+      } catch (error) {
+        console.error("❌ Error processing TokensStaked event:", error);
+      }
+    });
+
+    program.addEventListener('tokensUnstaked', async (event, slot, signature) => {
+      try {
+        console.log("\n🔓 ========================================");
+        console.log(`🔓 TOKENS UNSTAKED EVENT!`);
+        console.log(`🔑 Signature: ${signature}`);
+        console.log(`📊 Slot: ${slot}`);
+        console.log(`⏰ Time: ${new Date().toISOString()}`);
+        console.log("🔓 ========================================\n");
+        
+        await processTokensUnstakedEvent(event, signature);
+      } catch (error) {
+        console.error("❌ Error processing TokensUnstaked event:", error);
+      }
+    });
+
+    program.addEventListener('feesClaimed', async (event, slot, signature) => {
+      try {
+        console.log("\n💰 ========================================");
+        console.log(`💎 FEES CLAIMED EVENT!`);
+        console.log(`🔑 Signature: ${signature}`);
+        console.log(`📊 Slot: ${slot}`);
+        console.log(`⏰ Time: ${new Date().toISOString()}`);
+        console.log("💰 ========================================\n");
+        
+        await processFeesClaimedEvent(event, signature);
+      } catch (error) {
+        console.error("❌ Error processing FeesClaimed event:", error);
       }
     });
 

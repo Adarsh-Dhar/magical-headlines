@@ -1,5 +1,5 @@
 {
-    "address": "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4",
+    "address": "G1ErrifFMYTMicWHGw1TYL3L4ETmid5zGxhxoUZYMquw",
     "metadata": {
         "name": "news_platform",
         "version": "0.1.0",
@@ -285,6 +285,60 @@
                     "type": "u64"
                 }
             ]
+        },
+        {
+            "name": "claim_staking_fees",
+            "docs": [
+                "Claim accumulated staking fees"
+            ],
+            "discriminator": [
+                41,
+                122,
+                96,
+                254,
+                10,
+                172,
+                37,
+                75
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "author",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": []
         },
         {
             "name": "commit",
@@ -1176,6 +1230,167 @@
             ]
         },
         {
+            "name": "stake_author_tokens",
+            "docs": [
+                "Stake author tokens to earn trading fees"
+            ],
+            "discriminator": [
+                233,
+                45,
+                32,
+                33,
+                120,
+                22,
+                190,
+                188
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "mint",
+                    "writable": true
+                },
+                {
+                    "name": "author",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "author_token_account",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "account",
+                                "path": "author"
+                            },
+                            {
+                                "kind": "const",
+                                "value": [
+                                    6,
+                                    221,
+                                    246,
+                                    225,
+                                    215,
+                                    101,
+                                    161,
+                                    147,
+                                    217,
+                                    203,
+                                    225,
+                                    70,
+                                    206,
+                                    235,
+                                    121,
+                                    172,
+                                    28,
+                                    180,
+                                    133,
+                                    237,
+                                    95,
+                                    91,
+                                    55,
+                                    145,
+                                    58,
+                                    140,
+                                    245,
+                                    133,
+                                    126,
+                                    255,
+                                    0,
+                                    169
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "mint"
+                            }
+                        ],
+                        "program": {
+                            "kind": "const",
+                            "value": [
+                                140,
+                                151,
+                                37,
+                                143,
+                                78,
+                                36,
+                                137,
+                                241,
+                                187,
+                                61,
+                                16,
+                                41,
+                                20,
+                                142,
+                                13,
+                                131,
+                                11,
+                                90,
+                                19,
+                                153,
+                                218,
+                                255,
+                                16,
+                                132,
+                                4,
+                                142,
+                                123,
+                                216,
+                                219,
+                                233,
+                                248,
+                                89
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "token_program",
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "associated_token_program",
+                    "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
             "name": "undelegate",
             "docs": [
                 "Undelegate the market from the delegation program"
@@ -1204,6 +1419,167 @@
                 }
             ],
             "args": []
+        },
+        {
+            "name": "unstake_author_tokens",
+            "docs": [
+                "Unstake author tokens"
+            ],
+            "discriminator": [
+                11,
+                19,
+                226,
+                239,
+                6,
+                77,
+                174,
+                215
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "mint",
+                    "writable": true
+                },
+                {
+                    "name": "author",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "author_token_account",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "account",
+                                "path": "author"
+                            },
+                            {
+                                "kind": "const",
+                                "value": [
+                                    6,
+                                    221,
+                                    246,
+                                    225,
+                                    215,
+                                    101,
+                                    161,
+                                    147,
+                                    217,
+                                    203,
+                                    225,
+                                    70,
+                                    206,
+                                    235,
+                                    121,
+                                    172,
+                                    28,
+                                    180,
+                                    133,
+                                    237,
+                                    95,
+                                    91,
+                                    55,
+                                    145,
+                                    58,
+                                    140,
+                                    245,
+                                    133,
+                                    126,
+                                    255,
+                                    0,
+                                    169
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "mint"
+                            }
+                        ],
+                        "program": {
+                            "kind": "const",
+                            "value": [
+                                140,
+                                151,
+                                37,
+                                143,
+                                78,
+                                36,
+                                137,
+                                241,
+                                187,
+                                61,
+                                16,
+                                41,
+                                20,
+                                142,
+                                13,
+                                131,
+                                11,
+                                90,
+                                19,
+                                153,
+                                218,
+                                255,
+                                16,
+                                132,
+                                4,
+                                142,
+                                123,
+                                216,
+                                219,
+                                233,
+                                248,
+                                89
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "token_program",
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "associated_token_program",
+                    "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
         },
         {
             "name": "update_summary_link",
@@ -1368,6 +1744,19 @@
                 76,
                 184,
                 67
+            ]
+        },
+        {
+            "name": "FeesClaimed",
+            "discriminator": [
+                22,
+                104,
+                110,
+                222,
+                38,
+                157,
+                14,
+                62
             ]
         },
         {
@@ -1540,6 +1929,32 @@
             ]
         },
         {
+            "name": "TokensStaked",
+            "discriminator": [
+                220,
+                130,
+                145,
+                142,
+                109,
+                123,
+                38,
+                100
+            ]
+        },
+        {
+            "name": "TokensUnstaked",
+            "discriminator": [
+                137,
+                203,
+                131,
+                80,
+                135,
+                107,
+                181,
+                150
+            ]
+        },
+        {
             "name": "TradeRecorded",
             "discriminator": [
                 153,
@@ -1677,6 +2092,26 @@
             }
         },
         {
+            "name": "FeesClaimed",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "author",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
             "name": "Market",
             "type": {
                 "kind": "struct",
@@ -1696,10 +2131,6 @@
                                 "name": "CurveType"
                             }
                         }
-                    },
-                    {
-                        "name": "current_supply",
-                        "type": "u64"
                     },
                     {
                         "name": "circulating_supply",
@@ -1730,6 +2161,18 @@
                         "type": {
                             "option": "pubkey"
                         }
+                    },
+                    {
+                        "name": "staked_author_tokens",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "accumulated_fees",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "author",
+                        "type": "pubkey"
                     },
                     {
                         "name": "bump",
@@ -2145,6 +2588,54 @@
                     },
                     {
                         "name": "new_supply",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TokensStaked",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "author",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_staked",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TokensUnstaked",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "author",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "total_staked",
                         "type": "u64"
                     }
                 ]
