@@ -1,5 +1,5 @@
 export type NewsPlatform = {
-    "address": "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+    "address": "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF";
     "metadata": {
         "name": "newsPlatform";
         "version": "0.1.0";
@@ -542,6 +542,64 @@ export type NewsPlatform = {
                         "The account requesting the news token data"
                     ];
                     "signer": true;
+                }
+            ];
+            "args": [];
+        },
+        {
+            "name": "initializeMarketForStaking";
+            "docs": [
+                "Initialize market for staking operations"
+            ];
+            "discriminator": [
+                165,
+                250,
+                229,
+                187,
+                113,
+                212,
+                242,
+                1
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                },
+                {
+                    "name": "mint";
+                    "writable": true;
+                },
+                {
+                    "name": "author";
+                    "writable": true;
+                    "signer": true;
+                },
+                {
+                    "name": "systemProgram";
+                    "address": "11111111111111111111111111111111";
                 }
             ];
             "args": [];

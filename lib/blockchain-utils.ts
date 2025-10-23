@@ -10,7 +10,7 @@ function getConnection(): Connection {
 }
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF";
   return new PublicKey(id);
 }
 
@@ -58,7 +58,15 @@ export async function fetchMarketAccount(address: string): Promise<MarketAccount
     const program = getProgram();
     const marketPubkey = new PublicKey(address);
     
-    const marketAccount = await program.account.market.fetch(marketPubkey);
+    // Check if account exists first
+    const connection = program.provider.connection;
+    const accountInfo = await connection.getAccountInfo(marketPubkey);
+    if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
+      console.warn(`Market account ${address} does not exist or has no data`);
+      return null;
+    }
+    
+    const marketAccount = await (program.account as any).market.fetch(marketPubkey);
     
     return {
       currentPrice: Number(marketAccount.currentPrice) / 1e9,
@@ -83,7 +91,7 @@ export async function fetchNewsAccount(address: string): Promise<NewsAccountData
     const program = getProgram();
     const newsPubkey = new PublicKey(address);
     
-    const newsAccount = await program.account.newsAccount.fetch(newsPubkey);
+    const newsAccount = await (program.account as any).newsAccount.fetch(newsPubkey);
     
     return {
       authority: newsAccount.authority.toString(),
@@ -296,8 +304,16 @@ export async function findTokenByMarketAccount(marketAddress: string): Promise<{
     const program = getProgram();
     const marketPubkey = new PublicKey(marketAddress);
     
+    // Check if account exists first
+    const connection = program.provider.connection;
+    const accountInfo = await connection.getAccountInfo(marketPubkey);
+    if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
+      console.warn(`Market account ${marketAddress} does not exist or has no data`);
+      return null;
+    }
+    
     // Fetch market account to get news account
-    const marketAccount = await program.account.market.fetch(marketPubkey);
+    const marketAccount = await (program.account as any).market.fetch(marketPubkey);
     const newsAccount = marketAccount.newsAccount.toString();
     
     // Try to find corresponding token in database

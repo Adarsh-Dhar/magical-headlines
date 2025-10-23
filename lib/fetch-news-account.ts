@@ -92,7 +92,7 @@ export async function fetchAllNewsAccounts(
 ): Promise<NewsAccountData[]> {
   try {
     const connection = new Connection(rpcUrl || "https://api.devnet.solana.com", "confirmed");
-    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4");
+    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF");
     
     // Get all program derived accounts
     const accounts = await connection.getProgramAccounts(programId, {

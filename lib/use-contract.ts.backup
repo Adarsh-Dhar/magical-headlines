@@ -27,7 +27,7 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "9pRU9UFJctN6H1b1hY3GCkVwK5b3ESC7ZqBDZ8thooN4";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF";
   return new PublicKey(id);
 }
 

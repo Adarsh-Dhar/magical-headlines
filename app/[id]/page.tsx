@@ -57,6 +57,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const { connected, publicKey } = useWallet()
   const { connection } = useConnection()
   const contract = useContract() as any
+  const { program } = contract
   const buy = contract?.buy
   const sell = contract?.sell
   const pdas = contract?.pdas
@@ -65,6 +66,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const getCurrentPrice = contract?.getCurrentPrice
   const getMarketDelegationStatus = contract?.getMarketDelegationStatus
   const listenForDelegationEvents = contract?.listenForDelegationEvents
+  const initializeMarketForStaking = contract?.initializeMarketForStaking
   const stakeAuthorTokens = contract?.stakeAuthorTokens
   const unstakeAuthorTokens = contract?.unstakeAuthorTokens
   const claimStakingFees = contract?.claimStakingFees
@@ -103,6 +105,10 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const [isStaking, setIsStaking] = useState(false)
   const [stakingError, setStakingError] = useState<string | null>(null)
   const [stakingSuccess, setStakingSuccess] = useState<string | null>(null)
+  const [isInitializing, setIsInitializing] = useState(false)
+  const [initializationError, setInitializationError] = useState<string | null>(null)
+  const [initializationSuccess, setInitializationSuccess] = useState<string | null>(null)
+  const [marketInitialized, setMarketInitialized] = useState<boolean>(false)
   
   // Delegation status and events
   const [delegationStatus, setDelegationStatus] = useState<{
@@ -177,17 +183,38 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       const isCurrentUserAuthor = publicKey.equals(author)
       setIsAuthor(isCurrentUserAuthor)
       
-      if (isCurrentUserAuthor && getMarketDelegationStatus) {
-        const status = await getMarketDelegationStatus(marketPda)
-        if (status) {
-          setStakedAmount(Number(status.stakedAuthorTokens || 0))
-          setAccumulatedFees(Number(status.accumulatedFees || 0) / 1e9) // Convert lamports to SOL
+      if (isCurrentUserAuthor) {
+        try {
+          // First, try to fetch the market account directly to check if it exists
+          const marketAccount = await (program.account as any).market.fetch(marketPda);
+          if (marketAccount) {
+            setMarketInitialized(true);
+            
+            // Now fetch delegation status for staking data
+            if (getMarketDelegationStatus) {
+              const status = await getMarketDelegationStatus(marketPda);
+              if (status) {
+                setStakedAmount(Number(status.stakedAuthorTokens || 0));
+                setAccumulatedFees(Number(status.accumulatedFees || 0) / 1e9);
+              }
+            }
+          }
+        } catch (error: any) {
+          // If we can't fetch the market account, it's not initialized
+          if (error.message?.includes("AccountNotInitialized") || 
+              error.message?.includes("Account does not exist")) {
+            setMarketInitialized(false);
+            setStakedAmount(0);
+            setAccumulatedFees(0);
+          } else {
+            console.error('Error checking market status:', error);
+          }
         }
       }
     } catch (error) {
       console.error('Error fetching staking data:', error)
     }
-  }, [story, pdas, publicKey, getMarketDelegationStatus])
+  }, [story, pdas, publicKey, getMarketDelegationStatus, program])
 
   const requestAirdrop = useCallback(async () => {
     if (!publicKey) return
@@ -460,6 +487,42 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     }
   }, [story?.token, connected, publicKey, sell, pdas, findActualNewsAccount, connection, sellAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory])
 
+  const handleInitializeMarket = useCallback(async () => {
+    if (!story?.token || !isAuthor) return
+    
+    try {
+      setIsInitializing(true)
+      setInitializationError(null)
+      setInitializationSuccess(null)
+      
+      if (!story.authorAddress || !story.nonce || !pdas) {
+        throw new Error('Missing required data for initialization')
+      }
+      
+      const author = new PublicKey(story.authorAddress)
+      const nonce = parseInt(story.nonce)
+      const newsPda = pdas.findNewsPda(author, nonce)
+      const marketPda = pdas.findMarketPda(newsPda)
+      const mintPda = pdas.findMintPda(newsPda)
+      
+      await initializeMarketForStaking({
+        market: marketPda,
+        newsAccount: newsPda,
+        mint: mintPda
+      })
+      
+      setInitializationSuccess('Market successfully initialized for staking!')
+      setMarketInitialized(true)
+      
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to initialize market'
+      setInitializationError(errorMsg)
+      console.error("Initialization error:", err)
+    } finally {
+      setIsInitializing(false)
+    }
+  }, [story, isAuthor, initializeMarketForStaking, pdas])
+
   const handleStake = useCallback(async () => {
     if (!story?.token || !isAuthor) return
     
@@ -484,6 +547,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       const marketPda = pdas.findMarketPda(newsPda)
       const mintPda = pdas.findMintPda(newsPda)
       
+      // Auto-initialization happens inside stakeAuthorTokens
       await stakeAuthorTokens({
         market: marketPda,
         mint: mintPda,
@@ -493,12 +557,12 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       
       setStakingSuccess(`Successfully staked ${amount} tokens!`)
       setStakeInputAmount("")
-      
-      // Refresh staking data
       await fetchStakingData()
       
     } catch (err) {
-      setStakingError(err instanceof Error ? err.message : 'Failed to stake tokens')
+      const errorMsg = err instanceof Error ? err.message : 'Failed to stake tokens'
+      setStakingError(errorMsg)
+      console.error("Staking error:", err)
     } finally {
       setIsStaking(false)
     }
@@ -1282,6 +1346,39 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                     </div>
                   </div>
 
+                  {/* Initialize Market for Staking */}
+                  {!marketInitialized && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Market Initialization</Label>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleInitializeMarket}
+                          disabled={isInitializing}
+                          variant="outline"
+                          className="px-6"
+                        >
+                          {isInitializing ? "Initializing..." : "Initialize Market for Staking"}
+                        </Button>
+                      </div>
+                      {initializationError && (
+                        <p className="text-sm text-red-600">{initializationError}</p>
+                      )}
+                      {initializationSuccess && (
+                        <p className="text-sm text-green-600">{initializationSuccess}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Market Status */}
+                  {marketInitialized && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-green-600 font-medium">Market Ready for Staking</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Stake Tokens */}
                   <div className="space-y-2">
                     <Label htmlFor="stakeAmount" className="text-sm font-medium">Stake Tokens</Label>
@@ -1298,7 +1395,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                       />
                       <Button 
                         onClick={handleStake}
-                        disabled={isStaking || !stakeInputAmount}
+                        disabled={isStaking || !stakeInputAmount || !marketInitialized}
                         className="px-6"
                       >
                         {isStaking ? "Staking..." : "Stake"}

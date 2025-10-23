@@ -11,6 +11,30 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token
 // Import the IDL from the contract
 import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
 
+// Force refresh the IDL to avoid caching issues
+const IDL_WITH_TIMESTAMP = {
+  ...NEWS_PLATFORM_IDL,
+  _timestamp: Date.now(),
+  _version: "3.0.0" // Force version bump for market initialization
+};
+
+// Debug: Log IDL import (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log("IDL loaded:", !!NEWS_PLATFORM_IDL);
+  console.log("IDL address:", NEWS_PLATFORM_IDL?.address);
+  console.log("IDL instructions count:", NEWS_PLATFORM_IDL?.instructions?.length);
+
+  // Check if staking methods are in the IDL
+  if (NEWS_PLATFORM_IDL?.instructions) {
+    const stakingMethods = NEWS_PLATFORM_IDL.instructions.filter((ix: any) => 
+      ix.name === 'stake_author_tokens' || 
+      ix.name === 'unstake_author_tokens' || 
+      ix.name === 'claim_staking_fees'
+    );
+    console.log("Staking methods in IDL:", stakingMethods.map((ix: any) => ix.name));
+  }
+}
+
 // Debug: Log IDL import
 //   address: NEWS_PLATFORM_IDL?.address,
 //   instructionsCount: NEWS_PLATFORM_IDL?.instructions?.length,
@@ -36,7 +60,7 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "CSNDjcoYr6iLwfsVC5xyc1SQeEJ2TbZV6vHrNyKDbGLQ";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF";
   return new PublicKey(id);
 }
 
@@ -167,9 +191,9 @@ export function useContract() {
       const programId = getProgramId();
       const provider = getProvider(connection, wallet);
       
-      // Use the imported IDL with correct program ID
+      // Use the imported IDL with correct program ID and timestamp
       const minimalIdl = {
-        ...NEWS_PLATFORM_IDL,
+        ...IDL_WITH_TIMESTAMP,
         address: programId.toString()
       } as Idl;
       
@@ -196,8 +220,21 @@ export function useContract() {
       
       if (process.env.NODE_ENV === 'development') {
         console.log("Program created successfully");
-        console.log("Program methods object:", program.methods);
-        console.log("Program methods type:", typeof program.methods);
+        console.log("Program ID:", program.programId.toString());
+        console.log("Program methods count:", Object.keys(program.methods || {}).length);
+        console.log("Program has stake_author_tokens:", !!program.methods?.stake_author_tokens);
+        
+        // Verify program is actually deployed (async check)
+        connection.getAccountInfo(programId).then(programInfo => {
+          console.log("Program deployment check:", {
+            exists: !!programInfo,
+            owner: programInfo?.owner.toString(),
+            executable: programInfo?.executable,
+            dataLength: programInfo?.data.length
+          });
+        }).catch(error => {
+          console.error("Error checking program deployment:", error);
+        });
         
         // Check if program is deployed
         connection.getAccountInfo(programId).then(programInfo => {
@@ -208,91 +245,67 @@ export function useContract() {
         });
       }
       
-      // Debug: Log all available methods
+      // Comprehensive debugging and error handling
       if (process.env.NODE_ENV === 'development') {
+        console.log("=== PROGRAM DEBUG INFO ===");
+        console.log("Program ID:", program.programId.toString());
+        console.log("Program methods type:", typeof program.methods);
+        console.log("Program methods exists:", !!program.methods);
         console.log("Available program methods:", Object.keys(program.methods || {}));
-        console.log("Staking methods check:", {
-          stake_author_tokens: !!(program.methods?.stake_author_tokens),
+        console.log("Total methods count:", Object.keys(program.methods || {}).length);
+        
+        // Check IDL vs Program methods
+        console.log("=== IDL vs PROGRAM COMPARISON ===");
+        console.log("IDL address:", NEWS_PLATFORM_IDL.address);
+        console.log("Program address:", program.programId.toString());
+        console.log("Addresses match:", NEWS_PLATFORM_IDL.address === program.programId.toString());
+        
+        // Check IDL instructions
+        console.log("IDL instructions count:", NEWS_PLATFORM_IDL.instructions?.length);
+        const idlStakingMethods = NEWS_PLATFORM_IDL.instructions?.filter((ix: any) => 
+          ix.name === 'stake_author_tokens' || 
+          ix.name === 'unstake_author_tokens' || 
+          ix.name === 'claim_staking_fees'
+        ) || [];
+        console.log("IDL staking methods:", idlStakingMethods.map((ix: any) => ix.name));
+        
+        // Check program methods
+        console.log("Program staking methods check:", {
           stakeAuthorTokens: !!(program.methods?.stakeAuthorTokens),
-          unstake_author_tokens: !!(program.methods?.unstake_author_tokens),
           unstakeAuthorTokens: !!(program.methods?.unstakeAuthorTokens),
-          claim_staking_fees: !!(program.methods?.claim_staking_fees),
           claimStakingFees: !!(program.methods?.claimStakingFees),
         });
         
-        // Test if we can access the method
-        try {
-          console.log("Testing stakeAuthorTokens method:", typeof program.methods.stakeAuthorTokens);
-          if (program.methods.stakeAuthorTokens) {
-            console.log("stakeAuthorTokens method exists and is:", typeof program.methods.stakeAuthorTokens);
-            
-            // Try to inspect the method more deeply
-            console.log("stakeAuthorTokens method details:", {
-              name: program.methods.stakeAuthorTokens.name,
-              toString: program.methods.stakeAuthorTokens.toString(),
-              // Check if it has the expected properties
-              hasAccounts: 'accounts' in program.methods.stakeAuthorTokens,
-              hasRpc: 'rpc' in program.methods.stakeAuthorTokens,
-            });
-          }
-        } catch (error) {
-          console.error("Error accessing stakeAuthorTokens method:", error);
-        }
-        
-        // Also test a known working method for comparison
-        try {
-          console.log("Testing buy method for comparison:", typeof program.methods.buy);
-          if (program.methods.buy) {
-            console.log("buy method details:", {
-              name: program.methods.buy.name,
-              hasAccounts: 'accounts' in program.methods.buy,
-              hasRpc: 'rpc' in program.methods.buy,
-            });
-          }
-        } catch (error) {
-          console.error("Error accessing buy method:", error);
-        }
-        
-        // Test if we can create a method call without executing it
-        try {
-          console.log("Testing stakeAuthorTokens method call creation...");
-          const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
-          console.log("stakeAuthorTokens call created successfully:", typeof testCall);
-          console.log("Call has accounts method:", 'accounts' in testCall);
-          console.log("Call has rpc method:", 'rpc' in testCall);
-        } catch (error) {
-          console.error("Error creating stakeAuthorTokens call:", error);
-        }
-        
-        // Test if we can create a buy method call for comparison
-        try {
-          console.log("Testing buy method call creation...");
-          const testBuyCall = program.methods.buy(new anchor.BN(1));
-          console.log("buy call created successfully:", typeof testBuyCall);
-          console.log("Buy call has accounts method:", 'accounts' in testBuyCall);
-          console.log("Buy call has rpc method:", 'rpc' in testBuyCall);
-        } catch (error) {
-          console.error("Error creating buy call:", error);
-        }
-        
-        // Check if the program has the expected instruction discriminator
-        try {
-          console.log("Checking program instruction discriminators...");
-          connection.getAccountInfo(programId).then(programInfo => {
-            if (programInfo) {
-              console.log("Program account info:", {
-                owner: programInfo.owner.toString(),
-                executable: programInfo.executable,
-                dataLength: programInfo.data.length,
-                lamports: programInfo.lamports
+        // Detailed method inspection
+        if (program.methods) {
+          console.log("=== METHOD INSPECTION ===");
+          Object.keys(program.methods).forEach(methodName => {
+            if (methodName.includes('stake') || methodName.includes('claim')) {
+              console.log(`Method ${methodName}:`, {
+                exists: !!program.methods[methodName],
+                type: typeof program.methods[methodName],
+                isFunction: typeof program.methods[methodName] === 'function'
               });
             }
-          }).catch(error => {
-            console.error("Error checking program info:", error);
           });
-        } catch (error) {
-          console.error("Error checking program info:", error);
         }
+        
+        // Test method creation
+        try {
+          if (program.methods.stakeAuthorTokens) {
+            console.log("✅ stakeAuthorTokens method exists and is callable");
+          const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
+            console.log("✅ stakeAuthorTokens call created successfully:", typeof testCall);
+          } else {
+            console.error("❌ stakeAuthorTokens method does not exist on program");
+            console.error("Available methods containing 'stake':", 
+              Object.keys(program.methods || {}).filter(name => name.includes('stake')));
+          }
+        } catch (error) {
+          console.error("❌ Error testing stakeAuthorTokens method:", error);
+        }
+        
+        console.log("=== END PROGRAM DEBUG INFO ===");
       }
       
       // Check if Anchor converted snake_case to camelCase
@@ -1007,7 +1020,62 @@ export function useContract() {
     async (marketAddress: PublicKey) => {
       if (!program) throw new Error("Program not ready");
       try {
-        const marketAccount = await (program.account as any).market.fetch(marketAddress);
+        // First check if the account exists and has data
+        const accountInfo = await connection.getAccountInfo(marketAddress);
+        if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
+          console.warn(`Market account ${marketAddress.toString()} does not exist or has no data`);
+          return {
+            isDelegated: false,
+            rollupAuthority: null,
+            currentSupply: 0,
+            circulatingSupply: 0,
+            initialSupply: 0,
+            basePrice: 0,
+            totalVolume: 0,
+            stakedAuthorTokens: 0,
+            accumulatedFees: 0,
+          };
+        }
+
+        // Check if the account has enough data for the Market struct
+        // Market struct should be at least 8 bytes (discriminator) + the struct fields
+        const minExpectedSize = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 8 + 32 + 1; // rough estimate
+        if (accountInfo.data.length < minExpectedSize) {
+          console.warn(`Market account ${marketAddress.toString()} has insufficient data: ${accountInfo.data.length} bytes`);
+          return {
+            isDelegated: false,
+            rollupAuthority: null,
+            currentSupply: 0,
+            circulatingSupply: 0,
+            initialSupply: 0,
+            basePrice: 0,
+            totalVolume: 0,
+            stakedAuthorTokens: 0,
+            accumulatedFees: 0,
+          };
+        }
+
+        let marketAccount;
+        try {
+          marketAccount = await (program.account as any).market.fetch(marketAddress);
+        } catch (fetchError) {
+          // Handle specific buffer-related errors
+          if (fetchError instanceof Error && fetchError.message && fetchError.message.includes('buffer')) {
+            console.warn(`Buffer error when fetching market account ${marketAddress.toString()}:`, fetchError.message);
+            return {
+              isDelegated: false,
+              rollupAuthority: null,
+              currentSupply: 0,
+              circulatingSupply: 0,
+              initialSupply: 0,
+              basePrice: 0,
+              totalVolume: 0,
+              stakedAuthorTokens: 0,
+              accumulatedFees: 0,
+            };
+          }
+          throw fetchError; // Re-throw if it's not a buffer error
+        }
         
         // Log token price when fetching market status
         const basePrice = Number(marketAccount.basePrice) / 1e9;
@@ -1025,9 +1093,9 @@ export function useContract() {
           initialSupply: marketAccount.initialSupply,
           basePrice: marketAccount.basePrice,
           totalVolume: marketAccount.totalVolume,
-          // Add staking-related fields with safe access
-          stakedAuthorTokens: marketAccount.stakedAuthorTokens || marketAccount.staked_author_tokens || 0,
-          accumulatedFees: marketAccount.accumulatedFees || marketAccount.accumulated_fees || 0,
+          // Use the correct field names from IDL (with underscores)
+          stakedAuthorTokens: marketAccount.staked_author_tokens || 0,
+          accumulatedFees: marketAccount.accumulated_fees || 0,
         };
       } catch (error) {
         console.error("Error fetching market account:", error);
@@ -1045,7 +1113,7 @@ export function useContract() {
         };
       }
     },
-    [program]
+    [program, connection]
   );
 
   // Listen for delegation events
@@ -1427,15 +1495,84 @@ export function useContract() {
     [program, walletAdapter.publicKey]
   )
 
+  const initializeMarketForStaking = useCallback(
+    async (params: { market: PublicKey; newsAccount: PublicKey; mint: PublicKey }) => {
+      if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
+      
+      try {
+        console.log("Initializing market for staking...");
+        
+        const signature = await program.methods
+          .initializeMarketForStaking()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+            mint: params.mint,
+            author: walletAdapter.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        console.log("Market initialized for staking:", signature);
+        return signature;
+      } catch (error) {
+        console.error("Error initializing market:", error);
+        throw error;
+      }
+    },
+    [program, walletAdapter.publicKey]
+  );
+
   const stakeAuthorTokens = useCallback(
     async (params: { market: PublicKey; mint: PublicKey; newsAccount: PublicKey; amount: number }) => {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       
       try {
-        // First, let's check if the method actually exists and is callable
-        if (!program.methods.stakeAuthorTokens) {
-          throw new Error("stakeAuthorTokens method not available on deployed program");
+        // Check if market is initialized for staking
+        try {
+          const marketAccount = await (program.account as any).market.fetch(params.market);
+          console.log("Market exists:", marketAccount);
+        } catch (error: any) {
+          if (error.message?.includes("AccountNotInitialized") || 
+              error.message?.includes("Account does not exist")) {
+            console.log("Market not initialized, initializing now...");
+            await initializeMarketForStaking({
+              market: params.market,
+              newsAccount: params.newsAccount,
+              mint: params.mint
+            });
+          } else {
+            throw error;
+          }
         }
+        
+        // Comprehensive method availability check
+        console.log("=== STAKING METHOD CHECK ===");
+        console.log("Program methods exists:", !!program.methods);
+        console.log("Program methods type:", typeof program.methods);
+        console.log("Program ID:", program.programId.toString());
+        console.log("Available methods:", Object.keys(program.methods || {}));
+        console.log("Methods containing 'stake':", Object.keys(program.methods || {}).filter(name => name.includes('stake')));
+        console.log("Methods containing 'claim':", Object.keys(program.methods || {}).filter(name => name.includes('claim')));
+        console.log("stakeAuthorTokens available:", !!program.methods?.stakeAuthorTokens);
+        console.log("unstakeAuthorTokens available:", !!program.methods?.unstakeAuthorTokens);
+        console.log("claimStakingFees available:", !!program.methods?.claimStakingFees);
+        
+        if (!program.methods) {
+          throw new Error("ERROR_CODE_001: Program methods object is null/undefined");
+        }
+        
+        if (!program.methods.stakeAuthorTokens) {
+          const availableStakingMethods = Object.keys(program.methods).filter(name => 
+            name.includes('stake') || name.includes('claim') || name.includes('author')
+          );
+          console.error("ERROR_CODE_002: stakeAuthorTokens method not found");
+          console.error("Available staking-related methods:", availableStakingMethods);
+          console.error("All available methods:", Object.keys(program.methods));
+          throw new Error(`ERROR_CODE_002: stakeAuthorTokens method not available. Available methods: ${Object.keys(program.methods).join(', ')}`);
+        }
+        
+        console.log("✅ stakeAuthorTokens method found and available");
         
         // Derive the author's token account
         const authorTokenAccount = await anchor.utils.token.associatedAddress({
@@ -1483,7 +1620,7 @@ export function useContract() {
         throw error;
       }
     },
-    [program, walletAdapter.publicKey]
+    [program, walletAdapter.publicKey, initializeMarketForStaking]
   );
 
   const unstakeAuthorTokens = useCallback(
@@ -1674,6 +1811,7 @@ export function useContract() {
     initializeProfile,
     recordTradePnl,
     // Staking methods
+    initializeMarketForStaking,
     stakeAuthorTokens,
     unstakeAuthorTokens,
     claimStakingFees,

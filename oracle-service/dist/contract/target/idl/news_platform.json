@@ -1,5 +1,5 @@
 {
-    "address": "G1ErrifFMYTMicWHGw1TYL3L4ETmid5zGxhxoUZYMquw",
+    "address": "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF",
     "metadata": {
         "name": "news_platform",
         "version": "0.1.0",
@@ -542,6 +542,64 @@
                         "The account requesting the news token data"
                     ],
                     "signer": true
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "initialize_market_for_staking",
+            "docs": [
+                "Initialize market for staking operations"
+            ],
+            "discriminator": [
+                165,
+                250,
+                229,
+                187,
+                113,
+                212,
+                242,
+                1
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "mint",
+                    "writable": true
+                },
+                {
+                    "name": "author",
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "system_program",
+                    "address": "11111111111111111111111111111111"
                 }
             ],
             "args": []
