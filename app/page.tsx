@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { NewsFeed } from "@/components/news-feed"
 import { TrendingStories } from "@/components/trending-stories"
 import { MarketStats } from "@/components/market-stats"
-import { UserInfoLogger } from "@/components/user-info-logger"
 import { SeasonCountdown } from "@/components/season-countdown"
 import { UserProfile } from "@/components/user-profile"
 import { useContract } from "@/lib/use-contract"
@@ -62,7 +61,6 @@ export default function HomePage() {
   if (!connected) {
     return (
       <div className="min-h-screen bg-background">
-        <UserInfoLogger />
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8 text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Magical Headlines</h1>
@@ -86,7 +84,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <UserInfoLogger />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Magical Headlines</h1>

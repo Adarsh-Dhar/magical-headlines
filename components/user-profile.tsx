@@ -52,7 +52,7 @@ export function UserProfile() {
           setProfile(data.profile)
         } else {
           // Profile doesn't exist, create one
-          console.log('Profile not found, creating new profile...')
+          // Profile not found, creating new profile
           const createResponse = await fetch('/api/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

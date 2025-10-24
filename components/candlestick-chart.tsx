@@ -71,15 +71,7 @@ export function CandlestickChart({
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current || candleData.length === 0) return
 
-    console.log('📊 Updating chart with new data:', {
-      dataLength: candleData.length,
-      latestPrice: candleData[candleData.length - 1]?.close,
-      firstPrice: candleData[0]?.close,
-      priceRange: {
-        min: Math.min(...candleData.map(c => c.low)),
-        max: Math.max(...candleData.map(c => c.high))
-      }
-    })
+    // Updating chart with new data
 
     seriesRef.current.setData(candleData)
     chartRef.current.timeScale().fitContent()
@@ -89,12 +81,12 @@ export function CandlestickChart({
   useEffect(() => {
     if (!containerRef.current || chartRef.current) return
 
-    console.log('🚀 Creating chart with real 24h/1m data...')
+    // Creating chart with real 24h/1m data
 
     // Set a timeout to use fallback if chart doesn't render
     const fallbackTimer = setTimeout(() => {
       if (!isChartReady) {
-        console.log('⏰ Chart timeout - using fallback')
+        // Chart timeout - using fallback
         setUseFallback(true)
       }
     }, 3000)
@@ -156,11 +148,7 @@ export function CandlestickChart({
         chart.timeScale().fitContent()
       }
 
-      console.log('✅ Chart created and data set:', {
-        chart: !!chart,
-        series: !!series,
-        dataLength: candleData.length
-      })
+      // Chart created and data set
 
       setIsChartReady(true)
       clearTimeout(fallbackTimer)

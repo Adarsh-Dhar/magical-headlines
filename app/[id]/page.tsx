@@ -64,6 +64,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const findActualNewsAccount = contract?.findActualNewsAccount
   const estimateBuyCost = contract?.estimateBuyCost
   const getCurrentPrice = contract?.getCurrentPrice
+  const getMarketCap = contract?.getMarketCap
   const getMarketDelegationStatus = contract?.getMarketDelegationStatus
   const listenForDelegationEvents = contract?.listenForDelegationEvents
   const initializeMarketForStaking = contract?.initializeMarketForStaking
@@ -95,6 +96,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const [isRequestingAirdrop, setIsRequestingAirdrop] = useState(false)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [isLoadingPrice, setIsLoadingPrice] = useState(false)
+  const [marketCapSol, setMarketCapSol] = useState<number | null>(null)
   
   // Staking state
   const [stakedAmount, setStakedAmount] = useState<number>(0)
@@ -137,7 +139,10 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   const priceChange = useMemo(() => token ? Math.abs(token.priceChange24h) : 0, [token?.priceChange24h])
   const price = useMemo(() => token ? token.price : 0, [token?.price])
   const volume = useMemo(() => token ? token.volume24h : 0, [token?.volume24h])
-  const marketCap = useMemo(() => token ? token.marketCap : 0, [token?.marketCap])
+  const marketCap = useMemo(() => {
+    const result = token ? token.marketCap : 0
+    return result
+  }, [token?.marketCap])
 
 
   // All useCallback hooks - must be called in same order every time
@@ -207,12 +212,10 @@ const StoryDetailPage = memo(function StoryDetailPage() {
             setStakedAmount(0);
             setAccumulatedFees(0);
           } else {
-            console.error('Error checking market status:', error);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching staking data:', error)
     }
   }, [story, pdas, publicKey, getMarketDelegationStatus, program])
 
@@ -279,6 +282,55 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       }
     }
   }, [story?.authorAddress, story?.nonce, pdas, getCurrentPrice, delegationStatus])
+
+  const fetchMarketCap = useCallback(async () => {
+    if (story?.authorAddress && story?.nonce && pdas && getMarketCap &&
+        typeof getMarketCap === 'function') {
+      try {
+        const authorAddress = new PublicKey(story.authorAddress)
+        const nonce = parseInt(story.nonce)
+        const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
+        const marketPda = pdas.findMarketPda(newsAccountPubkey)
+        
+        // Let's also check if these accounts exist
+        try {
+          const marketAccountInfo = await connection.getAccountInfo(marketPda)
+          const newsAccountInfo = await connection.getAccountInfo(newsAccountPubkey)
+          
+          // If news account doesn't exist, don't call the contract
+          if (!newsAccountInfo) {
+            setMarketCapSol(null)
+            return
+          }
+          
+          // If market account doesn't exist, don't call the contract
+          if (!marketAccountInfo) {
+            setMarketCapSol(null)
+            return
+          }
+        } catch (accountError) {
+          setMarketCapSol(null)
+          return
+        }
+
+        const marketCapInSol = await getMarketCap({
+          market: marketPda,
+          newsAccount: newsAccountPubkey
+        })
+        
+        if (marketCapInSol && marketCapInSol > 0 && !isNaN(marketCapInSol)) {
+          setMarketCapSol(marketCapInSol)
+        } else {
+          setMarketCapSol(null)
+        }
+      } catch (error) {
+        setMarketCapSol(null)
+      }
+    } else {
+      // If getMarketCap is not available, set to null immediately
+      setMarketCapSol(null)
+    }
+  }, [story?.authorAddress, story?.nonce, pdas, getMarketCap])
 
   const handleBuy = useCallback(async () => {
     if (!story?.token) {
@@ -517,7 +569,6 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to initialize market'
       setInitializationError(errorMsg)
-      console.error("Initialization error:", err)
     } finally {
       setIsInitializing(false)
     }
@@ -562,7 +613,6 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to stake tokens'
       setStakingError(errorMsg)
-      console.error("Staking error:", err)
     } finally {
       setIsStaking(false)
     }
@@ -743,6 +793,16 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     }
     fetchDelegationStatus()
   }, [story?.authorAddress, story?.nonce])
+
+  useEffect(() => {
+    // useEffect for fetchMarketCap triggered
+    
+    // Only run if story is loaded and not still loading
+    if (story && !loading && story.authorAddress && story.nonce && pdas && getMarketCap) {
+      // Calling fetchMarketCap from useEffect
+      fetchMarketCap()
+    }
+  }, [story, loading, story?.authorAddress, story?.nonce, pdas, getMarketCap, fetchMarketCap])
 
   // Remove eager price refetch on mount to avoid duplicate RPCs
 
@@ -1184,7 +1244,13 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Market Cap:</span>
-                      <span className="text-sm font-medium">${(marketCap / 1000).toFixed(1)}K</span>
+                      <span className="text-sm font-medium">
+                        {marketCapSol !== null && marketCapSol > 0 ? (
+                          `${marketCapSol.toFixed(6)} SOL`
+                        ) : (
+                          `$${(marketCap / 1000).toFixed(1)}K`
+                        )}
+                      </span>
                     </div>
                   </div>
                   

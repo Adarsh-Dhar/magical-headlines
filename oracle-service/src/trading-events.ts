@@ -17,7 +17,6 @@ async function upsertTokenVolumeMinute(
 ) {
   const minute = alignToUtcMinute(timestamp);
   
-  console.log(`Upserting volume for token ${tokenId}, minute ${minute.toISOString()}, volume ${volumeSol} SOL, type ${tradeType}`);
   
   const existing = await prisma.tokenVolumeMinute.findUnique({
     where: {
@@ -39,7 +38,6 @@ async function upsertTokenVolumeMinute(
           : existing.sellVolumeSol,
       }
     });
-    console.log(`Updated existing volume record: ${updated.volumeSol} SOL total`);
   } else {
     const created = await prisma.tokenVolumeMinute.create({
       data: {
@@ -51,21 +49,18 @@ async function upsertTokenVolumeMinute(
         sellVolumeSol: tradeType === 'SELL' ? volumeSol : 0,
       }
     });
-    console.log(`Created new volume record: ${created.volumeSol} SOL`);
   }
 }
 
 export async function processTokensPurchasedEvent(event: any, signature: string) {
   try {
     const eventData = parseTokensPurchasedEvent(event);
-    console.log('Processing TokensPurchased event:', eventData);
 
     // Find the token by looking up the market account
     // We need to find which token this trade belongs to
     const token = await findTokenByMarketAccount(eventData);
     
     if (!token) {
-      console.log('Token not found for purchase event, skipping...');
       return;
     }
 
@@ -99,22 +94,18 @@ export async function processTokensPurchasedEvent(event: any, signature: string)
     // Update token statistics
     await updateTokenStatistics(token.id);
 
-    console.log('Successfully processed TokensPurchased event:', trade.id);
   } catch (error) {
-    console.error('Error processing TokensPurchased event:', error);
   }
 }
 
 export async function processTokensSoldEvent(event: any, signature: string) {
   try {
     const eventData = parseTokensSoldEvent(event);
-    console.log('Processing TokensSold event:', eventData);
 
     // Find the token by looking up the market account
     const token = await findTokenByMarketAccount(eventData);
     
     if (!token) {
-      console.log('Token not found for sell event, skipping...');
       return;
     }
 
@@ -148,22 +139,18 @@ export async function processTokensSoldEvent(event: any, signature: string) {
     // Update token statistics
     await updateTokenStatistics(token.id);
 
-    console.log('Successfully processed TokensSold event:', trade.id);
   } catch (error) {
-    console.error('Error processing TokensSold event:', error);
   }
 }
 
 export async function processTokensStakedEvent(event: any, signature: string) {
   try {
     const eventData = parseTokensStakedEvent(event);
-    console.log('Processing TokensStaked event:', eventData);
 
     // Find the token by looking up the market account
     const token = await findTokenByMarketAccount(eventData);
     
     if (!token) {
-      console.log('Token not found for staking event, skipping...');
       return;
     }
 
@@ -175,22 +162,18 @@ export async function processTokensStakedEvent(event: any, signature: string) {
       }
     });
 
-    console.log('Successfully processed TokensStaked event for token:', token.id);
   } catch (error) {
-    console.error('Error processing TokensStaked event:', error);
   }
 }
 
 export async function processTokensUnstakedEvent(event: any, signature: string) {
   try {
     const eventData = parseTokensUnstakedEvent(event);
-    console.log('Processing TokensUnstaked event:', eventData);
 
     // Find the token by looking up the market account
     const token = await findTokenByMarketAccount(eventData);
     
     if (!token) {
-      console.log('Token not found for unstaking event, skipping...');
       return;
     }
 
@@ -202,22 +185,18 @@ export async function processTokensUnstakedEvent(event: any, signature: string) 
       }
     });
 
-    console.log('Successfully processed TokensUnstaked event for token:', token.id);
   } catch (error) {
-    console.error('Error processing TokensUnstaked event:', error);
   }
 }
 
 export async function processFeesClaimedEvent(event: any, signature: string) {
   try {
     const eventData = parseFeesClaimedEvent(event);
-    console.log('Processing FeesClaimed event:', eventData);
 
     // Find the token by looking up the market account
     const token = await findTokenByMarketAccount(eventData);
     
     if (!token) {
-      console.log('Token not found for fees claimed event, skipping...');
       return;
     }
 
@@ -229,9 +208,7 @@ export async function processFeesClaimedEvent(event: any, signature: string) {
       }
     });
 
-    console.log('Successfully processed FeesClaimed event for token:', token.id);
   } catch (error) {
-    console.error('Error processing FeesClaimed event:', error);
   }
 }
 
@@ -246,7 +223,6 @@ async function createOrUpdateUser(walletAddress: string) {
       }
     });
   } catch (error) {
-    console.error('Error creating/updating user:', error);
   }
 }
 
@@ -259,7 +235,6 @@ async function findTokenByMarketAccount(eventData: any) {
         include: { story: true }
       });
       if (token) {
-        console.log(`Found token by market account: ${token.id}`);
         return token;
       }
     }
@@ -271,7 +246,6 @@ async function findTokenByMarketAccount(eventData: any) {
         include: { story: true }
       });
       if (token) {
-        console.log(`Found token by news account: ${token.id}`);
         return token;
       }
     }
@@ -282,14 +256,11 @@ async function findTokenByMarketAccount(eventData: any) {
     });
     
     if (tokens.length > 0) {
-      console.log(`Using fallback token: ${tokens[0].id}`);
       return tokens[0];
     }
 
-    console.log('No tokens found in database');
     return null;
   } catch (error) {
-    console.error('Error finding token by market account:', error);
     return null;
   }
 }
@@ -334,12 +305,6 @@ async function updateTokenStatistics(tokenId: string) {
       }
     });
 
-    console.log(`Updated token ${tokenId} statistics:`, {
-      price: currentPrice,
-      priceChange24h,
-      volume24h
-    });
   } catch (error) {
-    console.error('Error updating token statistics:', error);
   }
 }

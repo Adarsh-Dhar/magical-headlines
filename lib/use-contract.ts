@@ -20,10 +20,6 @@ const IDL_WITH_TIMESTAMP = {
 
 // Debug: Log IDL import (only in development)
 if (process.env.NODE_ENV === 'development') {
-  console.log("IDL loaded:", !!NEWS_PLATFORM_IDL);
-  console.log("IDL address:", NEWS_PLATFORM_IDL?.address);
-  console.log("IDL instructions count:", NEWS_PLATFORM_IDL?.instructions?.length);
-
   // Check if staking methods are in the IDL
   if (NEWS_PLATFORM_IDL?.instructions) {
     const stakingMethods = NEWS_PLATFORM_IDL.instructions.filter((ix: any) => 
@@ -31,7 +27,6 @@ if (process.env.NODE_ENV === 'development') {
       ix.name === 'unstake_author_tokens' || 
       ix.name === 'claim_staking_fees'
     );
-    console.log("Staking methods in IDL:", stakingMethods.map((ix: any) => ix.name));
   }
 }
 
@@ -45,12 +40,12 @@ if (process.env.NODE_ENV === 'development') {
 // Debug: Log instruction names
 if (NEWS_PLATFORM_IDL?.instructions) {
   if (process.env.NODE_ENV === 'development') {
-    console.log("IDL Instructions:", NEWS_PLATFORM_IDL.instructions.map((ix: any) => ix.name));
-    console.log("Staking instructions in IDL:", {
+    // Staking instructions check
+    const stakingInstructions = {
       stake_author_tokens: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'stake_author_tokens'),
       unstake_author_tokens: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'unstake_author_tokens'),
       claim_staking_fees: NEWS_PLATFORM_IDL.instructions.some((ix: any) => ix.name === 'claim_staking_fees'),
-    });
+    };
   }
 }
 
@@ -198,94 +193,90 @@ export function useContract() {
       } as Idl;
       
       if (process.env.NODE_ENV === 'development') {
-        console.log("Program ID from env:", programId.toString());
-        console.log("Program ID from IDL:", NEWS_PLATFORM_IDL.address);
-        console.log("IDL address matches:", programId.toString() === NEWS_PLATFORM_IDL.address);
-        console.log("IDL loaded correctly:", !!NEWS_PLATFORM_IDL);
-        console.log("IDL instructions count:", NEWS_PLATFORM_IDL.instructions?.length);
-        console.log("IDL has stake_author_tokens:", NEWS_PLATFORM_IDL.instructions?.some((ix: any) => ix.name === 'stake_author_tokens'));
+        // Program ID validation
+        const idlAddressMatches = programId.toString() === NEWS_PLATFORM_IDL.address;
+        const idlLoaded = !!NEWS_PLATFORM_IDL;
+        const idlInstructionsCount = NEWS_PLATFORM_IDL.instructions?.length;
+        const hasStakeAuthorTokens = NEWS_PLATFORM_IDL.instructions?.some((ix: any) => ix.name === 'stake_author_tokens');
       }
       
       if (process.env.NODE_ENV === 'development') {
-        // console.log removed for production
+        // Debug info removed for production
       }
         
       // Debug: Check if publish_news instruction exists in IDL
       const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
       if (publishNewsInstruction) {
-        // console.log removed for production
+        // Debug info removed for production
       }
       
       const program = new Program(minimalIdl, provider) as Program;
       
       if (process.env.NODE_ENV === 'development') {
-        console.log("Program created successfully");
-        console.log("Program ID:", program.programId.toString());
-        console.log("Program methods count:", Object.keys(program.methods || {}).length);
-        console.log("Program has stake_author_tokens:", !!program.methods?.stake_author_tokens);
+        // Program created successfully
+        const programIdStr = program.programId.toString();
+        const methodsCount = Object.keys(program.methods || {}).length;
+        const hasStakeAuthorTokens = !!program.methods?.stake_author_tokens;
         
         // Verify program is actually deployed (async check)
         connection.getAccountInfo(programId).then(programInfo => {
-          console.log("Program deployment check:", {
+          const deploymentInfo = {
             exists: !!programInfo,
             owner: programInfo?.owner.toString(),
             executable: programInfo?.executable,
             dataLength: programInfo?.data.length
-          });
+          };
         }).catch(error => {
-          console.error("Error checking program deployment:", error);
+          // Error checking program deployment
         });
         
         // Check if program is deployed
         connection.getAccountInfo(programId).then(programInfo => {
-          console.log("Program deployed:", !!programInfo);
-          console.log("Program owner:", programInfo?.owner.toString());
+          const isDeployed = !!programInfo;
+          const owner = programInfo?.owner.toString();
         }).catch(error => {
-          console.error("Error checking program deployment:", error);
+          // Error checking program deployment
         });
       }
       
       // Comprehensive debugging and error handling
       if (process.env.NODE_ENV === 'development') {
-        console.log("=== PROGRAM DEBUG INFO ===");
-        console.log("Program ID:", program.programId.toString());
-        console.log("Program methods type:", typeof program.methods);
-        console.log("Program methods exists:", !!program.methods);
-        console.log("Available program methods:", Object.keys(program.methods || {}));
-        console.log("Total methods count:", Object.keys(program.methods || {}).length);
+        // Program debug info
+        const programIdStr = program.programId.toString();
+        const methodsType = typeof program.methods;
+        const methodsExists = !!program.methods;
+        const availableMethods = Object.keys(program.methods || {});
+        const methodsCount = Object.keys(program.methods || {}).length;
         
         // Check IDL vs Program methods
-        console.log("=== IDL vs PROGRAM COMPARISON ===");
-        console.log("IDL address:", NEWS_PLATFORM_IDL.address);
-        console.log("Program address:", program.programId.toString());
-        console.log("Addresses match:", NEWS_PLATFORM_IDL.address === program.programId.toString());
+        const idlAddress = NEWS_PLATFORM_IDL.address;
+        const programAddress = program.programId.toString();
+        const addressesMatch = NEWS_PLATFORM_IDL.address === program.programId.toString();
         
         // Check IDL instructions
-        console.log("IDL instructions count:", NEWS_PLATFORM_IDL.instructions?.length);
+        const idlInstructionsCount = NEWS_PLATFORM_IDL.instructions?.length;
         const idlStakingMethods = NEWS_PLATFORM_IDL.instructions?.filter((ix: any) => 
           ix.name === 'stake_author_tokens' || 
           ix.name === 'unstake_author_tokens' || 
           ix.name === 'claim_staking_fees'
         ) || [];
-        console.log("IDL staking methods:", idlStakingMethods.map((ix: any) => ix.name));
         
         // Check program methods
-        console.log("Program staking methods check:", {
+        const programStakingMethods = {
           stakeAuthorTokens: !!(program.methods?.stakeAuthorTokens),
           unstakeAuthorTokens: !!(program.methods?.unstakeAuthorTokens),
           claimStakingFees: !!(program.methods?.claimStakingFees),
-        });
+        };
         
         // Detailed method inspection
         if (program.methods) {
-          console.log("=== METHOD INSPECTION ===");
           Object.keys(program.methods).forEach(methodName => {
             if (methodName.includes('stake') || methodName.includes('claim')) {
-              console.log(`Method ${methodName}:`, {
+              const methodInfo = {
                 exists: !!program.methods[methodName],
                 type: typeof program.methods[methodName],
                 isFunction: typeof program.methods[methodName] === 'function'
-              });
+              };
             }
           });
         }
@@ -293,19 +284,13 @@ export function useContract() {
         // Test method creation
         try {
           if (program.methods.stakeAuthorTokens) {
-            console.log("✅ stakeAuthorTokens method exists and is callable");
-          const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
-            console.log("✅ stakeAuthorTokens call created successfully:", typeof testCall);
+            const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
           } else {
-            console.error("❌ stakeAuthorTokens method does not exist on program");
-            console.error("Available methods containing 'stake':", 
-              Object.keys(program.methods || {}).filter(name => name.includes('stake')));
+            const availableStakeMethods = Object.keys(program.methods || {}).filter(name => name.includes('stake'));
           }
         } catch (error) {
-          console.error("❌ Error testing stakeAuthorTokens method:", error);
+          // Error testing stakeAuthorTokens method
         }
-        
-        console.log("=== END PROGRAM DEBUG INFO ===");
       }
       
       // Check if Anchor converted snake_case to camelCase
@@ -317,18 +302,13 @@ export function useContract() {
       const hasPublishNewsMethod = !!(program.methods?.publish_news || program.methods?.publishNews);
       
       if (!program.methods || !hasPublishNewsMethod) {
-        // console.error("Program missing required methods:", {
-        //   hasMethods: !!program.methods,
-        //   hasPublishNews: !!(program.methods?.publish_news),
-        //   hasPublishNewsCamel: !!(program.methods?.publishNews),
-        //   allMethods: Object.keys(program.methods || {})
-        // });
+        // Program missing required methods
         return null;
       }
       
       return program;
     } catch (error) {
-      // console.error("Failed to create program:", error);
+      // Failed to create program
       return null;
     }
   }, [connection, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
@@ -337,7 +317,7 @@ export function useContract() {
   
   // Only log in development mode to reduce console spam
   if (process.env.NODE_ENV === 'development') {
-    // console.log removed for production
+    // Debug info removed for production
   }
 
   const publishNews = useCallback(
@@ -355,13 +335,7 @@ export function useContract() {
       }
       
       if (!currentProgram) {
-        // console.error("Program not ready:", {
-        //   program: !!program,
-        //   publicKey: !!walletAdapter.publicKey,
-        //   connected: walletAdapter.connected,
-        //   signTransaction: !!walletAdapter.signTransaction,
-        //   walletAdapter: walletAdapter
-        // });
+        // Program not ready
         
         if (!walletAdapter.connected) {
           throw new Error("Wallet not connected. Please connect your wallet first.");
@@ -374,7 +348,7 @@ export function useContract() {
         }
       }
       if (!walletAdapter.publicKey) {
-        // console.error("Public key not available");
+        // Public key not available
         throw new Error("Wallet not ready");
       }
 
@@ -449,11 +423,7 @@ export function useContract() {
       const publishMethod = currentProgram.methods.publish_news || currentProgram.methods.publishNews;
       
       if (!publishMethod) {
-        // console.error("Publish method not found:", {
-        //   hasPublish_news: !!currentProgram.methods.publish_news,
-        //   hasPublishNews: !!currentProgram.methods.publishNews,
-        //   allMethods: Object.keys(currentProgram.methods || {})
-        // });
+        // Publish method not found
         throw new Error("Publish method not found in program");
       }
       
@@ -568,12 +538,12 @@ export function useContract() {
         }
 
         if (circulatingSupply !== null) {
-          console.log(`[BUY] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Supply: ${circulatingSupply}, Buying: ${params.amount} tokens`);
+          // Buy before info
         } else {
-          console.log(`[BUY] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Buying: ${params.amount} tokens`);
+          // Buy before info
         }
       } catch (error) {
-        console.log(`[BUY] Could not fetch price before buy:`, error);
+        // Could not fetch price before buy
       }
       
       // Retry logic for blockhash issues
@@ -616,12 +586,12 @@ export function useContract() {
             } catch (_) {}
             
             if (circulatingSupply !== null) {
-              console.log(`[BUY] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Supply: ${circulatingSupply}, Transaction: ${signature.slice(0, 8)}...`);
+              // Buy after info
             } else {
-              console.log(`[BUY] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Transaction: ${signature.slice(0, 8)}...`);
+              // Buy after info
             }
           } catch (error) {
-            console.log(`[BUY] Could not fetch price after buy:`, error);
+            // Could not fetch price after buy
           }
           
           // Record PnL after successful buy
@@ -637,7 +607,7 @@ export function useContract() {
               })
             }
           } catch (error) {
-            console.log("Failed to record PnL:", error)
+            // Failed to record PnL
           }
           
           return signature;
@@ -690,12 +660,12 @@ export function useContract() {
         } catch (_) {}
         
         if (circulatingSupply !== null) {
-          console.log(`[SELL] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Supply: ${circulatingSupply}, Selling: ${params.amount} tokens`);
+          // Sell before info
         } else {
-          console.log(`[SELL] Before - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceBefore.toFixed(10)}, Selling: ${params.amount} tokens`);
+          // Sell before info
         }
       } catch (error) {
-        console.log(`[SELL] Could not fetch price before sell:`, error);
+        // Could not fetch price before sell
       }
       
       const signature = await program.methods
@@ -731,12 +701,12 @@ export function useContract() {
         } catch (_) {}
         
         if (circulatingSupply !== null) {
-          console.log(`[SELL] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Supply: ${circulatingSupply}, Transaction: ${signature.slice(0, 8)}...`);
+          // Sell after info
         } else {
-          console.log(`[SELL] After - Market ${params.market.toString().slice(0, 8)}... - Price: $${priceAfter.toFixed(10)}, Transaction: ${signature.slice(0, 8)}...`);
+          // Sell after info
         }
       } catch (error) {
-        console.log(`[SELL] Could not fetch price after sell:`, error);
+        // Could not fetch price after sell
       }
       
       // Record PnL after successful sell
@@ -752,7 +722,7 @@ export function useContract() {
           })
         }
       } catch (error) {
-        console.log("Failed to record PnL:", error)
+        // Failed to record PnL
       }
       
       return signature;
@@ -889,11 +859,46 @@ export function useContract() {
         // Convert from lamports to SOL
         return Number(result) / 1e9;
       } catch (error) {
-        // console.error("Error getting current price:", error);
+        // Error getting current price
         throw error;
       }
     },
     [program]
+  );
+
+  const getMarketCap = useCallback(
+    async (params: { market: PublicKey; newsAccount: PublicKey }) => {
+      if (!program) throw new Error("Program not ready");
+      
+      try {
+        // getMarketCap called with params
+        
+        // First check if the market account exists
+        const accountInfo = await connection.getAccountInfo(params.market);
+        if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
+          // Market account does not exist or has no data
+          return 0; // Return 0 if market doesn't exist
+        }
+        
+        const result = await program.methods
+          .getMarketCap()
+          .accounts({
+            market: params.market,
+            newsAccount: params.newsAccount,
+          })
+          .view();
+        
+        // getMarketCap result
+        
+        // Convert from lamports to SOL
+        return Number(result) / 1e9;
+      } catch (error) {
+        // Error getting market cap
+        // Return 0 instead of throwing error to allow graceful fallback
+        return 0;
+      }
+    },
+    [program, connection]
   );
 
   const fetchNewsAccount = useCallback(
@@ -1007,7 +1012,7 @@ export function useContract() {
       }
       
       // Return a fallback calculation if all retries failed
-      // console.warn(`Failed to fetch market account after retries, using fallback calculation:`, lastError);
+      // Failed to fetch market account after retries, using fallback calculation
       const fallbackBasePrice = 1000000; // 0.001 SOL in lamports as fallback
       const fallbackCost = (fallbackBasePrice * amount) / 1e9; // Simple linear fallback
       return fallbackCost;
@@ -1023,7 +1028,7 @@ export function useContract() {
         // First check if the account exists and has data
         const accountInfo = await connection.getAccountInfo(marketAddress);
         if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
-          console.warn(`Market account ${marketAddress.toString()} does not exist or has no data`);
+          // Market account does not exist or has no data
           return {
             isDelegated: false,
             rollupAuthority: null,
@@ -1041,7 +1046,7 @@ export function useContract() {
         // Market struct should be at least 8 bytes (discriminator) + the struct fields
         const minExpectedSize = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 8 + 32 + 1; // rough estimate
         if (accountInfo.data.length < minExpectedSize) {
-          console.warn(`Market account ${marketAddress.toString()} has insufficient data: ${accountInfo.data.length} bytes`);
+          // Market account has insufficient data
           return {
             isDelegated: false,
             rollupAuthority: null,
@@ -1061,7 +1066,7 @@ export function useContract() {
         } catch (fetchError) {
           // Handle specific buffer-related errors
           if (fetchError instanceof Error && fetchError.message && fetchError.message.includes('buffer')) {
-            console.warn(`Buffer error when fetching market account ${marketAddress.toString()}:`, fetchError.message);
+            // Buffer error when fetching market account
             return {
               isDelegated: false,
               rollupAuthority: null,
@@ -1083,7 +1088,7 @@ export function useContract() {
         const multiplier = (10000 + circulatingSupply) / 10000;
         const currentPrice = basePrice * multiplier;
         
-        console.log(`[TOKEN PRICE] Market ${marketAddress.toString().slice(0, 8)}... - Price: $${currentPrice.toFixed(10)}, Supply: ${circulatingSupply}, Base: $${basePrice.toFixed(10)}`);
+        // Token price info
         
         return {
           isDelegated: marketAccount.isDelegated,
@@ -1098,7 +1103,7 @@ export function useContract() {
           accumulatedFees: marketAccount.accumulated_fees || 0,
         };
       } catch (error) {
-        console.error("Error fetching market account:", error);
+        // Error fetching market account
         // Return a default structure if account fetch fails
         return {
           isDelegated: false,
@@ -1176,7 +1181,7 @@ export function useContract() {
         
         return mappedAccounts;
       } catch (error) {
-        // console.error("Error fetching token accounts:", error);
+        // Error fetching token accounts
         throw error;
       }
     },
@@ -1203,7 +1208,7 @@ export function useContract() {
           
           await Promise.all(batch.map(async (tokenAccount) => {
             try {
-              // console.log removed for production
+              // Debug info removed for production
               
               const mintPda = new PublicKey(tokenAccount.mint);
               
@@ -1237,7 +1242,7 @@ export function useContract() {
                   
                   // For news tokens, use the actual token amount from the account
                   // Debug: log the raw values to understand the units
-                  // console.log removed for production
+                  // Debug info removed for production
                   
                   let actualAmount = 0;
                   if (tokenAccount.rawAmount) {
@@ -1307,7 +1312,7 @@ export function useContract() {
                     }
                   });
                   
-                  // console.log removed for production
+                  // Debug info removed for production
                 }
               } catch (marketError) {
                 // This mint authority is not a market account, skip
@@ -1330,11 +1335,11 @@ export function useContract() {
         const totalTokensHeld = newsTokens.reduce((sum, token) => sum + token.amount, 0);
         const totalValue = newsTokens.reduce((sum, token) => sum + token.totalValue, 0);
         
-        // console.log removed for production
+        // Debug info removed for production
         
         return newsTokens;
       } catch (error) {
-        // console.error("Error fetching news tokens:", error);
+        // Error fetching news tokens
         throw error;
       }
     },
@@ -1429,7 +1434,7 @@ export function useContract() {
           }
         });
         
-        // console.log removed for production
+        // Debug info removed for production
         
         return {
           totalTokenAccounts: tokenAccounts.length,
@@ -1438,7 +1443,7 @@ export function useContract() {
           averageTokensPerAccount: tokenAccounts.length > 0 ? totalTokens / tokenAccounts.length : 0
         };
       } catch (error) {
-        // console.error("Error getting token stats:", error);
+        // Error getting token stats
         throw error;
       }
     },
@@ -1448,7 +1453,7 @@ export function useContract() {
   // Debug function to test program creation
   const testProgram = useCallback(() => {
     const testProgram = getProgram();
-    // console.log removed for production
+    // Debug info removed for production
     return testProgram;
   }, [getProgram, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction]);
 
@@ -1500,7 +1505,7 @@ export function useContract() {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       
       try {
-        console.log("Initializing market for staking...");
+        // Initializing market for staking
         
         const signature = await program.methods
           .initializeMarketForStaking()
@@ -1513,10 +1518,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Market initialized for staking:", signature);
+        // Market initialized for staking
         return signature;
       } catch (error) {
-        console.error("Error initializing market:", error);
+        // Error initializing market
         throw error;
       }
     },
@@ -1531,11 +1536,11 @@ export function useContract() {
         // Check if market is initialized for staking
         try {
           const marketAccount = await (program.account as any).market.fetch(params.market);
-          console.log("Market exists:", marketAccount);
+          // Market exists
         } catch (error: any) {
           if (error.message?.includes("AccountNotInitialized") || 
               error.message?.includes("Account does not exist")) {
-            console.log("Market not initialized, initializing now...");
+            // Market not initialized, initializing now
             await initializeMarketForStaking({
               market: params.market,
               newsAccount: params.newsAccount,
@@ -1547,16 +1552,15 @@ export function useContract() {
         }
         
         // Comprehensive method availability check
-        console.log("=== STAKING METHOD CHECK ===");
-        console.log("Program methods exists:", !!program.methods);
-        console.log("Program methods type:", typeof program.methods);
-        console.log("Program ID:", program.programId.toString());
-        console.log("Available methods:", Object.keys(program.methods || {}));
-        console.log("Methods containing 'stake':", Object.keys(program.methods || {}).filter(name => name.includes('stake')));
-        console.log("Methods containing 'claim':", Object.keys(program.methods || {}).filter(name => name.includes('claim')));
-        console.log("stakeAuthorTokens available:", !!program.methods?.stakeAuthorTokens);
-        console.log("unstakeAuthorTokens available:", !!program.methods?.unstakeAuthorTokens);
-        console.log("claimStakingFees available:", !!program.methods?.claimStakingFees);
+        const programMethodsExists = !!program.methods;
+        const programMethodsType = typeof program.methods;
+        const programIdStr = program.programId.toString();
+        const availableMethods = Object.keys(program.methods || {});
+        const stakeMethods = Object.keys(program.methods || {}).filter(name => name.includes('stake'));
+        const claimMethods = Object.keys(program.methods || {}).filter(name => name.includes('claim'));
+        const stakeAuthorTokensAvailable = !!program.methods?.stakeAuthorTokens;
+        const unstakeAuthorTokensAvailable = !!program.methods?.unstakeAuthorTokens;
+        const claimStakingFeesAvailable = !!program.methods?.claimStakingFees;
         
         if (!program.methods) {
           throw new Error("ERROR_CODE_001: Program methods object is null/undefined");
@@ -1566,13 +1570,13 @@ export function useContract() {
           const availableStakingMethods = Object.keys(program.methods).filter(name => 
             name.includes('stake') || name.includes('claim') || name.includes('author')
           );
-          console.error("ERROR_CODE_002: stakeAuthorTokens method not found");
-          console.error("Available staking-related methods:", availableStakingMethods);
-          console.error("All available methods:", Object.keys(program.methods));
+          // ERROR_CODE_002: stakeAuthorTokens method not found
+          // Available staking-related methods
+          // All available methods
           throw new Error(`ERROR_CODE_002: stakeAuthorTokens method not available. Available methods: ${Object.keys(program.methods).join(', ')}`);
         }
         
-        console.log("✅ stakeAuthorTokens method found and available");
+        // stakeAuthorTokens method found and available
         
         // Derive the author's token account
         const authorTokenAccount = await anchor.utils.token.associatedAddress({
@@ -1580,17 +1584,9 @@ export function useContract() {
           owner: walletAdapter.publicKey,
         });
         
-        console.log("Staking parameters:", {
-          market: params.market.toString(),
-          newsAccount: params.newsAccount.toString(),
-          mint: params.mint.toString(),
-          author: walletAdapter.publicKey.toString(),
-          authorTokenAccount: authorTokenAccount.toString(),
-          amount: params.amount
-        });
+        // Staking parameters
         
         // Log that we're about to execute the staking transaction
-        console.log("Executing staking transaction...");
         
         // Use the correct camelCase method name
         const signature = await program.methods
@@ -1607,16 +1603,16 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Staking transaction successful:", signature);
+        // Staking transaction successful
         return signature;
       } catch (error) {
-        console.error("Error in stakeAuthorTokens:", error);
-        console.error("Error details:", {
+        // Error in stakeAuthorTokens
+        const errorDetails = {
           name: (error as any).name,
           message: (error as any).message,
           code: (error as any).code,
           logs: (error as any).logs
-        });
+        };
         throw error;
       }
     },
@@ -1634,14 +1630,7 @@ export function useContract() {
           owner: walletAdapter.publicKey,
         });
         
-        console.log("Unstaking parameters:", {
-          market: params.market.toString(),
-          newsAccount: params.newsAccount.toString(),
-          mint: params.mint.toString(),
-          author: walletAdapter.publicKey.toString(),
-          authorTokenAccount: authorTokenAccount.toString(),
-          amount: params.amount
-        });
+        // Unstaking parameters
         
         // Use the correct camelCase method name
         const signature = await program.methods
@@ -1658,10 +1647,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Unstaking transaction successful:", signature);
+        // Unstaking transaction successful
         return signature;
       } catch (error) {
-        console.error("Error in unstakeAuthorTokens:", error);
+        // Error in unstakeAuthorTokens
         throw error;
       }
     },
@@ -1673,11 +1662,7 @@ export function useContract() {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       
       try {
-        console.log("Claiming fees parameters:", {
-          market: params.market.toString(),
-          newsAccount: params.newsAccount.toString(),
-          author: walletAdapter.publicKey.toString()
-        });
+        // Claiming fees parameters
         
         // Use the correct camelCase method name
         const signature = await program.methods
@@ -1690,10 +1675,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Claim fees transaction successful:", signature);
+        // Claim fees transaction successful
         return signature;
       } catch (error) {
-        console.error("Error in claimStakingFees:", error);
+        // Error in claimStakingFees
         throw error;
       }
     },
@@ -1706,7 +1691,7 @@ export function useContract() {
       if (!program || !walletAdapter.publicKey) throw new Error("Wallet not ready");
       
       try {
-        console.log("Initializing season:", seasonId);
+        // Initializing season
         
         const signature = await program.methods
           .initializeSeason(new anchor.BN(seasonId))
@@ -1717,10 +1702,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Season initialized successfully:", signature);
+        // Season initialized successfully
         return signature;
       } catch (error) {
-        console.error("Error initializing season:", error);
+        // Error initializing season
         throw error;
       }
     },
@@ -1733,7 +1718,7 @@ export function useContract() {
       
       try {
         const userPubkey = new PublicKey(userAddress);
-        console.log("Awarding trophy to:", userAddress);
+        // Awarding trophy
         
         const signature = await program.methods
           .awardTrophy()
@@ -1744,10 +1729,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Trophy awarded successfully:", signature);
+        // Trophy awarded successfully
         return signature;
       } catch (error) {
-        console.error("Error awarding trophy:", error);
+        // Error awarding trophy
         throw error;
       }
     },
@@ -1760,7 +1745,7 @@ export function useContract() {
       
       try {
         const userPubkey = new PublicKey(userAddress);
-        console.log("Resetting season PnL for:", userAddress);
+        // Resetting season PnL
         
         const signature = await program.methods
           .resetSeasonPnl()
@@ -1771,10 +1756,10 @@ export function useContract() {
           })
           .rpc();
         
-        console.log("Season PnL reset successfully:", signature);
+        // Season PnL reset successfully
         return signature;
       } catch (error) {
-        console.error("Error resetting season PnL:", error);
+        // Error resetting season PnL
         throw error;
       }
     },
@@ -1796,6 +1781,7 @@ export function useContract() {
     getAllNewsTokens,
     getNewsByAuthor,
     getCurrentPrice,
+    getMarketCap,
     fetchNewsAccount,
     findActualNewsAccount,
     estimateBuyCost,

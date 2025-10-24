@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User address required" }, { status: 400 })
     }
     
-    console.log("Creating profile for user:", userAddress)
+    // Creating profile for user
     
     // First ensure user exists
     const user = await prisma.user.upsert({
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
     })
     
-    console.log("Profile created successfully:", profile.id)
+    // Profile created successfully
     return NextResponse.json({ profile })
   } catch (error) {
     console.error("Error creating profile:", error)

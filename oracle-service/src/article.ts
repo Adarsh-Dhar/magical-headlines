@@ -46,30 +46,20 @@ async function uploadToArweave(data: string): Promise<string> {
 }
 
 export async function handleNewArticle(accountId: PublicKey, data: Buffer) {
-    console.log("🔍 ========================================");
-    console.log("📝 Starting article processing...");
-    console.log(`🔑 Account: ${accountId.toBase58()}`);
-    console.log("🔍 ========================================");
     
     try {
         // 1. Decode the account data to get the Arweave link
-        console.log("📖 Decoding account data...");
         const wallet = new anchor.Wallet(anchor.web3.Keypair.generate());
         const provider = new anchor.AnchorProvider(connection, wallet, {});
         const program = new anchor.Program<NewsPlatform>(IDL as anchor.Idl, provider);
         const newsAccount = await program.coder.accounts.decode("newsAccount", data);
 
-        console.log(`📰 Article: "${newsAccount.headline}"`);
-        console.log(`🔗 Arweave Link: ${newsAccount.arweaveLink}`);
-        console.log(`📅 Published: ${new Date(newsAccount.publishedAt * 1000).toISOString()}`);
         
         // Skip if summary already exists
         if (newsAccount.summaryLink && newsAccount.summaryLink.trim() !== "") {
-            console.log(`⏭️  Skipping article - summary already exists: ${newsAccount.summaryLink}`);
             return;
         }
         
-        console.log(`🔄 Processing new article without summary...`);
 
         // 2. Fetch the full article content from Arweave
         console.log("🌐 Fetching article content from Arweave...");

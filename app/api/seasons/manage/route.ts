@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
       // Award trophies on-chain for top 10 users
       try {
         const userAddresses = top10Users.map(stat => stat.profile.userAddress)
-        console.log(`Awarding trophies on-chain to ${userAddresses.length} users...`)
+        // Awarding trophies on-chain
         const onChainSignatures = await awardTrophiesOnChain(userAddresses)
-        console.log(`On-chain trophy awards completed. Signatures: ${onChainSignatures.length}`)
+        // On-chain trophy awards completed
       } catch (error) {
         console.error('Error awarding trophies on-chain:', error)
         // Continue even if on-chain awards fail
@@ -111,9 +111,9 @@ export async function POST(request: NextRequest) {
       
       // Initialize season on-chain
       try {
-        console.log(`Initializing season ${newSeasonId} on-chain...`)
+        // Initializing season on-chain
         const onChainSignature = await initializeSeasonOnChain(newSeasonId)
-        console.log(`Season ${newSeasonId} initialized on-chain: ${onChainSignature}`)
+        // Season initialized on-chain
       } catch (error) {
         console.error('Error initializing season on-chain:', error)
         // Continue even if on-chain initialization fails
@@ -136,9 +136,9 @@ export async function POST(request: NextRequest) {
             .map(profile => profile.userAddress)
             .filter((address): address is string => address !== null)
           
-          console.log(`Resetting season PnL on-chain for ${userAddresses.length} users...`)
+          // Resetting season PnL on-chain
           const onChainSignatures = await resetSeasonPnlForUsersOnChain(userAddresses)
-          console.log(`On-chain PnL resets completed. Signatures: ${onChainSignatures.length}`)
+          // On-chain PnL resets completed
         }
       } catch (error) {
         console.error('Error resetting season PnL on-chain:', error)
