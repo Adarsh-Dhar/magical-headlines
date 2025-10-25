@@ -10,7 +10,7 @@ import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json'
 
 // Constants
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "CSNDjcoYr6iLwfsVC5xyc1SQeEJ2TbZV6vHrNyKDbGLQ";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3";
   return new PublicKey(id);
 }
 

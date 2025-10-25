@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import NEWS_PLATFORM_IDL from '../../../contract/target/idl/news_platform.json'
 
 const getProgramId = () => new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID || "CSNDjcoYr6iLwfsVC5xyc1SQeEJ2TbZV6vHrNyKDbGLQ"
+  process.env.NEXT_PUBLIC_PROGRAM_ID || "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3"
 )
 
 const findProfilePda = (user: PublicKey) =>
@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
       update: {}
     })
     
-    const profile = await prisma.profile.create({
-      data: {
+    const profile = await prisma.profile.upsert({
+      where: { userAddress },
+      create: {
         userAddress,
         totalPnl: 0,
         totalVolume: 0,
@@ -103,6 +104,9 @@ export async function POST(request: NextRequest) {
         wins: 0,
         trophies: 0,
         currentSeasonPnl: 0
+      },
+      update: {
+        // Keep existing values if profile already exists
       }
     })
     

@@ -5,7 +5,7 @@ import React, { useMemo, useCallback } from "react";
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // Import the IDL from the contract
@@ -55,7 +55,7 @@ const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 function getProgramId(): PublicKey {
-  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "B3j5EA7SfVpXWR1FWsFPR2GRSSL5H52NSirwfyQepCjF";
+  const id = process.env.NEXT_PUBLIC_PROGRAM_ID || "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3";
   return new PublicKey(id);
 }
 
@@ -168,20 +168,37 @@ export function useContract() {
     }
     
     try {
-      // Adapt wallet-adapter to Anchor wallet interface
+      // Create a proper wallet adapter for Anchor
       const wallet = {
         publicKey: walletAdapter.publicKey,
-        signTransaction: walletAdapter.signTransaction!,
-        signAllTransactions: walletAdapter.signAllTransactions || (async (txs: any[]) => {
-          // Fallback for wallets that don't support signAllTransactions
+        signTransaction: async (tx: Transaction) => {
+          // Ensure the transaction has a recent blockhash
+          if (!tx.recentBlockhash) {
+            const { blockhash } = await connection.getLatestBlockhash();
+            tx.recentBlockhash = blockhash;
+          }
+          if (!tx.feePayer) {
+            tx.feePayer = walletAdapter.publicKey!;
+          }
+          return await walletAdapter.signTransaction!(tx);
+        },
+        signAllTransactions: async (txs: Transaction[]) => {
           const signedTxs = [];
           for (const tx of txs) {
+            // Ensure each transaction has a recent blockhash
+            if (!tx.recentBlockhash) {
+              const { blockhash } = await connection.getLatestBlockhash();
+              tx.recentBlockhash = blockhash;
+            }
+            if (!tx.feePayer) {
+              tx.feePayer = walletAdapter.publicKey!;
+            }
             const signed = await walletAdapter.signTransaction!(tx);
             signedTxs.push(signed);
           }
           return signedTxs;
-        }),
-      } as unknown as anchor.Wallet;
+        },
+      } as anchor.Wallet;
       
       const programId = getProgramId();
       const provider = getProvider(connection, wallet);
@@ -206,9 +223,7 @@ export function useContract() {
         
       // Debug: Check if publish_news instruction exists in IDL
       const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
-      if (publishNewsInstruction) {
-        // Debug info removed for production
-      }
+      
       
       const program = new Program(minimalIdl, provider) as Program;
       
@@ -328,6 +343,7 @@ export function useContract() {
       basePrice: number | anchor.BN;
       nonce: number | anchor.BN;
     }) => {
+      console.log('publishNews', params);
       // Try to get the program again in case it wasn't ready initially
       let currentProgram = program;
       if (!currentProgram) {
@@ -427,78 +443,108 @@ export function useContract() {
         throw new Error("Publish method not found in program");
       }
       
+      console.log('publishMethod', publishMethod);
       
-      const signature = await publishMethod(
-        params.headline,
-        params.arweaveLink,
-        new anchor.BN(params.initialSupply),
-        new anchor.BN(params.basePrice),
-        nonceBn
-      )
-        .accounts({
-          newsAccount: newsPda,
-          mint: mintPda,
-          metadata: metadataPda,
-          author,
-          authorTokenAccount,
-          market: marketPda,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          metadataProgram,
-          systemProgram: SystemProgram.programId,
-          rent: SYSVAR_RENT_PUBKEY,
-        })
-        .rpc();
-
-      // Verify the transaction was successful by checking account states
+      // Debug wallet state
+      console.log('Wallet state:', {
+        connected: walletAdapter.connected,
+        publicKey: walletAdapter.publicKey?.toString(),
+        hasSignTransaction: !!walletAdapter.signTransaction,
+        hasSignAllTransactions: !!walletAdapter.signAllTransactions
+      });
       
       try {
-        // Wait for confirmation
-        await connection.confirmTransaction(signature, 'confirmed');
+        // Build the instruction and transaction manually
+        const instruction = await publishMethod(
+          params.headline,
+          params.arweaveLink,
+          new anchor.BN(params.initialSupply),
+          new anchor.BN(params.basePrice),
+          nonceBn
+        )
+          .accounts({
+            newsAccount: newsPda,
+            mint: mintPda,
+            author,
+            authorTokenAccount,
+            market: marketPda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .instruction();
+
+        // Create transaction with proper signer setup
+        const transaction = new Transaction().add(instruction);
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = author;
+
+        // Sign the transaction with the wallet adapter
+        const signedTransaction = await walletAdapter.signTransaction!(transaction);
+
+        // Send the signed transaction
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed'
+        });
+
+        console.log('signature', signature);
+
+        // Verify the transaction was successful by checking account states
         
-        // Verify news account was created
         try {
-          const accountInfo = await connection.getAccountInfo(newsPda);
-          if (!accountInfo) {
-            throw new Error("News account was not created");
-          }
-        } catch (error) {
-          throw new Error(`News account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        
-        // Verify mint account was created with correct supply
-        try {
-          // Add a small delay to ensure account is fully propagated
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait for confirmation
+          await connection.confirmTransaction(signature, 'confirmed');
           
-          // Verify mint account exists
-          const mintAccountInfo = await connection.getAccountInfo(mintPda);
-          if (!mintAccountInfo) {
-            throw new Error("Mint account was not created");
+          // Verify news account was created
+          try {
+            const accountInfo = await connection.getAccountInfo(newsPda);
+            if (!accountInfo) {
+              throw new Error("News account was not created");
+            }
+          } catch (error) {
+            throw new Error(`News account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
           }
           
-          
-          // For now, we'll just verify the account exists
-          // The supply verification can be done later when we have proper account parsing
-        } catch (error) {
-          throw new Error(`Mint account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        
-        // Verify market account was created
-        try {
-          const marketAccountInfo = await connection.getAccountInfo(marketPda);
-          if (!marketAccountInfo) {
-            throw new Error("Market account was not created");
+          // Verify mint account was created with correct supply
+          try {
+            // Add a small delay to ensure account is fully propagated
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Verify mint account exists
+            const mintAccountInfo = await connection.getAccountInfo(mintPda);
+            if (!mintAccountInfo) {
+              throw new Error("Mint account was not created");
+            }
+            
+            
+            // For now, we'll just verify the account exists
+            // The supply verification can be done later when we have proper account parsing
+          } catch (error) {
+            throw new Error(`Mint account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
           }
           
-        } catch (error) {
-          throw new Error(`Market account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+          // Verify market account was created
+          try {
+            const marketAccountInfo = await connection.getAccountInfo(marketPda);
+            if (!marketAccountInfo) {
+              throw new Error("Market account was not created");
+            }
+            
+          } catch (error) {
+            throw new Error(`Market account was not created or could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          
+          return signature;
+          
+        } catch (verificationError) {
+          throw new Error(`Transaction verification failed: ${verificationError instanceof Error ? verificationError.message : String(verificationError)}`);
         }
-        
-        return signature;
-        
-      } catch (verificationError) {
-        throw new Error(`Transaction verification failed: ${verificationError instanceof Error ? verificationError.message : String(verificationError)}`);
+      } catch (error) {
+        console.error('Transaction failed:', error);
+        throw new Error(`Publish news transaction failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
     [program, walletAdapter.publicKey, getProgram]
