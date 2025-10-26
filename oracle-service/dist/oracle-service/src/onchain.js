@@ -46,6 +46,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateOnChainSummary = updateOnChainSummary;
+exports.updateTrendIndexOnChain = updateTrendIndexOnChain;
 const anchor = __importStar(require("@coral-xyz/anchor"));
 const web3_js_1 = require("@solana/web3.js");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
@@ -84,6 +85,52 @@ function updateOnChainSummary(newsAccountPubkey, summaryLink) {
         catch (error) {
             console.error("❌ ========================================");
             console.error("❌ Failed to update summary on-chain:", error);
+            console.error("❌ ========================================");
+            throw error;
+        }
+    });
+}
+function updateTrendIndexOnChain(newsAccountPubkey, trendResult) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log("⛓️  ========================================");
+        console.log("🤖 Updating AI trend index on-chain...");
+        console.log(`📰 News Account: ${newsAccountPubkey.toBase58()}`);
+        console.log(`📊 Trend Score: ${trendResult.score}`);
+        console.log(`🎯 Confidence: ${trendResult.confidence}`);
+        console.log("⛓️  ========================================");
+        const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
+        const program = new anchor.Program(news_platform_json_1.default, provider);
+        const [whitelistPda, _] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("whitelist"), wallet.publicKey.toBuffer()], program.programId);
+        const [marketAccount, __] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("market"), newsAccountPubkey.toBuffer()], program.programId);
+        console.log(`🔑 Oracle Authority: ${wallet.publicKey.toBase58()}`);
+        console.log(`🔑 Whitelist PDA: ${whitelistPda.toBase58()}`);
+        console.log(`🔑 Market PDA: ${marketAccount.toBase58()}`);
+        try {
+            const trendScoreU64 = Math.round(trendResult.score * 1000);
+            const factorsString = JSON.stringify(trendResult.factors);
+            const factorsHash = Buffer.from(require('crypto').createHash('sha256').update(factorsString).digest());
+            console.log("📝 Building trend index update transaction...");
+            console.log(`📊 Trend Score (u64): ${trendScoreU64}`);
+            console.log(`🔐 Factors Hash: ${factorsHash.toString('hex')}`);
+            const txSignature = yield program.methods
+                .updateTrendIndex(new anchor.BN(trendScoreU64), Array.from(factorsHash))
+                .accounts({
+                market: marketAccount,
+                newsAccount: newsAccountPubkey,
+                whitelist: whitelistPda,
+                oracleAuthority: wallet.publicKey,
+            })
+                .rpc();
+            console.log("✅ ========================================");
+            console.log("✅ Successfully updated trend index on-chain!");
+            console.log(`🔗 Transaction: ${txSignature}`);
+            console.log(`🌐 Explorer: https://explorer.solana.com/tx/${txSignature}`);
+            console.log("✅ ========================================");
+            return txSignature;
+        }
+        catch (error) {
+            console.error("❌ ========================================");
+            console.error("❌ Failed to update trend index on-chain:", error);
             console.error("❌ ========================================");
             throw error;
         }

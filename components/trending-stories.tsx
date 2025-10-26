@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FlameIcon } from "lucide-react"
+import { FlameIcon, TrendingUpIcon, TrendingDownIcon, BrainIcon } from "lucide-react"
 import { useContract } from "@/lib/use-contract"
 import { PublicKey } from "@solana/web3.js"
 
@@ -13,6 +13,9 @@ interface Story {
   authorAddress?: string
   nonce?: string
   tags: Array<{ id: string; name: string }>
+  trendIndexScore?: number
+  trendVelocity?: number
+  confidence?: number
 }
 
 export function TrendingStories() {
@@ -30,15 +33,35 @@ export function TrendingStories() {
   const fetchStories = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/story")
-      if (!res.ok) throw new Error("Failed to fetch stories")
-      const data = await res.json()
-      const fetched = data.stories || []
-      setStories(fetched)
-      // Perform a one-time volume update on mount if contract utils are ready
-      if (!didInitialVolumeUpdateRef.current && pdas && typeof getMarketDelegationStatus === 'function' && fetched.length > 0) {
-        didInitialVolumeUpdateRef.current = true
-        void updateVolumesFor(fetched)
+      // Try AI-powered trending first, fallback to regular stories
+      let res = await fetch("/api/v1/trending-ai?limit=10")
+      let data
+      
+      if (res.ok) {
+        data = await res.json()
+        const aiStories = data.trending_markets?.map((market: any) => ({
+          id: market.market_id,
+          headline: market.headline,
+          tags: market.tags,
+          trendIndexScore: market.trend_score,
+          trendVelocity: market.trend_velocity,
+          confidence: market.confidence,
+          volume: market.volume_24h
+        })) || []
+        setStories(aiStories)
+      } else {
+        // Fallback to regular stories API
+        res = await fetch("/api/story")
+        if (!res.ok) throw new Error("Failed to fetch stories")
+        data = await res.json()
+        const fetched = data.stories || []
+        setStories(fetched)
+        
+        // Perform a one-time volume update on mount if contract utils are ready
+        if (!didInitialVolumeUpdateRef.current && pdas && typeof getMarketDelegationStatus === 'function' && fetched.length > 0) {
+          didInitialVolumeUpdateRef.current = true
+          void updateVolumesFor(fetched)
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load stories")
@@ -95,9 +118,20 @@ export function TrendingStories() {
         headline: s.headline,
         tags: s.tags,
         volume: volumes[s.id] ?? 0,
+        trendScore: s.trendIndexScore ?? 0,
+        trendVelocity: s.trendVelocity ?? 0,
+        confidence: s.confidence ?? 0,
       }))
-      .filter(item => item.volume > 0)
-      .sort((a, b) => b.volume - a.volume)
+      .filter(item => item.trendScore > 0 || item.volume > 0) // Show items with either AI trend score or volume
+      .sort((a, b) => {
+        // Prioritize AI trend score, fallback to volume
+        if (a.trendScore > 0 && b.trendScore > 0) {
+          return b.trendScore - a.trendScore;
+        }
+        if (a.trendScore > 0) return -1;
+        if (b.trendScore > 0) return 1;
+        return b.volume - a.volume;
+      })
       .slice(0, 5)
   }, [stories, volumes])
 
@@ -105,8 +139,11 @@ export function TrendingStories() {
     <Card className="p-6 sticky top-4">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <FlameIcon className="w-5 h-5 text-primary" />
-          <h2 className="text-xl font-bold">Trending Now</h2>
+          <BrainIcon className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-bold">AI Trending</h2>
+          <Badge variant="secondary" className="text-xs">
+            Powered by AI
+          </Badge>
         </div>
         <Button variant="outline" size="sm" onClick={() => updateVolumesFor()} disabled={isUpdating || loading} className="h-8">
           {isUpdating ? "Updating..." : "Refresh"}
@@ -135,7 +172,33 @@ export function TrendingStories() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium leading-tight mb-1 text-balance line-clamp-2">{item.headline}</p>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-muted-foreground">Vol: {item.volume.toFixed(4)} SOL</span>
+                    {item.trendScore > 0 ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <BrainIcon className="w-3 h-3 text-blue-500" />
+                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                            {item.trendScore.toFixed(1)}
+                          </span>
+                        </div>
+                        {item.trendVelocity !== 0 && (
+                          <div className="flex items-center gap-1">
+                            {item.trendVelocity > 0 ? (
+                              <TrendingUpIcon className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <TrendingDownIcon className="w-3 h-3 text-red-500" />
+                            )}
+                            <span className={item.trendVelocity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                              {Math.abs(item.trendVelocity).toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                        <span className="text-muted-foreground">
+                          {Math.round(item.confidence * 100)}% conf
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Vol: {item.volume.toFixed(4)} SOL</span>
+                    )}
                     {stories.find(s => s.id === item.id)?.tags?.slice(0, 2).map(tag => (
                       <Badge key={tag.id} variant="secondary" className="text-[10px]">{tag.name}</Badge>
                     ))}

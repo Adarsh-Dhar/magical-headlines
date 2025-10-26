@@ -52,6 +52,7 @@ const anchor = __importStar(require("@coral-xyz/anchor"));
 const config_1 = require("./config");
 const article_1 = require("./article");
 const trading_events_1 = require("./trading-events");
+const trend_orchestrator_1 = require("./trend-orchestrator");
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
 function processExistingAccounts() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -144,9 +145,13 @@ function startListener() {
                 catch (error) {
                 }
             }), "confirmed");
-            process.on('SIGINT', () => {
+            console.log("🚀 Starting AI Trend Orchestrator...");
+            yield trend_orchestrator_1.trendOrchestrator.start();
+            process.on('SIGINT', () => __awaiter(this, void 0, void 0, function* () {
+                console.log("🛑 Shutting down gracefully...");
+                yield trend_orchestrator_1.trendOrchestrator.stop();
                 process.exit(0);
-            });
+            }));
         }
         catch (error) {
             process.exit(1);

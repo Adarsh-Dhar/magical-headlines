@@ -8,6 +8,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { getConnection, getProgramId } from "./config";
 import { handleNewArticle } from "./article";
 import { processTokensPurchasedEvent, processTokensSoldEvent, processTokensStakedEvent, processTokensUnstakedEvent, processFeesClaimedEvent } from "./trading-events";
+import { trendOrchestrator } from "./trend-orchestrator";
 import IDL from "../../contract/target/idl/news_platform.json";
 import type { NewsPlatform } from "../../contract/target/types/news_platform";
 
@@ -136,8 +137,14 @@ async function startListener() {
     );
     
     
+    // Start the AI Trend Orchestrator
+    console.log("🚀 Starting AI Trend Orchestrator...");
+    await trendOrchestrator.start();
+    
     // Keep the process running
-    process.on('SIGINT', () => {
+    process.on('SIGINT', async () => {
+      console.log("🛑 Shutting down gracefully...");
+      await trendOrchestrator.stop();
       process.exit(0);
     });
     

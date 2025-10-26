@@ -1987,6 +1987,94 @@
                     "type": "string"
                 }
             ]
+        },
+        {
+            "name": "update_trend_index",
+            "docs": [
+                "Update the AI-powered trend index score for a market"
+            ],
+            "discriminator": [
+                145,
+                233,
+                14,
+                68,
+                118,
+                75,
+                120,
+                10
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "whitelist",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "oracle_authority"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "oracle_authority",
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "trend_score",
+                    "type": "u64"
+                },
+                {
+                    "name": "factors_hash",
+                    "type": {
+                        "array": [
+                            "u8",
+                            32
+                        ]
+                    }
+                }
+            ]
         }
     ],
     "accounts": [
@@ -2331,6 +2419,19 @@
             ]
         },
         {
+            "name": "TrendIndexUpdated",
+            "discriminator": [
+                21,
+                79,
+                191,
+                2,
+                41,
+                0,
+                227,
+                123
+            ]
+        },
+        {
             "name": "TrophyAwarded",
             "discriminator": [
                 221,
@@ -2545,6 +2646,23 @@
                     {
                         "name": "bump",
                         "type": "u8"
+                    },
+                    {
+                        "name": "trend_index_score",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "trend_last_updated",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "trend_factors_hash",
+                        "type": {
+                            "array": [
+                                "u8",
+                                32
+                            ]
+                        }
                     }
                 ]
             }
@@ -3123,6 +3241,26 @@
                     },
                     {
                         "name": "Sell"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TrendIndexUpdated",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "trend_score",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "timestamp",
+                        "type": "i64"
                     }
                 ]
             }

@@ -1987,6 +1987,94 @@ export type NewsPlatform = {
                     "type": "string";
                 }
             ];
+        },
+        {
+            "name": "updateTrendIndex";
+            "docs": [
+                "Update the AI-powered trend index score for a market"
+            ];
+            "discriminator": [
+                145,
+                233,
+                14,
+                68,
+                118,
+                75,
+                120,
+                10
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                },
+                {
+                    "name": "whitelist";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "oracleAuthority";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "oracleAuthority";
+                    "signer": true;
+                }
+            ];
+            "args": [
+                {
+                    "name": "trendScore";
+                    "type": "u64";
+                },
+                {
+                    "name": "factorsHash";
+                    "type": {
+                        "array": [
+                            "u8",
+                            32
+                        ];
+                    };
+                }
+            ];
         }
     ];
     "accounts": [
@@ -2331,6 +2419,19 @@ export type NewsPlatform = {
             ];
         },
         {
+            "name": "trendIndexUpdated";
+            "discriminator": [
+                21,
+                79,
+                191,
+                2,
+                41,
+                0,
+                227,
+                123
+            ];
+        },
+        {
             "name": "trophyAwarded";
             "discriminator": [
                 221,
@@ -2545,6 +2646,23 @@ export type NewsPlatform = {
                     {
                         "name": "bump";
                         "type": "u8";
+                    },
+                    {
+                        "name": "trendIndexScore";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "trendLastUpdated";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "trendFactorsHash";
+                        "type": {
+                            "array": [
+                                "u8",
+                                32
+                            ];
+                        };
                     }
                 ];
             };
@@ -3123,6 +3241,26 @@ export type NewsPlatform = {
                     },
                     {
                         "name": "sell";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "trendIndexUpdated";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "trendScore";
+                        "type": "u64";
+                    },
+                    {
+                        "name": "timestamp";
+                        "type": "i64";
                     }
                 ];
             };

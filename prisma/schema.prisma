@@ -65,10 +65,20 @@ model Token {
   newsAccount    String?             @unique
   stakedTokens   Float               @default(0)
   accumulatedFees Float              @default(0)
+  // AI Adaptive Trend Index fields
+  trendIndexScore     Float    @default(0)      // 0-100 adaptive score
+  trendVelocity       Float    @default(0)      // Rate of score change
+  sentimentScore      Float    @default(0)      // -1 to 1 sentiment
+  mentionVelocity     Float    @default(0)      // Mentions per minute
+  holderMomentum      Float    @default(0)      // Holder growth rate
+  crossMarketCorr     Float    @default(0)      // Correlation with other markets
+  lastTrendUpdate     DateTime @default(now())
+  trendFactorWeights  Json?                     // Current AI-determined weights
   holders        Holding[]
   story          Story               @relation(fields: [storyId], references: [id])
   volumeMinutes  TokenVolumeMinute[]
   trades         Trade[]
+  trendHistory   TrendIndexHistory[]
 }
 
 model Holding {
@@ -228,6 +238,17 @@ model TradePosition {
 
   @@unique([userAddress, marketAddress])
   @@index([userAddress])
+}
+
+model TrendIndexHistory {
+  id           String   @id @default(cuid())
+  tokenId      String
+  score        Float
+  factors      Json     // All factor values at this point
+  weights      Json     // AI-determined weights used
+  timestamp    DateTime @default(now())
+  token        Token    @relation(fields: [tokenId], references: [id])
+  @@index([tokenId, timestamp])
 }
 
 enum TradeType {

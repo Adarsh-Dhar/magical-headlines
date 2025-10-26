@@ -35,6 +35,7 @@ model User {
   subscribers      Subscription[]        @relation("AuthorRelation")
   notifications    Notification[]        @relation("NotificationUser")
   notificationsAuthored Notification[]   @relation("NotificationActor")
+  profile          Profile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -97,12 +98,23 @@ model Token {
   stakedTokens     Float     @default(0)
   accumulatedFees  Float     @default(0)
 
+  // AI Trend fields
+  trendIndexScore  Float?
+  trendVelocity    Float?
+  sentimentScore   Float?
+  mentionVelocity  Float?
+  holderMomentum   Float?
+  crossMarketCorr  Float?
+  trendFactorWeights Json?
+  lastTrendUpdate  DateTime?
+
   storyId          String    @unique
   story            Story     @relation(fields: [storyId], references: [id])
 
-  holders          Holding[]
-  trades           Trade[]
-  volumeMinutes    TokenVolumeMinute[]
+  holders           Holding[]
+  trades            Trade[]
+  volumeMinutes     TokenVolumeMinute[]
+  trendIndexHistory TrendIndexHistory[]
 
   createdAt        DateTime  @default(now())
 }
@@ -163,6 +175,19 @@ model TokenVolumeMinute {
   @@index([tokenId, minute])
 }
 
+// TrendIndexHistory tracks historical trend calculations
+model TrendIndexHistory {
+  id         String   @id @default(cuid())
+  tokenId    String
+  token      Token    @relation(fields: [tokenId], references: [id])
+  score      Float
+  factors    Json
+  weights    Json
+  timestamp  DateTime @default(now())
+
+  @@index([tokenId, timestamp])
+}
+
 // Like model represents a user's like on a story.
 model Like {
   id        String   @id @default(cuid())
@@ -215,4 +240,72 @@ model Notification {
 
   @@index([userId, read])
   @@index([storyId])
+}
+
+model Profile {
+  id                 String          @id @default(cuid())
+  userAddress        String          @unique
+  onchainAddress     String?         @unique
+  totalPnl           Float           @default(0)
+  totalVolume        Float           @default(0)
+  tradesCount        Int             @default(0)
+  wins               Int             @default(0)
+  trophies           Int             @default(0)
+  currentSeasonPnl   Float           @default(0)
+  lastTradeTimestamp DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  user               User            @relation(fields: [userAddress], references: [walletAddress])
+  seasonStats        SeasonStats[]
+  positions          TradePosition[]
+}
+
+model Season {
+  id                String        @id @default(cuid())
+  seasonId          Int           @unique
+  onchainAddress    String?       @unique
+  startTimestamp    DateTime
+  endTimestamp      DateTime
+  isActive          Boolean       @default(true)
+  totalParticipants Int           @default(0)
+  totalVolume       Float         @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  seasonStats       SeasonStats[]
+}
+
+model SeasonStats {
+  id          String   @id @default(cuid())
+  profileId   String
+  seasonId    String
+  pnl         Float    @default(0)
+  volume      Float    @default(0)
+  tradesCount Int      @default(0)
+  wins        Int      @default(0)
+  rank        Int?
+  trophyTier  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  season      Season   @relation(fields: [seasonId], references: [id])
+  profile     Profile  @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, seasonId])
+  @@index([seasonId, pnl])
+}
+
+model TradePosition {
+  id             String   @id @default(cuid())
+  userAddress    String
+  marketAddress  String
+  onchainAddress String?  @unique
+  totalBought    Float    @default(0)
+  totalSold      Float    @default(0)
+  avgBuyPrice    Float    @default(0)
+  realizedPnl    Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  profile        Profile  @relation(fields: [userAddress], references: [userAddress])
+
+  @@unique([userAddress, marketAddress])
+  @@index([userAddress])
 }

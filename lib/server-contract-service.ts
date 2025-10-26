@@ -29,6 +29,18 @@ export interface PublishNewsResult {
   error?: string;
 }
 
+export interface UpdateTrendIndexParams {
+  newsAccountAddress: string;
+  trendScore: number; // 0-100
+  factorsHash: string; // hex string
+}
+
+export interface UpdateTrendIndexResult {
+  success: boolean;
+  signature?: string;
+  error?: string;
+}
+
 class ServerContractService {
   private connection: Connection;
   private program: Program;
@@ -235,6 +247,92 @@ class ServerContractService {
     } catch (error) {
       console.error('Error getting account info:', error);
       return null;
+    }
+  }
+
+  // Update AI trend index on-chain
+  async updateTrendIndexOnChain(params: UpdateTrendIndexParams): Promise<UpdateTrendIndexResult> {
+    try {
+      console.log('🤖 Updating AI trend index on-chain:', {
+        newsAccount: params.newsAccountAddress,
+        trendScore: params.trendScore,
+        factorsHash: params.factorsHash.substring(0, 16) + '...'
+      });
+
+      // Validate inputs
+      if (params.trendScore < 0 || params.trendScore > 100) {
+        throw new Error('Invalid trend score: must be between 0 and 100');
+      }
+
+      if (!params.factorsHash || params.factorsHash.length !== 64) {
+        throw new Error('Invalid factors hash: must be 64 character hex string');
+      }
+
+      const newsAccount = new PublicKey(params.newsAccountAddress);
+      
+      // Derive market PDA
+      const [marketAccount] = PublicKey.findProgramAddressSync(
+        [Buffer.from("market"), newsAccount.toBuffer()],
+        this.program.programId
+      );
+
+      // Convert factors hash to byte array
+      const factorsHashBytes = Buffer.from(params.factorsHash, 'hex');
+      if (factorsHashBytes.length !== 32) {
+        throw new Error('Invalid factors hash length');
+      }
+
+      // Convert trend score to u64 (scale 0-100 to 0-100000)
+      const trendScoreU64 = Math.round(params.trendScore * 1000);
+
+      // Build the transaction
+      const tx = await this.program.methods
+        .updateTrendIndex(
+          new anchor.BN(trendScoreU64),
+          Array.from(factorsHashBytes) as [number; 32]
+        )
+        .accounts({
+          market: marketAccount,
+          newsAccount: newsAccount,
+          whitelist: this.publisherKeypair.publicKey, // This should be the oracle whitelist PDA
+          oracleAuthority: this.publisherKeypair.publicKey,
+        })
+        .transaction();
+
+      // Set recent blockhash
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = this.publisherKeypair.publicKey;
+
+      // Sign and send transaction
+      tx.sign(this.publisherKeypair);
+      
+      console.log('📝 Sending trend index update transaction...');
+      const signature = await this.connection.sendTransaction(tx, [this.publisherKeypair], {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
+
+      console.log('⏳ Waiting for confirmation...');
+      const confirmation = await this.connection.confirmTransaction(signature, 'confirmed');
+      
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${confirmation.value.err}`);
+      }
+
+      console.log('✅ Trend index update confirmed:', signature);
+
+      return {
+        success: true,
+        signature,
+      };
+
+    } catch (error) {
+      console.error('❌ Error updating trend index on-chain:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
     }
   }
 
