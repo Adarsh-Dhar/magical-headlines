@@ -2,42 +2,98 @@
 
 Where breaking news becomes tradable assets. Post a story, mint a token, and let the market speculate on attention in real time.
 
+![Magical Headlines](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
+![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
+![Solana](https://img.shields.io/badge/Solana-Anchor-purple?style=for-the-badge&logo=solana)
+![Tailwind](https://img.shields.io/badge/Tailwind-v4-cyan?style=for-the-badge&logo=tailwindcss)
+
+## 🚀 Overview
+
+Magical Headlines is a revolutionary news trading platform that transforms breaking news into tradable tokens. Users can publish news stories, create tradable tokens, and participate in a dynamic marketplace where attention and speculation drive value.
+
+### Key Features
+
+- **📰 News Publishing**: Create and publish news stories with Arweave integration
+- **💰 Token Trading**: Buy/sell news tokens using bonding curve mechanics
+- **📊 Portfolio Management**: Track holdings, P&L, and trading performance
+- **🏆 Leaderboards**: Compete in seasonal trading competitions
+- **🔔 Real-time Notifications**: Stay updated with SSE-powered notifications
+- **🤖 AI Summaries**: Automated news summarization via Oracle service
+- **⚡ Ephemeral Rollups**: High-speed trading with MagicBlock integration
+- **📈 Advanced Charts**: Candlestick charts, volume analysis, and market stats
+
+## 🏗️ Architecture
+
 This repository contains:
-- A Next.js 15 app (React 19, Tailwind v4) for the UI and API routes
-- An Anchor-based Solana program (`news_platform`) consumed from the client
-- An Oracle Service that watches on-chain `newsAccount`s and generates AI summaries
-- Arweave upload integration powered by `@ardrive/turbo-sdk`
-- Real-time user notifications via Server-Sent Events (SSE)
+- **Next.js 15 App**: React 19 frontend with Tailwind v4 styling
+- **Solana Program**: Anchor-based smart contract for news trading
+- **Oracle Service**: AI-powered news summarization and monitoring
+- **Database**: Prisma with SQLite (dev) / PostgreSQL (prod)
+- **Real-time Features**: Server-Sent Events for live updates
 
-The project maps cleanly to the "Trading News App" RFP for MagicBlock's Cypherpunk Hackathon. See the MagicBlock section for Ephemeral Rollups (ERs) integration guidance.
+## 🛠️ Tech Stack
 
-## Quick Start
+### Frontend
+- **Next.js 15** with App Router
+- **React 19** with modern hooks
+- **Tailwind CSS v4** for styling
+- **Radix UI** components
+- **Lightweight Charts** for trading charts
+- **Solana Wallet Adapter** for wallet integration
 
-1. **Install dependencies:**
+### Backend
+- **Prisma** ORM with SQLite/PostgreSQL
+- **Next.js API Routes** for backend logic
+- **Server-Sent Events** for real-time updates
+- **Zod** for data validation
+
+### Blockchain
+- **Solana** blockchain
+- **Anchor Framework** for smart contracts
+- **SPL Token** standard
+- **Ephemeral Rollups SDK** for high-speed trading
+
+### External Services
+- **Arweave** for decentralized content storage
+- **Google Gemini AI** for news summarization
+- **MagicBlock** for ephemeral rollups
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 20+
+- pnpm 9+
+- Solana CLI
+- Anchor toolchain (for contract development)
+
+### Installation
+
+1. **Clone and install dependencies:**
    ```bash
+   git clone <repository-url>
+   cd trade-the-news
    pnpm install
    cd oracle-service && pnpm install && cd ..
    ```
 
-2. **Set up environment:**
+2. **Set up environment variables:**
    ```bash
    cp .env.example .env.local
    # Edit .env.local with your values
    ```
 
-3. **Set up the database:**
+3. **Initialize the database:**
    ```bash
    pnpm prisma migrate dev
    pnpm prisma generate
    ```
 
-4. **Start both services (recommended):**
+4. **Start the development servers:**
    ```bash
+   # Start both services (recommended)
    ./start-dev.sh
-   ```
    
-   Or start individually:
-   ```bash
+   # Or start individually:
    # Terminal 1: Next.js app
    pnpm dev
    
@@ -46,240 +102,330 @@ The project maps cleanly to the "Trading News App" RFP for MagicBlock's Cypherpu
    pnpm build && pnpm start
    ```
 
-5. **Visit the app:**
+5. **Visit the application:**
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Debug Volume Data
+## 📁 Project Structure
 
-Check recent volume data for a token:
-```bash
-curl "http://localhost:3000/api/debug/volume?tokenId=YOUR_TOKEN_ID&limit=5"
+```
+trade-the-news/
+├── app/                          # Next.js app directory
+│   ├── api/                      # API routes
+│   │   ├── arweave/              # Arweave upload endpoints
+│   │   ├── blockchain/           # Blockchain utilities
+│   │   ├── comments/             # Comment management
+│   │   ├── leaderboard/          # Leaderboard calculations
+│   │   ├── notifications/        # Real-time notifications
+│   │   ├── portfolio/            # Portfolio management
+│   │   ├── story/                # Story CRUD operations
+│   │   └── trades/               # Trading operations
+│   ├── [id]/                     # Dynamic story pages
+│   ├── leaderboard/             # Leaderboard page
+│   ├── portfolio/                # Portfolio page
+│   └── page.tsx                  # Home page
+├── components/                    # React components
+│   ├── ui/                       # Reusable UI components
+│   ├── create-story-dialog.tsx   # Story creation modal
+│   ├── news-card.tsx             # News story cards
+│   ├── news-feed.tsx             # Main news feed
+│   ├── candlestick-chart.tsx     # Trading charts
+│   ├── portfolio-pnl-summary.tsx # P&L tracking
+│   ├── trade-history.tsx         # Trade history
+│   └── user-profile.tsx          # User profiles
+├── contract/                     # Solana smart contract
+│   ├── programs/contract/        # Anchor program source
+│   └── target/idl/               # Generated IDL files
+├── oracle-service/               # AI Oracle service
+│   ├── src/                      # TypeScript source
+│   └── prisma/                   # Oracle database schema
+├── lib/                          # Shared utilities
+│   ├── hooks/                    # Custom React hooks
+│   ├── use-contract.ts           # Solana contract integration
+│   ├── notification-bus.ts       # Real-time notifications
+│   └── utils.ts                  # Utility functions
+├── prisma/                       # Database schema and migrations
+└── scripts/                      # Utility scripts
 ```
 
-## Tech Stack
-- Next.js 15 (app router) + React 19 + Tailwind v4
-- Prisma + SQLite (local development) in `prisma/dev.db`
-- Solana: `@coral-xyz/anchor`, `@solana/web3.js`, SPL Token
-- Arweave uploads with `@ardrive/turbo-sdk`
-- Wallets: `@solana/wallet-adapter-*`
-- Notifications: in-memory bus + SSE stream
+## 🔧 Environment Variables
 
-
-## Monorepo Structure
-- `app/` — Next.js app (routes, API, pages, layout, styles)
-- `components/` — UI components (including `create-story-dialog`)
-- `lib/` — client hooks (`use-contract`), prisma client, utils, notification bus
-- `contract/` — Anchor program (IDL consumed at runtime)
-- `oracle-service/` — off-chain listener, AI summary pipeline
-- `prisma/` — schema, migrations, local SQLite db
-- `scripts/` — helper scripts (initialize oracle, whitelist, etc.)
-
-
-## Environment Variables
-
-Create `./.env.local` at repo root for the Next.js app:
-
+### Main Application (`.env.local`)
 ```bash
-# Required: the deployed Anchor program id for news_platform
+# Required: Solana program ID
 NEXT_PUBLIC_PROGRAM_ID=7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf
 
-# Optional: Arweave JWK if you don't use the local key file
+# Optional: Arweave configuration
 ARWEAVE_JWK="{\"kty\":\"...\"}"
 
-# Optional: Next settings
+# Optional: Environment settings
 NODE_ENV=development
+NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
 ```
 
-Create `./oracle-service/.env` for the Oracle:
-
+### Oracle Service (`oracle-service/.env`)
 ```bash
+# Solana configuration
 PROGRAM_ID=7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf
 SOLANA_RPC_URL=https://api.devnet.solana.com
 
-# Provide either a keypair path OR an inline secret key array
+# Oracle keypair (choose one method)
 ORACLE_KEYPAIR_PATH=/absolute/path/to/oracle-keypair.json
 # OR
 ORACLE_SECRET_KEY=[1,2,3,...]
 
-# Used for AI summaries
+# AI service
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Arweave signing key: by default the API tries to read a local file at the repo root:
-`arweave-key-xKXw5T4YdKwRCatwj-TDr0Imv1FP-Ogx3F2wD07mcQc.json`. If missing, it falls back to `ARWEAVE_JWK`.
+## 🎯 Core Features
 
+### 📰 News Publishing
+- **Story Creation**: Publish news with headlines, content, and metadata
+- **Arweave Integration**: Decentralized content storage
+- **Tag System**: Categorize stories for better discovery
+- **AI Summaries**: Automatic content summarization
 
-## Install & Run
+### 💰 Token Trading
+- **Bonding Curves**: Exponential price curves for token valuation
+- **Buy/Sell Operations**: Seamless token trading
+- **Market Making**: Automated liquidity provision
+- **Fee Structure**: 0.5% trading fees for staking rewards
 
-Prerequisites: Node 20+, pnpm 9+, Solana CLI (for on-chain ops), Anchor toolchain if building the program.
+### 📊 Portfolio Management
+- **Holdings Tracking**: Real-time portfolio monitoring
+- **P&L Analysis**: Detailed profit/loss calculations
+- **Trade History**: Complete transaction records
+- **Performance Metrics**: ROI, win rate, and volume tracking
 
-1) Install deps (root app)
+### 🏆 Competitive Features
+- **Seasonal Competitions**: Time-limited trading seasons
+- **Leaderboards**: Multiple ranking systems (ROI, volume, P&L)
+- **Trophy System**: Achievement-based rewards
+- **Social Features**: Follow authors, like stories, comments
+
+### ⚡ Advanced Trading
+- **Ephemeral Rollups**: High-speed trading with MagicBlock
+- **Auto-Delegation**: Automatic rollup delegation for active markets
+- **State Commits**: Periodic settlement to main chain
+- **Real-time Charts**: Candlestick charts with volume analysis
+
+## 🔌 API Endpoints
+
+### Story Management
+- `POST /api/story` - Create new story
+- `GET /api/story` - List stories (with pagination, search, filters)
+- `GET /api/story?id=...` - Get single story details
+
+### Trading Operations
+- `POST /api/trades` - Execute buy/sell transactions
+- `GET /api/trades` - Get trade history
+- `GET /api/portfolio/pnl` - Calculate portfolio P&L
+
+### Social Features
+- `POST /api/likes` - Like/unlike stories
+- `GET /api/likes` - Get like counts and status
+- `POST /api/comments` - Add comments to stories
+- `GET /api/comments` - Get story comments
+
+### Analytics & Leaderboards
+- `GET /api/leaderboard` - Get trader rankings
+- `GET /api/stats` - Market statistics
+- `GET /api/profile` - User profile data
+
+### Real-time Features
+- `GET /api/notifications` - Get user notifications
+- `PATCH /api/notifications` - Mark notifications as read
+- `GET /api/notifications/stream` - SSE notification stream
+
+### Blockchain Integration
+- `POST /api/arweave/upload` - Upload content to Arweave
+- `GET /api/blockchain/market` - Get market account data
+- `GET /api/debug/volume` - Debug volume data
+
+## 🤖 Oracle Service
+
+The Oracle Service monitors the blockchain for new news accounts and generates AI-powered summaries.
+
+### Features
+- **Real-time Monitoring**: Watches for new `newsAccount` creations
+- **AI Summarization**: Uses Google Gemini for content analysis
+- **Automatic Updates**: Updates story summaries on-chain
+- **Error Handling**: Robust error handling and retry logic
+
+### Usage
 ```bash
+cd oracle-service
 pnpm install
+pnpm build
+pnpm start
 ```
 
-2) Generate Prisma client and run migrations
+## 🔗 Smart Contract Integration
+
+### Core Functions
+- `publish_news()` - Create news token with bonding curve
+- `buy()` - Purchase tokens from bonding curve
+- `sell()` - Sell tokens back to bonding curve
+- `delegate()` - Delegate market to ephemeral rollup
+- `commit()` - Commit rollup state to main chain
+- `stake_author_tokens()` - Stake tokens for fee rewards
+- `claim_staking_fees()` - Claim accumulated trading fees
+
+### Account Structures
+- `NewsAccount` - Story metadata and mint reference
+- `Market` - Trading state and bonding curve parameters
+- `Profile` - User trading statistics and P&L
+- `Season` - Competition periods and rankings
+
+## 🎨 UI Components
+
+### Core Components
+- **NewsFeed**: Main story browsing interface
+- **NewsCard**: Individual story display with trading controls
+- **CreateStoryDialog**: Story creation modal
+- **CandlestickChart**: Advanced trading charts
+- **PortfolioPnLSummary**: Portfolio performance tracking
+- **TradeHistory**: Complete transaction history
+- **UserProfile**: User statistics and achievements
+- **MarketStats**: Market overview and statistics
+
+### Design System
+- **Tailwind CSS v4** for styling
+- **Radix UI** for accessible components
+- **Lucide React** for consistent icons
+- **Responsive Design** for all screen sizes
+- **Dark Mode** support throughout
+
+## 🚀 Deployment
+
+### Development
 ```bash
-pnpm prisma generate
+# Start development servers
+./start-dev.sh
+
+# Or manually:
+pnpm dev                    # Next.js app
+cd oracle-service && pnpm start  # Oracle service
+```
+
+### Production
+```bash
+# Build the application
+pnpm build
+
+# Start production server
+pnpm start
+
+# Deploy Oracle service
+cd oracle-service
+pnpm build
+pm2 start dist/listener.js --name oracle-service
+```
+
+### Database Migration
+```bash
+# Run migrations
 pnpm prisma migrate deploy
+
+# Generate Prisma client
+pnpm prisma generate
 ```
 
-3) Start the web app
-```bash
-pnpm dev
-# http://localhost:3000
-```
+## 🔧 Development Scripts
 
-4) Start the Oracle Service (separate terminal)
+### Utility Scripts
+- `scripts/initialize-oracle.ts` - Set up oracle accounts
+- `scripts/whitelist-oracle.ts` - Whitelist oracle authority
+- `scripts/check-news-accounts.ts` - Inspect on-chain state
+- `scripts/manage-seasons-cron.ts` - Season management automation
+
+### Database Scripts
+- `scripts/init-season-db.ts` - Initialize season data
+- `scripts/backfill-minute-volume.ts` - Backfill volume data
+- `scripts/verify-real-data.ts` - Verify data integrity
+
+## 🧪 Testing
+
+### Debug Endpoints
 ```bash
+# Check volume data
+curl "http://localhost:3000/api/debug/volume?tokenId=YOUR_TOKEN_ID&limit=5"
+
+# Test Oracle service
 cd oracle-service
-pnpm install
-pnpm start
+pnpm test-oracle
 ```
 
-
-## Core Flows
-
-### Post a Story (Client → Arweave → Solana → DB)
-Component: `components/create-story-dialog.tsx`
-1. User inputs headline, content, original URL and optional tags
-2. Client uploads structured JSON to Arweave via API: `POST /api/arweave/upload`
-3. On success, client calls `useContract().publishNews` with the Arweave link and a unique nonce
-4. After on-chain success, client persists the story to DB via `POST /api/story`
-5. Notification fan-out to subscribers and SSE stream
-
-Important validations handled client-side and server-side (Zod) to avoid malformed data.
-
-### Arweave Uploads
-API: `app/api/arweave/upload/route.ts`
-- Uses `@ardrive/turbo-sdk` with `ArweaveSigner`
-- Reads local JWK file at repo root; falls back to `ARWEAVE_JWK`
-- Enforces a 20s timeout to prevent hanging uploads
-
-Request format from client hook `lib/functions/publish-news.ts`:
-```ts
-await fetch('/api/arweave/upload', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ content: JSON.stringify(content), tags, walletAddress })
-})
-```
-
-### On-chain Contract Access
-Hook: `lib/use-contract.ts`
-- Requires `NEXT_PUBLIC_PROGRAM_ID`
-- Wraps Anchor RPC calls (e.g., `publishNews`, `buy`, `sell`, `delegate`, `commit`, `undelegate`)
-- Derives PDAs for news, mint, market, metadata, oracle
-- Adds verification steps after transactions where possible
-
-Program IDL is loaded from `contract/target/idl/news_platform.json`.
-
-### Database Models (Prisma)
-File: `prisma/schema.prisma`
-- `User` keyed by `walletAddress`
-- `Story` with `arweaveUrl`, `arweaveId`, `onchainSignature`, `authorAddress`, optional `nonce`
-- `Token` for tradable assets per Story
-- `Holding`, `Trade`, `Like`, `Comment`
-- `Subscription`, `Notification` for social and real-time features
-
-SQLite is used for local development; consider Postgres for production.
-
-### Real-time Notifications
-- In-memory event bus: `lib/notification-bus.ts` (fan-out from create story)
-- HTTP API: `GET /api/notifications?wallet=...`, `PATCH /api/notifications`
-- SSE stream: `GET /api/notifications/stream?wallet=...`
-  - Client demo usage in `components/navigation.tsx` with `use-notifications` hook
-
-
-## API Endpoints (Selected)
-- `POST /api/arweave/upload` — upload content to Arweave (expects JSON payload)
-- `POST /api/story` — persist story after successful on-chain publish
-- `GET /api/story` — list stories (pagination, search, tag, sorting)
-- `GET /api/story?id=...` — fetch single story with relations
-- `GET /api/leaderboard` — computed trader stats from trades/holdings/stories
-- `GET /api/notifications` — recent notifications + unread count
-- `PATCH /api/notifications` — mark notifications read/unread
-- `GET /api/notifications/stream` — SSE stream per wallet
-
-
-## Oracle Service
-File: `oracle-service/src/listener.ts`
-- Connects to Solana and processes existing `newsAccount`s missing summaries
-- Subscribes to `onProgramAccountChange` for new accounts
-- Delegates to `handleNewArticle` for AI summary and follow-up
-
-Run it with the envs above:
+### Contract Testing
 ```bash
-cd oracle-service
-pnpm start
+cd contract
+anchor test
 ```
 
+## 🔒 Security Features
 
-## MagicBlock: Ephemeral Rollups (ERs) Integration
-Real-time isn’t just a feature—it’s the edge. This app already exposes primitives that map well to ERs:
+- **Input Validation**: Comprehensive Zod schemas
+- **Rate Limiting**: API endpoint protection
+- **Wallet Verification**: Solana signature validation
+- **Arweave Integrity**: Content hash verification
+- **Oracle Authorization**: Whitelisted authority system
 
-- Delegate rollup authority on a `market` PDA (`delegate`/`undelegate` in `use-contract.ts`)
-- Periodically commit state (`commit`) based on off-chain activity (e.g., matching engine, pricing)
+## 📈 Performance Optimizations
 
-Suggested integration plan:
-1. Create an ER for each active `market` (news token) and elect a rollup authority
-2. Route high-frequency buy/sell intents to the ER for soft-confirmation in milliseconds
-3. Emit provisional balances and price ticks to the client over a dedicated ER WebSocket channel
-4. Batch settle finalized state to L1 (Solana) periodically via `commit` (and/or `publishNews` for mints)
-5. Restrict settlement authority using `delegate` to the ER operator
+- **Request Caching**: Intelligent API response caching
+- **Database Indexing**: Optimized query performance
+- **Real-time Updates**: Efficient SSE implementation
+- **Chart Rendering**: Optimized chart performance
+- **Bundle Optimization**: Next.js automatic optimizations
 
-Example pseudocode (client-side intent flow):
-```ts
-// 1) Send intent to ER service (low latency)
-await fetch('https://your-er.example/intent', {
-  method: 'POST',
-  body: JSON.stringify({ market, side: 'BUY', qty: 10, wallet })
-})
+## 🐛 Troubleshooting
 
-// 2) Subscribe to ER price/position stream
-const ws = new WebSocket('wss://your-er.example/stream?market=...&wallet=...')
-ws.onmessage = (msg) => {
-  const update = JSON.parse(msg.data)
-  // update provisional balance/price in UI instantly
-}
+### Common Issues
 
-// 3) Periodic settlement to L1 (server-side)
-// ER aggregates intents and calls `commit` with newSupply/newReserves when ready
+**Missing Program ID**
+```bash
+# Set in .env.local
+NEXT_PUBLIC_PROGRAM_ID=7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf
 ```
 
-Deliverables for the MagicBlock side track:
-- ER deployment scripts and address registry per `market`
-- Minimal ER gateway (intent ingestion + stream) coexisting with our Next.js API
-- Hooks in UI to display provisional fills and then confirmed on-chain state
+**Arweave Upload Failures**
+```bash
+# Ensure key file exists or set ARWEAVE_JWK
+ls arweave-key-*.json
+```
 
-Privacy variant: use Private ERs to match intents and only disclose finalized state to L1.
+**Wallet Connection Issues**
+- Check Solana RPC endpoint
+- Verify wallet adapter configuration
+- Ensure sufficient SOL for transaction fees
 
+**Database Connection**
+```bash
+# Reset database
+rm prisma/dev.db
+pnpm prisma migrate dev
+```
 
-## Styling & Aesthetics
-- Tailwind-first components and layouts
-- Keep consistent design language from `components/ui/*`
-- Pages to explore: `app/page.tsx` (Feed), `app/portfolio/page.tsx`, `app/leaderboard/page.tsx`
+## 🤝 Contributing
 
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## Troubleshooting
-- Missing `NEXT_PUBLIC_PROGRAM_ID` → set it in `.env.local`
-- Arweave upload fails → ensure key file exists or set `ARWEAVE_JWK`
-- Wallet errors (Blockhash not found) → retry is built-in for buy/sell; check RPC
-- Insufficient SOL → fund the wallet on Devnet for fees
-- Rate limiting on RPC → the code includes small backoffs; consider a dedicated RPC
+## 📄 License
 
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## Scripts & Utilities
-- `scripts/initialize-oracle.ts` — set up oracle accounts/authority
-- `scripts/whitelist-oracle.ts` — whitelist oracle authority
-- `scripts/check-news-accounts.ts` — inspect on-chain state
+## 🙏 Acknowledgments
 
+- **MagicBlock** for Ephemeral Rollups integration
+- **Solana** for blockchain infrastructure
+- **Arweave** for decentralized storage
+- **Google** for AI summarization capabilities
+- **Anchor** for Solana development framework
 
-## Development Notes
-- Local DB is SQLite for convenience; swap to Postgres in production
-- The in-memory notification bus is single-instance; use Redis for multi-instance deploys
-- The Anchor program is not built in this repo by default; IDL is consumed at runtime
+---
 
-
-## License
-MIT (c) 2025 Magical Headlines contributors
+**Built with ❤️ for the future of decentralized news trading**
