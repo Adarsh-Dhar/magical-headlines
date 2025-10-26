@@ -10,6 +10,7 @@ import { useContract } from "@/lib/use-contract"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { TradeHistory } from "@/components/trade-history"
 import { ProfitLossStatement } from "@/components/profit-loss-statement"
+import { PortfolioPnLSummary } from "@/components/portfolio-pnl-summary"
 
 interface PortfolioHolding {
   newsAccount: string;
@@ -44,6 +45,9 @@ export default function PortfolioPage() {
   const [detectingTokens, setDetectingTokens] = useState(false);
   const [activeTab, setActiveTab] = useState<'holdings' | 'trades' | 'pnl'>('holdings');
   const [tokenIdMap, setTokenIdMap] = useState<Record<string, string>>({});
+  const [portfolioPnLData, setPortfolioPnLData] = useState<any[]>([]);
+  const [loadingPnL, setLoadingPnL] = useState(false);
+  const [pnlError, setPnlError] = useState<string | null>(null);
 
   const fetchTokenIdsByMint = async (mintAccounts: string[]) => {
     try {
@@ -68,6 +72,36 @@ export default function PortfolioPage() {
       console.error('Failed to fetch token IDs:', error);
     }
     return {};
+  };
+
+  const fetchPortfolioPnLData = async (tokenIds: string[]) => {
+    if (!publicKey || tokenIds.length === 0) return;
+
+    setLoadingPnL(true);
+    setPnlError(null);
+
+    try {
+      const response = await fetch('/api/portfolio/pnl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAddress: publicKey.toString(),
+          tokenIds: tokenIds
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPortfolioPnLData(data.tokens || []);
+      } else {
+        throw new Error('Failed to fetch portfolio P&L data');
+      }
+    } catch (error) {
+      console.error('Error fetching portfolio P&L data:', error);
+      setPnlError(error instanceof Error ? error.message : 'Failed to load P&L data');
+    } finally {
+      setLoadingPnL(false);
+    }
   };
 
   const loadPortfolioData = async () => {
@@ -100,7 +134,13 @@ export default function PortfolioPage() {
       // Fetch token IDs for P&L analysis
       if (newsTokens.length > 0) {
         const mintAccounts = newsTokens.map(token => token.mint);
-        await fetchTokenIdsByMint(mintAccounts);
+        const tokenIdMapping = await fetchTokenIdsByMint(mintAccounts);
+        
+        // Fetch P&L data for all tokens
+        const tokenIds = Object.values(tokenIdMapping);
+        if (tokenIds.length > 0) {
+          await fetchPortfolioPnLData(tokenIds);
+        }
       }
       
     } catch (err) {
@@ -403,7 +443,7 @@ export default function PortfolioPage() {
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-2">Portfolio P&L Analysis</h3>
                 <p className="text-muted-foreground">
-                  Detailed profit and loss analysis for each token in your portfolio
+                  Comprehensive profit and loss analysis for your entire portfolio
                 </p>
               </div>
               
@@ -417,33 +457,75 @@ export default function PortfolioPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {portfolioHoldings.map((holding) => {
-                    const tokenId = tokenIdMap[holding.mint];
-                    if (!tokenId) {
+                  {/* Portfolio P&L Summary */}
+                  {loadingPnL ? (
+                    <Card className="p-6">
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                          <p className="text-muted-foreground">Loading P&L data...</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ) : pnlError ? (
+                    <Card className="p-6">
+                      <div className="text-center py-8">
+                        <p className="text-red-500 mb-4">{pnlError}</p>
+                        <Button 
+                          onClick={() => {
+                            const tokenIds = Object.values(tokenIdMap);
+                            if (tokenIds.length > 0) {
+                              fetchPortfolioPnLData(tokenIds);
+                            }
+                          }}
+                          variant="outline" 
+                          size="sm"
+                        >
+                          <RefreshCwIcon className="w-4 h-4 mr-2" />
+                          Try Again
+                        </Button>
+                      </div>
+                    </Card>
+                  ) : portfolioPnLData.length > 0 ? (
+                    <PortfolioPnLSummary 
+                      tokenData={portfolioPnLData}
+                      className="mb-6"
+                    />
+                  ) : null}
+
+                  {/* Individual Token P&L Statements */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Individual Token Analysis</h4>
+                    {portfolioHoldings.map((holding) => {
+                      const tokenId = tokenIdMap[holding.mint];
+                      if (!tokenId) {
+                        return (
+                          <Card key={holding.mint} className="p-4 mb-4">
+                            <div className="text-center py-4">
+                              <p className="text-muted-foreground">
+                                P&L data not available for {holding.headline}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Token not found in database
+                              </p>
+                            </div>
+                          </Card>
+                        );
+                      }
+                      
                       return (
-                        <Card key={holding.mint} className="p-4 mb-4">
-                          <div className="text-center py-4">
-                            <p className="text-muted-foreground">
-                              P&L data not available for {holding.headline}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Token not found in database
-                            </p>
-                          </div>
-                        </Card>
+                        <ProfitLossStatement
+                          key={holding.mint}
+                          tokenId={tokenId}
+                          userAddress={publicKey.toString()}
+                          currentPrice={holding.currentPrice}
+                          className="mb-4"
+                          compact={true}
+                          collapsible={true}
+                        />
                       );
-                    }
-                    
-                    return (
-                      <ProfitLossStatement
-                        key={holding.mint}
-                        tokenId={tokenId}
-                        userAddress={publicKey.toString()}
-                        currentPrice={holding.currentPrice}
-                        className="mb-4"
-                      />
-                    );
-                  })}
+                    })}
+                  </div>
                 </div>
               )}
             </div>

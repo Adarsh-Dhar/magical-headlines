@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUpIcon, TrendingDownIcon, RefreshCwIcon, DollarSignIcon, CalculatorIcon, BarChart3Icon } from "lucide-react";
+import { TrendingUpIcon, TrendingDownIcon, RefreshCwIcon, DollarSignIcon, CalculatorIcon, BarChart3Icon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 interface Trade {
   id: string;
@@ -32,18 +32,23 @@ interface ProfitLossStatementProps {
   userAddress: string;
   currentPrice?: number;
   className?: string;
+  compact?: boolean;
+  collapsible?: boolean;
 }
 
 export function ProfitLossStatement({ 
   tokenId, 
   userAddress, 
   currentPrice,
-  className 
+  className,
+  compact = false,
+  collapsible = false
 }: ProfitLossStatementProps) {
   const [pnlData, setPnlData] = useState<ProfitLossData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDetailedBreakdown, setShowDetailedBreakdown] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(collapsible);
 
   const fetchProfitLossData = useCallback(async () => {
     if (!tokenId || !userAddress) return;
@@ -177,155 +182,172 @@ export function ProfitLossStatement({
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <BarChart3Icon className="w-5 h-5 text-primary" />
-          <h2 className="text-xl font-semibold">Profit & Loss Statement</h2>
+          <h2 className={`${compact ? 'text-lg' : 'text-xl'} font-semibold`}>
+            {compact ? 'P&L Statement' : 'Profit & Loss Statement'}
+          </h2>
         </div>
-        <Button 
-          onClick={fetchProfitLossData} 
-          variant="outline" 
-          size="sm"
-          disabled={loading}
-        >
-          <RefreshCwIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Total P&L */}
-        <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Total P&L</span>
-            <Badge variant={getPnLBadgeVariant(totalPnL)}>
-              {totalPnL >= 0 ? <TrendingUpIcon className="w-3 h-3 mr-1" /> : <TrendingDownIcon className="w-3 h-3 mr-1" />}
-              {formatPercentage(totalReturnPercentage)}
-            </Badge>
-          </div>
-          <div className={`text-2xl font-bold ${getPnLColor(totalPnL)}`}>
-            {formatCurrency(totalPnL)}
-          </div>
-        </div>
-
-        {/* Realized P&L */}
-        <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-green-700 dark:text-green-300">Realized P&L</span>
-            <DollarSignIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
-          </div>
-          <div className={`text-xl font-semibold ${getPnLColor(realizedPnL)}`}>
-            {formatCurrency(realizedPnL)}
-          </div>
-        </div>
-
-        {/* Unrealized P&L */}
-        <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Unrealized P&L</span>
-            <CalculatorIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          </div>
-          <div className={`text-xl font-semibold ${getPnLColor(unrealizedPnL)}`}>
-            {formatCurrency(unrealizedPnL)}
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Breakdown */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Trading Summary</h3>
-          <Button
-            variant="outline"
+        <div className="flex items-center gap-2">
+          {collapsible && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+              {isCollapsed ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronUpIcon className="w-4 h-4" />}
+            </Button>
+          )}
+          <Button 
+            onClick={fetchProfitLossData} 
+            variant="outline" 
             size="sm"
-            onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
+            disabled={loading}
           >
-            {showDetailedBreakdown ? 'Hide' : 'Show'} Details
+            <RefreshCwIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Total Invested</div>
-            <div className="text-lg font-semibold">{formatCurrency(pnlData.totalInvested)}</div>
-          </div>
-          <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Current Value</div>
-            <div className="text-lg font-semibold">{formatCurrency(pnlData.currentValue)}</div>
-          </div>
-        </div>
-
-        {showDetailedBreakdown && (
-          <div className="space-y-4 pt-4 border-t">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                <div className="text-sm text-blue-600 dark:text-blue-400">Tokens Bought</div>
-                <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
-                  {formatTokenAmount(pnlData.totalPurchases)}
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  Avg Price: {formatCurrency(pnlData.averagePurchasePrice)}
-                </div>
+      {!isCollapsed && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Total P&L */}
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Total P&L</span>
+                <Badge variant={getPnLBadgeVariant(totalPnL)}>
+                  {totalPnL >= 0 ? <TrendingUpIcon className="w-3 h-3 mr-1" /> : <TrendingDownIcon className="w-3 h-3 mr-1" />}
+                  {formatPercentage(totalReturnPercentage)}
+                </Badge>
               </div>
-              <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg">
-                <div className="text-sm text-red-600 dark:text-red-400">Tokens Sold</div>
-                <div className="text-lg font-semibold text-red-700 dark:text-red-300">
-                  {formatTokenAmount(pnlData.totalSales)}
-                </div>
-                <div className="text-xs text-red-600 dark:text-red-400">
-                  Total Value: {formatCurrency(pnlData.totalSales * pnlData.averagePurchasePrice)}
-                </div>
+              <div className={`text-2xl font-bold ${getPnLColor(totalPnL)}`}>
+                {formatCurrency(totalPnL)}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                <div className="text-sm text-green-600 dark:text-green-400">Current Holdings</div>
-                <div className="text-lg font-semibold text-green-700 dark:text-green-300">
-                  {formatTokenAmount(pnlData.currentHoldings)}
-                </div>
-                <div className="text-xs text-green-600 dark:text-green-400">
-                  Database: {formatTokenAmount(pnlData.databaseHoldings)}
-                </div>
+            {/* Realized P&L */}
+            <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">Realized P&L</span>
+                <DollarSignIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
               </div>
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
-                <div className="text-sm text-yellow-600 dark:text-yellow-400">Total Trades</div>
-                <div className="text-lg font-semibold text-yellow-700 dark:text-yellow-300">
-                  {pnlData.trades.length}
-                </div>
-                <div className="text-xs text-yellow-600 dark:text-yellow-400">
-                  {pnlData.trades.filter(t => t.type === 'BUY').length} buys, {pnlData.trades.filter(t => t.type === 'SELL').length} sells
-                </div>
+              <div className={`text-xl font-semibold ${getPnLColor(realizedPnL)}`}>
+                {formatCurrency(realizedPnL)}
               </div>
             </div>
 
-            {/* Recent Trades */}
-            {pnlData.trades.length > 0 && (
-              <div className="pt-4">
-                <h4 className="text-md font-semibold mb-3">Recent Trades</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {pnlData.trades.slice(0, 5).map((trade) => (
-                    <div key={trade.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant={trade.type === 'BUY' ? 'default' : 'secondary'}
-                          className={trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
-                        >
-                          {trade.type}
-                        </Badge>
-                        <span className="text-sm font-mono">{formatTokenAmount(trade.amount)}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold">{formatCurrency(trade.priceAtTrade)}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(trade.timestamp).toLocaleDateString()}
-                        </div>
-                      </div>
+            {/* Unrealized P&L */}
+            <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Unrealized P&L</span>
+                <CalculatorIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className={`text-xl font-semibold ${getPnLColor(unrealizedPnL)}`}>
+                {formatCurrency(unrealizedPnL)}
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Breakdown */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Trading Summary</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
+              >
+                {showDetailedBreakdown ? 'Hide' : 'Show'} Details
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Invested</div>
+                <div className="text-lg font-semibold">{formatCurrency(pnlData.totalInvested)}</div>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Current Value</div>
+                <div className="text-lg font-semibold">{formatCurrency(pnlData.currentValue)}</div>
+              </div>
+            </div>
+
+            {showDetailedBreakdown && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <div className="text-sm text-blue-600 dark:text-blue-400">Tokens Bought</div>
+                    <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                      {formatTokenAmount(pnlData.totalPurchases)}
                     </div>
-                  ))}
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                      Avg Price: {formatCurrency(pnlData.averagePurchasePrice)}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+                    <div className="text-sm text-red-600 dark:text-red-400">Tokens Sold</div>
+                    <div className="text-lg font-semibold text-red-700 dark:text-red-300">
+                      {formatTokenAmount(pnlData.totalSales)}
+                    </div>
+                    <div className="text-xs text-red-600 dark:text-red-400">
+                      Total Value: {formatCurrency(pnlData.totalSales * pnlData.averagePurchasePrice)}
+                    </div>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <div className="text-sm text-green-600 dark:text-green-400">Current Holdings</div>
+                    <div className="text-lg font-semibold text-green-700 dark:text-green-300">
+                      {formatTokenAmount(pnlData.currentHoldings)}
+                    </div>
+                    <div className="text-xs text-green-600 dark:text-green-400">
+                      Database: {formatTokenAmount(pnlData.databaseHoldings)}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                    <div className="text-sm text-yellow-600 dark:text-yellow-400">Total Trades</div>
+                    <div className="text-lg font-semibold text-yellow-700 dark:text-yellow-300">
+                      {pnlData.trades.length}
+                    </div>
+                    <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                      {pnlData.trades.filter(t => t.type === 'BUY').length} buys, {pnlData.trades.filter(t => t.type === 'SELL').length} sells
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Trades */}
+                {pnlData.trades.length > 0 && (
+                  <div className="pt-4">
+                    <h4 className="text-md font-semibold mb-3">Recent Trades</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {pnlData.trades.slice(0, 5).map((trade) => (
+                        <div key={trade.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant={trade.type === 'BUY' ? 'default' : 'secondary'}
+                              className={trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                            >
+                              {trade.type}
+                            </Badge>
+                            <span className="text-sm font-mono">{formatTokenAmount(trade.amount)}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold">{formatCurrency(trade.priceAtTrade)}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(trade.timestamp).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </Card>
   );
 }
