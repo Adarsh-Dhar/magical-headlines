@@ -413,27 +413,27 @@ export default function LeaderboardPage() {
                         <>
                           <td className="p-4 text-right">
                             <span className={`flex items-center justify-end gap-1 font-bold ${
-                              trader.roi >= 0 ? "text-green-500" : "text-red-500"
+                              (trader.roi || 0) >= 0 ? "text-green-500" : "text-red-500"
                             }`}>
-                              <TrendingUpIcon className={`w-4 h-4 ${trader.roi < 0 ? "rotate-180" : ""}`} />
-                              {trader.roi > 0 ? "+" : ""}{trader.roi}%
+                              <TrendingUpIcon className={`w-4 h-4 ${(trader.roi || 0) < 0 ? "rotate-180" : ""}`} />
+                              {(trader.roi || 0) > 0 ? "+" : ""}{trader.roi || 0}%
                             </span>
                           </td>
                           <td className="p-4 text-right">
                             <div className="text-right">
-                              <div className="font-medium">{trader.totalTokensOwned.toFixed(2)}</div>
-                              {trader.currentHoldingsValue > 0 && (
+                              <div className="font-medium">{(trader.totalTokensOwned || 0).toFixed(2)}</div>
+                              {(trader.currentHoldingsValue || 0) > 0 && (
                                 <div className="text-sm text-muted-foreground">
-                                  ${trader.currentHoldingsValue.toFixed(2)}
+                                  ${(trader.currentHoldingsValue || 0).toFixed(2)}
                                 </div>
                               )}
                             </div>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{trader.storiesPublished}</span>
+                            <span className="font-medium">{trader.storiesPublished || 0}</span>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{formatVolume(trader.volume)}</span>
+                            <span className="font-medium">{formatVolume(trader.volume || 0)}</span>
                           </td>
                         </>
                       )}
@@ -442,25 +442,25 @@ export default function LeaderboardPage() {
                         <>
                           <td className="p-4 text-right">
                             <span className={`font-bold ${
-                              trader.totalPnl >= 0 ? "text-green-500" : "text-red-500"
+                              (trader.totalPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
                             }`}>
-                              ${trader.totalPnl.toFixed(2)}
+                              ${(trader.totalPnl || 0).toFixed(2)}
                             </span>
                           </td>
                           <td className="p-4 text-right">
                             <span className={`font-bold ${
-                              trader.currentSeasonPnl >= 0 ? "text-green-500" : "text-red-500"
+                              (trader.currentSeasonPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
                             }`}>
-                              ${trader.currentSeasonPnl.toFixed(2)}
+                              ${(trader.currentSeasonPnl || 0).toFixed(2)}
                             </span>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{trader.tradesCount}</span>
+                            <span className="font-medium">{trader.tradesCount || 0}</span>
                           </td>
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <TrophyIcon className="w-4 h-4 text-yellow-500" />
-                              <span className="font-medium">{trader.trophies}</span>
+                              <span className="font-medium">{trader.trophies || 0}</span>
                             </div>
                           </td>
                         </>
@@ -470,19 +470,19 @@ export default function LeaderboardPage() {
                         <>
                           <td className="p-4 text-right">
                             <span className={`font-bold ${
-                              trader.seasonPnl >= 0 ? "text-green-500" : "text-red-500"
+                              (trader.seasonPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
                             }`}>
-                              ${trader.seasonPnl.toFixed(2)}
+                              ${(trader.seasonPnl || 0).toFixed(2)}
                             </span>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{trader.seasonTrades}</span>
+                            <span className="font-medium">{trader.seasonTrades || 0}</span>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{trader.seasonWins}</span>
+                            <span className="font-medium">{trader.seasonWins || 0}</span>
                           </td>
                           <td className="p-4 text-right">
-                            <span className="font-medium">{formatVolume(trader.seasonVolume)}</span>
+                            <span className="font-medium">{formatVolume(trader.seasonVolume || 0)}</span>
                           </td>
                         </>
                       )}

@@ -28,11 +28,286 @@ const findMintPda = (newsAccount: PublicKey) =>
     getProgramId()
   )[0];
 
-const findMarketPda = (newsAccount: PublicKey) =>
-  PublicKey.findProgramAddressSync(
-    [Buffer.from("market"), newsAccount.toBuffer()],
-    getProgramId()
-  )[0];
+// Helper function to calculate user PnL from trades using average cost basis method
+async function calculateUserPnL(userAddress: string, trades: any[], currentPrices: Map<string, number>) {
+  // Group trades by token
+  const tokenTrades = new Map<string, any[]>()
+  
+  trades.forEach(trade => {
+    if (!tokenTrades.has(trade.tokenId)) {
+      tokenTrades.set(trade.tokenId, [])
+    }
+    tokenTrades.get(trade.tokenId)!.push(trade)
+  })
+
+  let totalPnL = 0
+  let totalRealizedPnL = 0
+  let totalUnrealizedPnL = 0
+  let totalVolume = 0
+  let totalTrades = trades.length
+  let wins = 0
+
+  // Calculate PnL for each token
+  for (const [tokenId, tokenTradesList] of tokenTrades) {
+    const buyTrades = tokenTradesList.filter(t => t.type === 'BUY')
+    const sellTrades = tokenTradesList.filter(t => t.type === 'SELL')
+    
+    // Calculate average buy price (weighted average)
+    const totalBought = buyTrades.reduce((sum, trade) => sum + trade.amount, 0)
+    const totalSold = sellTrades.reduce((sum, trade) => sum + trade.amount, 0)
+    
+    if (totalBought === 0) continue // No buys, skip
+    
+    const totalBuyValue = buyTrades.reduce((sum, trade) => sum + (trade.amount * trade.priceAtTrade), 0)
+    const avgBuyPrice = totalBuyValue / totalBought
+    
+    // Calculate realized PnL from sells
+    const realizedPnL = sellTrades.reduce((sum, trade) => {
+      const pnl = (trade.priceAtTrade - avgBuyPrice) * trade.amount
+      if (pnl > 0) wins++
+      return sum + pnl
+    }, 0)
+    
+    // Calculate unrealized PnL from current holdings
+    const currentHoldings = totalBought - totalSold
+    const currentPrice = currentPrices.get(tokenId) || 0
+    const unrealizedPnL = currentHoldings > 0 ? (currentPrice - avgBuyPrice) * currentHoldings : 0
+    
+    totalPnL += realizedPnL + unrealizedPnL
+    totalRealizedPnL += realizedPnL
+    totalUnrealizedPnL += unrealizedPnL
+    
+    // Calculate volume for this token
+    const tokenVolume = tokenTradesList.reduce((sum, trade) => sum + (trade.amount * trade.priceAtTrade), 0)
+    totalVolume += tokenVolume
+  }
+
+  return {
+    totalPnl: totalPnL,
+    totalRealizedPnL,
+    totalUnrealizedPnL,
+    totalVolume,
+    tradesCount: totalTrades,
+    wins,
+    trophies: Math.floor(wins / 2) // Approximate trophies based on wins
+  }
+}
+
+// Calculate PnL leaderboard from real trade data
+async function calculatePnLLeaderboard(limit: number) {
+  // Fetch all trades with token and user data
+  const trades = await prisma.trade.findMany({
+    include: {
+      token: {
+        select: {
+          id: true,
+          marketAccount: true,
+          price: true
+        }
+      },
+      trader: {
+        select: {
+          walletAddress: true,
+          name: true
+        }
+      }
+    }
+  })
+
+  // Get current prices for all tokens
+  const currentPrices = new Map<string, number>()
+  const tokens = await prisma.token.findMany({
+    select: {
+      id: true,
+      marketAccount: true,
+      price: true
+    }
+  })
+
+  // Fetch current market prices
+  for (const token of tokens) {
+    let currentPrice = token.price
+    if (token.marketAccount) {
+      try {
+        const marketData = await fetchMarketAccount(token.marketAccount)
+        if (marketData?.currentPrice) {
+          currentPrice = marketData.currentPrice
+        }
+      } catch (error) {
+        // Use token.price as fallback
+      }
+    }
+    currentPrices.set(token.id, currentPrice)
+  }
+
+  // Group trades by user
+  const userTrades = new Map<string, any[]>()
+  trades.forEach(trade => {
+    const userAddress = trade.trader.walletAddress
+    if (!userTrades.has(userAddress)) {
+      userTrades.set(userAddress, [])
+    }
+    userTrades.get(userAddress)!.push(trade)
+  })
+
+  // Calculate PnL for each user
+  const userPnLData = []
+  for (const [userAddress, userTradesList] of userTrades) {
+    const pnlData = await calculateUserPnL(userAddress, userTradesList, currentPrices)
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: userAddress },
+      select: { name: true }
+    })
+    
+    userPnLData.push({
+      address: userAddress,
+      name: user?.name || `Wallet User ${userAddress.slice(0, 8)}`,
+      ...pnlData
+    })
+  }
+
+  // Sort by total PnL descending and limit
+  return userPnLData
+    .sort((a, b) => b.totalPnl - a.totalPnl)
+    .slice(0, limit)
+}
+
+// Calculate current season leaderboard from real trade data
+async function calculateSeasonLeaderboard(limit: number) {
+  // Get current active season
+  const currentSeason = await prisma.season.findFirst({
+    where: { isActive: true },
+    orderBy: { seasonId: 'desc' }
+  })
+
+  if (!currentSeason) {
+    return []
+  }
+
+  // Fetch trades within current season
+  const seasonTrades = await prisma.trade.findMany({
+    where: {
+      timestamp: {
+        gte: currentSeason.startTimestamp,
+        lte: currentSeason.endTimestamp
+      }
+    },
+    include: {
+      token: {
+        select: {
+          id: true,
+          marketAccount: true,
+          price: true
+        }
+      },
+      trader: {
+        select: {
+          walletAddress: true,
+          name: true
+        }
+      }
+    }
+  })
+
+  // Get current prices for all tokens
+  const currentPrices = new Map<string, number>()
+  const tokens = await prisma.token.findMany({
+    select: {
+      id: true,
+      marketAccount: true,
+      price: true
+    }
+  })
+
+  // Fetch current market prices
+  for (const token of tokens) {
+    let currentPrice = token.price
+    if (token.marketAccount) {
+      try {
+        const marketData = await fetchMarketAccount(token.marketAccount)
+        if (marketData?.currentPrice) {
+          currentPrice = marketData.currentPrice
+        }
+      } catch (error) {
+        // Use token.price as fallback
+      }
+    }
+    currentPrices.set(token.id, currentPrice)
+  }
+
+  // Group trades by user
+  const userTrades = new Map<string, any[]>()
+  seasonTrades.forEach(trade => {
+    const userAddress = trade.trader.walletAddress
+    if (!userTrades.has(userAddress)) {
+      userTrades.set(userAddress, [])
+    }
+    userTrades.get(userAddress)!.push(trade)
+  })
+
+  // Calculate season PnL for each user
+  const seasonPnLData = []
+  for (const [userAddress, userTradesList] of userTrades) {
+    const pnlData = await calculateUserPnL(userAddress, userTradesList, currentPrices)
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: userAddress },
+      select: { name: true }
+    })
+    
+    seasonPnLData.push({
+      address: userAddress,
+      name: user?.name || `Wallet User ${userAddress.slice(0, 8)}`,
+      seasonPnl: pnlData.totalPnl,
+      seasonVolume: pnlData.totalVolume,
+      seasonTrades: pnlData.tradesCount,
+      seasonWins: pnlData.wins
+    })
+  }
+
+  // Sort by season PnL descending and limit
+  return seasonPnLData
+    .sort((a, b) => b.seasonPnl - a.seasonPnl)
+    .slice(0, limit)
+}
+
+// Helper function to fetch market account data
+async function fetchMarketAccount(marketAccount: string) {
+  try {
+    const connection = new Connection(
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+      "confirmed"
+    )
+    
+    const programId = getProgramId()
+    const readOnlyWallet = {
+      publicKey: Keypair.generate().publicKey,
+      signAllTransactions: async (txs: any[]) => txs,
+      signTransaction: async (tx: any) => tx,
+    } as any
+    const provider = new AnchorProvider(connection, readOnlyWallet, { commitment: "confirmed" })
+    const program = new Program(NEWS_PLATFORM_IDL as any, provider)
+    
+    const marketData = await (program.account as any).market.fetch(new PublicKey(marketAccount))
+    
+    const solReserves = Number(marketData.solReserves) / 1e9
+    const currentSupply = Number(marketData.currentSupply)
+    
+    let currentPrice = 0.001 // Default price
+    if (currentSupply > 0) {
+      const basePrice = 0.001 // 0.001 SOL base price
+      const multiplier = Math.min(10000 + currentSupply, 20000) / 10000
+      currentPrice = basePrice * multiplier
+    }
+    
+    return {
+      currentPrice,
+      solReserves,
+      currentSupply
+    }
+  } catch (error) {
+    return null
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,10 +334,10 @@ export async function GET(request: NextRequest) {
     let newsAccounts: any[] = []
     let marketAccounts: any[] = []
     try {
-      newsAccounts = await program.account.newsAccount.all()
+      newsAccounts = await (program.account as any).newsAccount.all()
     } catch {}
     try {
-      marketAccounts = await program.account.market.all()
+      marketAccounts = await (program.account as any).market.all()
     } catch {}
 
     // Create a map of news account to market data
@@ -215,45 +490,33 @@ export async function GET(request: NextRequest) {
         rank: index + 1
       }))
 
-    // Fetch PnL leaderboard
-    const pnlLeaderboard = await prisma.profile.findMany({
-      include: { user: true },
-      orderBy: { totalPnl: 'desc' },
-      take: limit
-    })
+    // Calculate PnL leaderboard from real trade data
+    const pnlLeaderboard = await calculatePnLLeaderboard(limit)
 
-    // Fetch current season leaderboard
-    const seasonLeaderboard = await prisma.seasonStats.findMany({
-      where: { season: { isActive: true } },
-      include: { 
-        profile: { include: { user: true } },
-        season: true 
-      },
-      orderBy: { pnl: 'desc' },
-      take: limit
-    })
+    // Calculate current season leaderboard from real trade data
+    const seasonLeaderboard = await calculateSeasonLeaderboard(limit)
 
     return NextResponse.json({
       traders: activeTraders,
-      pnlLeaderboard: pnlLeaderboard.map((profile, index) => ({
+      pnlLeaderboard: pnlLeaderboard.map((trader, index) => ({
         rank: index + 1,
-        address: profile.userAddress,
-        name: userMap.get(profile.userAddress) || `Wallet User ${profile.userAddress.slice(0, 8)}`,
-        totalPnl: profile.totalPnl,
-        totalVolume: profile.totalVolume,
-        tradesCount: profile.tradesCount,
-        wins: profile.wins,
-        trophies: profile.trophies,
-        currentSeasonPnl: profile.currentSeasonPnl
+        address: trader.address,
+        name: trader.name,
+        totalPnl: trader.totalPnl,
+        totalVolume: trader.totalVolume,
+        tradesCount: trader.tradesCount,
+        wins: trader.wins,
+        trophies: trader.trophies,
+        currentSeasonPnl: trader.totalPnl // For now, use total PnL as current season PnL
       })),
-      seasonLeaderboard: seasonLeaderboard.map((stat, index) => ({
+      seasonLeaderboard: seasonLeaderboard.map((trader, index) => ({
         rank: index + 1,
-        address: stat.profile.userAddress,
-        name: userMap.get(stat.profile.userAddress) || `Wallet User ${stat.profile.userAddress.slice(0, 8)}`,
-        seasonPnl: stat.pnl,
-        seasonVolume: stat.volume,
-        seasonTrades: stat.tradesCount,
-        seasonWins: stat.wins
+        address: trader.address,
+        name: trader.name,
+        seasonPnl: trader.seasonPnl,
+        seasonVolume: trader.seasonVolume,
+        seasonTrades: trader.seasonTrades,
+        seasonWins: trader.seasonWins
       })),
       total: activeTraders.length
     })

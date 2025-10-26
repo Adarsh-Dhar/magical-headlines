@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Card } from "@/components/ui/card"
-import { TrendingUpIcon, UsersIcon, DollarSignIcon, ActivityIcon } from "lucide-react"
+import { TrendingUpIcon, UsersIcon, ActivityIcon } from "lucide-react"
 import { useContract } from "@/lib/use-contract"
 
 type StatItem = {
@@ -98,14 +98,8 @@ export function MarketStats() {
     return () => { cancelled = true }
   }, [pdas, getMarketDelegationStatus])
 
+
   const stats: StatItem[] = useMemo(() => [
-    {
-      label: "Total Market Cap",
-      value: "$12.4M",
-      change: "+8.3%",
-      icon: DollarSignIcon,
-      positive: true,
-    },
     {
       label: "Active Stories",
       value: activeStories == null ? "—" : formatNumberCompact(activeStories),

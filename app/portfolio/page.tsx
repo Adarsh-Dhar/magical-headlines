@@ -217,7 +217,7 @@ export default function PortfolioPage() {
               </div>
               <span className="text-sm text-muted-foreground">Total Tokens</span>
             </div>
-            <p className="text-3xl font-bold text-primary">{formatTotalTokens(totalTokens)}</p>
+            <p className="text-3xl font-bold text-primary">{formatTotalTokens(totalTokens) as unknown as number * 1000000000}</p>
             <p className="text-xs text-muted-foreground mt-1">Tokens owned</p>
           </Card>
 
