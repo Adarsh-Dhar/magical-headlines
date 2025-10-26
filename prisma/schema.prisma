@@ -87,11 +87,15 @@ model Trade {
   type         TradeType
   amount       Float
   priceAtTrade Float
+  costInSol    Float
+  signature    String?
   traderId     String
   tokenId      String
   timestamp    DateTime  @default(now())
   token        Token     @relation(fields: [tokenId], references: [id])
   trader       User      @relation(fields: [traderId], references: [id])
+
+  @@index([traderId, timestamp])
 }
 
 model TokenVolumeMinute {

@@ -87,7 +87,12 @@ export function usePriceChartData({
   useEffect(() => {
     if (!historicalData) return;
 
-    let combined: PriceDataPoint[] = [...historicalData.priceHistory];
+    // Ensure priceHistory is an array before spreading
+    const priceHistory = Array.isArray(historicalData.priceHistory) 
+      ? historicalData.priceHistory 
+      : [];
+    
+    let combined: PriceDataPoint[] = [...priceHistory];
 
     // If no historical data but we have live data, create a simple price history
     if (combined.length === 0 && livePriceData && livePriceData.currentPrice > 0) {
@@ -165,7 +170,7 @@ export function usePriceChartData({
   return {
     data: historicalData ? {
       ...historicalData,
-      priceHistory: combinedData,
+      priceHistory: Array.isArray(combinedData) ? combinedData : [],
       currentPrice: livePriceData?.currentPrice || historicalData.currentPrice,
     } : null,
     loading: loading || (liveUpdates && liveLoading),
@@ -331,7 +336,7 @@ export function useMinuteCandles({
   marketAddress,
   newsAccountAddress,
   mintAddress,
-  refreshInterval = 5000,
+  refreshInterval = 15000, // Increased from 5000 to 15000
 }: {
   tokenId: string;
   marketAddress?: string;
@@ -365,7 +370,10 @@ export function useMinuteCandles({
     // Use live price as the primary source, fallback to data.currentPrice
     const primaryPrice = liveData?.currentPrice || data.currentPrice;
     
-    let baseline = buildOneMinuteCandles(data.priceHistory || [], {
+    // Ensure priceHistory is an array
+    const priceHistory = Array.isArray(data.priceHistory) ? data.priceHistory : [];
+    
+    let baseline = buildOneMinuteCandles(priceHistory, {
       seedPrice: primaryPrice,
     });
     

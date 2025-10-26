@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
 import { CandlestickChart } from "@/components/candlestick-chart"
+import { TokenOrderBook } from "@/components/token-order-book"
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useContract } from "@/lib/use-contract"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
 
 interface Story {
   id: string
@@ -45,8 +47,8 @@ interface Story {
     volume24h: number
     marketCap: number
     newsAccount?: string
-    mint?: string
-    market?: string
+    mintAccount?: string
+    marketAccount?: string
   } | null
 }
 
@@ -130,8 +132,28 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     commitRecommended: false,
   })
 
+  // User token data
+  const [userTokenBalance, setUserTokenBalance] = useState<number>(0)
+  const [userTotalPurchases, setUserTotalPurchases] = useState<number>(0)
+  const [userTotalSales, setUserTotalSales] = useState<number>(0)
+  const [userStakedTokens, setUserStakedTokens] = useState<number>(0)
+  const [isLoadingUserData, setIsLoadingUserData] = useState<boolean>(false)
+  const [userTokenData, setUserTokenData] = useState<{
+    totalPurchases: number;
+    totalSales: number;
+    averagePurchasePrice: number;
+    currentHoldings: number;
+    databaseHoldings: number;
+    profitLoss: number;
+    totalInvested: number;
+    currentValue: number;
+    trades: any[];
+  } | null>(null)
+
   // Prevent infinite refetch loops when contract function identities change between renders
   const lastDelegationFetchKeyRef = useRef<string | null>(null)
+  const marketCapLastFetchRef = useRef<number>(0)
+  const userDataLastFetchRef = useRef<number>(0)
 
   // All useMemo hooks - must be called in same order every time
   const token = useMemo(() => story?.token, [story?.token])
@@ -167,6 +189,13 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         } catch (err) {
         }
       }
+      console.log('📰 Story data fetched:', {
+        hasStory: !!data,
+        hasToken: !!data?.token,
+        tokenMintAccount: data?.token?.mintAccount,
+        tokenMarketAccount: data?.token?.marketAccount,
+        tokenId: data?.token?.id
+      });
       setStory(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -218,6 +247,140 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     } catch (error) {
     }
   }, [story, pdas, publicKey, getMarketDelegationStatus, program])
+
+  const fetchUserTokenData = useCallback(async () => {
+    console.log('🚀 fetchUserTokenData called!');
+    
+    // Check if we already fetched recently (within 10 seconds)
+    const now = Date.now();
+    const lastFetch = userDataLastFetchRef.current;
+    if (lastFetch && (now - lastFetch) < 10000) {
+      console.log('⏭️ Skipping fetchUserTokenData - fetched recently');
+      return;
+    }
+    
+    if (!publicKey || !story?.token?.mintAccount) {
+      console.log('❌ Early return - missing publicKey or mintAccount:', {
+        publicKey: !!publicKey,
+        mintAccount: story?.token?.mintAccount
+      });
+      setUserTokenBalance(0)
+      setUserTotalPurchases(0)
+      setUserTotalSales(0)
+      setUserStakedTokens(0)
+      setUserTokenData(null)
+      return
+    }
+
+    setIsLoadingUserData(true)
+    try {
+      console.log('🔍 Fetching user token data:', {
+        publicKey: publicKey?.toString(),
+        tokenMint: story?.token?.mintAccount,
+        tokenId: story?.token?.id
+      });
+
+      // Get current token balance from blockchain
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        publicKey,
+        { programId: TOKEN_PROGRAM_ID }
+      )
+
+      const userTokenAccount = tokenAccounts.value.find(account => 
+        account.account.data.parsed.info.mint === story.token?.mintAccount
+      )
+
+      const tokenAmount = userTokenAccount?.account.data.parsed.info.tokenAmount;
+      const rawAmount = tokenAmount?.amount || '0';
+      const decimals = tokenAmount?.decimals || 9;
+      const currentBalance = Number(rawAmount) / Math.pow(10, decimals);
+
+      setUserTokenBalance(currentBalance)
+      console.log('💰 Token balance details:', {
+        rawAmount,
+        decimals,
+        calculatedBalance: currentBalance,
+        uiAmount: tokenAmount?.uiAmount
+      });
+
+      // Fetch user's trade history from API
+      const response = await fetch(`/api/tokens/${story.token.id}?userAddress=${publicKey.toString()}`)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📊 API response:', data);
+        if (data.userSpecificData) {
+          const userData = data.userSpecificData
+          console.log('👤 User specific data:', userData);
+          setUserTokenData(userData)
+          setUserTotalPurchases(userData.totalPurchases || 0)
+          setUserTotalSales(userData.totalSales || 0)
+          
+          // Use database holdings as fallback if blockchain shows 0
+          console.log('🔍 Balance check:', {
+            blockchainBalance: currentBalance,
+            databaseHoldings: userData.databaseHoldings,
+            currentHoldings: userData.currentHoldings,
+            totalPurchases: userData.totalPurchases,
+            totalSales: userData.totalSales
+          });
+          
+          if (currentBalance === 0 && userData.databaseHoldings > 0) {
+            console.log('🔄 Using database holdings as fallback:', userData.databaseHoldings);
+            setUserTokenBalance(userData.databaseHoldings);
+          } else if (currentBalance === 0 && userData.currentHoldings > 0) {
+            console.log('🔄 Using current holdings as fallback:', userData.currentHoldings);
+            setUserTokenBalance(userData.currentHoldings);
+          }
+        } else {
+          console.log('❌ No user specific data in API response');
+        }
+      } else {
+        console.log('❌ API request failed:', response.status, response.statusText);
+      }
+
+      // If user is author, get staked amount from market account
+      if (isAuthor && story?.authorAddress && story?.nonce && pdas) {
+        try {
+          const author = new PublicKey(story.authorAddress)
+          const nonceNum = parseInt(story.nonce)
+          const newsPda = pdas.findNewsPda(author, nonceNum)
+          const marketPda = pdas.findMarketPda(newsPda)
+          
+          if (getMarketDelegationStatus) {
+            const status = await getMarketDelegationStatus(marketPda)
+            if (status) {
+              const stakedAmount = Number(status.stakedAuthorTokens || 0)
+              console.log('🏦 Market account status:', {
+                isDelegated: status.isDelegated,
+                stakedAuthorTokens: status.stakedAuthorTokens,
+                calculatedStakedAmount: stakedAmount,
+                currentSupply: status.currentSupply,
+                circulatingSupply: status.circulatingSupply
+              });
+              setUserStakedTokens(stakedAmount)
+            }
+          }
+        } catch (error) {
+          // Staking data not available
+          setUserStakedTokens(0)
+        }
+      } else {
+        setUserStakedTokens(0)
+      }
+
+    } catch (error) {
+      console.error('Error fetching user token data:', error)
+      setUserTokenBalance(0)
+      setUserTotalPurchases(0)
+      setUserTotalSales(0)
+      setUserStakedTokens(0)
+      setUserTokenData(null)
+    } finally {
+      setIsLoadingUserData(false)
+      // Update last fetch time
+      userDataLastFetchRef.current = Date.now();
+    }
+  }, [publicKey, story?.token?.mintAccount, story?.token?.id, story?.authorAddress, story?.nonce, pdas, isAuthor, getMarketDelegationStatus, connection])
 
   const requestAirdrop = useCallback(async () => {
     if (!publicKey) return
@@ -292,6 +455,13 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         const newsAccountPubkey = pdas.findNewsPda(authorAddress, nonce)
         const marketPda = pdas.findMarketPda(newsAccountPubkey)
         
+        // Check if we already have recent data (within 30 seconds)
+        const now = Date.now();
+        const lastFetch = marketCapLastFetchRef.current;
+        if (lastFetch && (now - lastFetch) < 30000) {
+          return; // Skip if we fetched recently
+        }
+        
         // Let's also check if these accounts exist
         try {
           const marketAccountInfo = await connection.getAccountInfo(marketPda)
@@ -323,6 +493,9 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         } else {
           setMarketCapSol(null)
         }
+        
+        // Update last fetch time
+        marketCapLastFetchRef.current = now;
       } catch (error) {
         setMarketCapSol(null)
       }
@@ -330,7 +503,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       // If getMarketCap is not available, set to null immediately
       setMarketCapSol(null)
     }
-  }, [story?.authorAddress, story?.nonce, pdas, getMarketCap])
+  }, [story?.authorAddress, story?.nonce, pdas, getMarketCap, connection])
 
   const handleBuy = useCallback(async () => {
     if (!story?.token) {
@@ -397,6 +570,26 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       setTradingSuccess(`Successfully bought ${amount} tokens! Transaction: ${signature}`)
       setBuyAmount("")
 
+      // Record trade directly in database
+      try {
+        await fetch('/api/trades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'BUY',
+            amount: amount,
+            priceAtTrade: estimatedCost / amount,
+            costInSol: estimatedCost,
+            signature: signature,
+            tokenId: story.token.id,
+            traderWalletAddress: publicKey.toString()
+          })
+        })
+        console.log('✅ Trade recorded successfully')
+      } catch (error) {
+        console.error('❌ Failed to record trade:', error)
+      }
+
       // Optimistic UI update for price and supply
       setDelegationStatus(prev => {
         if (!prev) return prev
@@ -428,6 +621,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       
       await fetchStory()
       await refetchCurrentPrice() // Refresh the price after successful buy
+      await fetchUserTokenData() // Refresh user token data after successful buy
     } catch (err) {
       let errorMessage = 'Failed to buy tokens'
       const errorMsg = err instanceof Error ? err.message : String(err)
@@ -444,7 +638,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     } finally {
       setIsTrading(false)
     }
-  }, [story?.token, connected, publicKey, buy, pdas, findActualNewsAccount, estimateBuyCost, connection, buyAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory])
+  }, [story?.token, connected, publicKey, buy, pdas, findActualNewsAccount, estimateBuyCost, connection, buyAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory, fetchUserTokenData])
 
   const handleSell = useCallback(async () => {
     if (!story?.token) {
@@ -491,14 +685,35 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       if (!sell || typeof sell !== 'function') {
         throw new Error('Sell function not available')
       }
-      await sell({
+      const signature = await sell({
         market: marketPda,
         mint: mintPda,
         newsAccount: newsPda,
         amount: amount
       })
-      setTradingSuccess(`Successfully sold ${amount} tokens!`)
+      setTradingSuccess(`Successfully sold ${amount} tokens! Transaction: ${signature}`)
       setSellAmount("")
+
+      // Record trade directly in database
+      try {
+        const estimatedRefund = amount * (story.token?.price || 0.01) // Rough estimate
+        await fetch('/api/trades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'SELL',
+            amount: amount,
+            priceAtTrade: story.token?.price || 0.01,
+            costInSol: estimatedRefund,
+            signature: signature,
+            tokenId: story.token.id,
+            traderWalletAddress: publicKey.toString()
+          })
+        })
+        console.log('✅ Trade recorded successfully')
+      } catch (error) {
+        console.error('❌ Failed to record trade:', error)
+      }
 
       // Optimistic UI update for price and supply after sell
       setDelegationStatus(prev => {
@@ -532,12 +747,13 @@ const StoryDetailPage = memo(function StoryDetailPage() {
       
       await fetchStory()
       await refetchCurrentPrice() // Refresh the price after successful sell
+      await fetchUserTokenData() // Refresh user token data after successful sell
     } catch (err) {
       setTradingError(err instanceof Error ? err.message : 'Failed to sell tokens')
     } finally {
       setIsTrading(false)
     }
-  }, [story?.token, connected, publicKey, sell, pdas, findActualNewsAccount, connection, sellAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory])
+  }, [story?.token, connected, publicKey, sell, pdas, findActualNewsAccount, connection, sellAmount, story?.authorAddress, story?.nonce, refetchCurrentPrice, fetchStory, fetchUserTokenData])
 
   const handleInitializeMarket = useCallback(async () => {
     if (!story?.token || !isAuthor) return
@@ -721,6 +937,32 @@ const StoryDetailPage = memo(function StoryDetailPage() {
   }, [story, fetchStakingData])
 
   useEffect(() => {
+    console.log('🔍 useEffect trigger:', {
+      connected,
+      publicKey: publicKey?.toString(),
+      hasStory: !!story,
+      hasToken: !!story?.token,
+      mintAccount: story?.token?.mintAccount,
+      tokenId: story?.token?.id
+    });
+    
+    if (connected && publicKey && story?.token?.mintAccount) {
+      console.log('✅ Calling fetchUserTokenData');
+      fetchUserTokenData()
+    } else if (connected && publicKey && story?.token?.id) {
+      console.log('⚠️ Token exists but no mintAccount - this story may not have token data yet');
+      // Reset user data to show no holdings
+      setUserTokenBalance(0)
+      setUserTotalPurchases(0)
+      setUserTotalSales(0)
+      setUserStakedTokens(0)
+      setUserTokenData(null)
+    } else {
+      console.log('❌ Not calling fetchUserTokenData - missing requirements');
+    }
+  }, [connected, publicKey, story?.token?.mintAccount, story?.token?.id, fetchUserTokenData])
+
+  useEffect(() => {
     const fetchLikes = async () => {
       if (!storyId) return
       try {
@@ -799,8 +1041,12 @@ const StoryDetailPage = memo(function StoryDetailPage() {
     
     // Only run if story is loaded and not still loading
     if (story && !loading && story.authorAddress && story.nonce && pdas && getMarketCap) {
-      // Calling fetchMarketCap from useEffect
-      fetchMarketCap()
+      // Add a small delay to prevent rapid successive calls
+      const timeoutId = setTimeout(() => {
+        fetchMarketCap()
+      }, 1000); // 1 second delay
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [story, loading, story?.authorAddress, story?.nonce, pdas, getMarketCap, fetchMarketCap])
 
@@ -1083,9 +1329,9 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                 live={true} 
                 interval="1m"
                 height={400}
-                marketAddress={story.token?.market || ''}
+                marketAddress={story.token?.marketAccount || ''}
                 newsAccountAddress={story.token?.newsAccount || ''}
-                mintAddress={story.token?.mint || ''}
+                mintAddress={story.token?.mintAccount || ''}
               />
             ) : (
               <Card className="p-6">
@@ -1195,8 +1441,8 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                     variant="outline" 
                     onClick={() => {
                       // Force price calculation using volume data
-                      if (delegationStatus && delegationStatus.totalVolume > 0) {
-                        const volumeSOL = delegationStatus.totalVolume / 1e9
+                      if (delegationStatus && (delegationStatus.totalVolume || 0) > 0) {
+                        const volumeSOL = (delegationStatus.totalVolume || 0) / 1e9
                         const supply = delegationStatus.circulatingSupply
                         const estimatedPrice = (volumeSOL / supply) * 0.1
                         setCurrentPrice(estimatedPrice)
@@ -1240,7 +1486,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Volume (24h):</span>
-                      <span className="text-sm font-medium">${(volume / 1000).toFixed(1)}K</span>
+                      <span className="text-sm font-medium">${((delegationStatus?.totalVolume || 0) / 1e9).toFixed(4)} SOL</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Market Cap:</span>
@@ -1267,7 +1513,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                         </div>
                         <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
                           <p>Supply: {delegationStatus.circulatingSupply} tokens</p>
-                          <p>Volume: {(delegationStatus.totalVolume / 1e9).toFixed(4)} SOL</p>
+                          <p>Volume: {((delegationStatus.totalVolume || 0) / 1e9).toFixed(4)} SOL</p>
                           {delegationStatus.isDelegated && (
                             <p>Authority: {delegationStatus.rollupAuthority?.slice(0, 8)}...</p>
                           )}
@@ -1384,6 +1630,59 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                             <p className="text-sm text-green-600">{tradingSuccess}</p>
                           </div>
                         )}
+
+                        {/* User Portfolio Display */}
+                        {connected && (
+                          <div className="pt-4 border-t space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-lg font-semibold">Your Position</h3>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={fetchUserTokenData}
+                                disabled={isLoadingUserData}
+                                className="text-xs"
+                              >
+                                {isLoadingUserData ? "Loading..." : "Refresh"}
+                              </Button>
+                            </div>
+                            
+                            {/* Debug info - remove in production */}
+                            {process.env.NODE_ENV === 'development' && (
+                              <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-400">
+                                <div>Debug: Balance={userTokenBalance}, Purchased={userTotalPurchases}, Sold={userTotalSales}, Staked={userStakedTokens}</div>
+                              </div>
+                            )}
+                            
+                            {!story?.token?.mintAccount && (
+                              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                                <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                                  ⚠️ This story doesn't have token data yet. Token data will appear here once the story is published on-chain.
+                                </div>
+                              </div>
+                            )}
+                            
+                            {isLoadingUserData ? (
+                              <div className="space-y-2">
+                                <div className="animate-pulse bg-gray-200 h-4 w-full rounded"></div>
+                                <div className="animate-pulse bg-gray-200 h-4 w-3/4 rounded"></div>
+                                <div className="animate-pulse bg-gray-200 h-4 w-1/2 rounded"></div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                                  <div className="text-sm text-blue-600 dark:text-blue-400">Current Balance</div>
+                                  <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                                    {userTokenBalance > 0 ? 
+                                      (userTokenBalance * 1000000000 ) : 
+                                      '0'
+                                    } tokens
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1394,6 +1693,11 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                 </div>
               )}
             </Card>
+
+            {/* Order Book - Only show when token exists */}
+            {story?.token && (
+              <TokenOrderBook tokenId={story.token.id} />
+            )}
 
             {/* Author Staking Section - Only visible to authors */}
             {isAuthor && (

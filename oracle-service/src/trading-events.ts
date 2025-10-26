@@ -73,6 +73,8 @@ export async function processTokensPurchasedEvent(event: any, signature: string)
         type: 'BUY',
         amount: eventData.amount,
         priceAtTrade: eventData.cost / eventData.amount, // Price per token
+        costInSol: eventData.cost, // Total cost in SOL
+        signature: signature, // Transaction signature
         trader: {
           connect: { walletAddress: eventData.buyer }
         },
@@ -118,6 +120,8 @@ export async function processTokensSoldEvent(event: any, signature: string) {
         type: 'SELL',
         amount: eventData.amount,
         priceAtTrade: eventData.refund / eventData.amount, // Price per token
+        costInSol: eventData.refund, // Total refund in SOL
+        signature: signature, // Transaction signature
         trader: {
           connect: { walletAddress: eventData.seller }
         },

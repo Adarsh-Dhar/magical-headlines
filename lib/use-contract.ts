@@ -7,6 +7,7 @@ import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { requestCache } from "./request-cache";
 
 // Import the IDL from the contract
 import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
@@ -988,12 +989,10 @@ export function useContract() {
     async (marketAddress: PublicKey, amount: number) => {
       if (!program) throw new Error("Program not ready");
       
-      // Retry logic for rate limiting
-      let retries = 3;
-      let lastError;
+      const cacheKey = `estimateBuyCost:${marketAddress.toString()}:${amount}`;
       
-      while (retries > 0) {
-        try {
+      try {
+        const result = await requestCache.get(cacheKey, async () => {
           const marketAccount = await (program.account as any).market.fetch(marketAddress);
           
           // Use the market's base price from the contract
@@ -1037,31 +1036,15 @@ export function useContract() {
           
           const costInSOL = totalCost / 1e9;
           return costInSOL;
-        } catch (error) {
-          lastError = error;
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          
-          // Check if it's a rate limiting error
-          if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
-            retries--;
-            if (retries > 0) {
-              // Exponential backoff: wait 2^retries seconds
-              const delay = Math.pow(2, 3 - retries) * 1000;
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-          }
-          
-          // If it's not a rate limiting error or we've exhausted retries, break
-          break;
-        }
+        }, 10000); // Cache for 10 seconds
+        
+        return result;
+      } catch (error) {
+        // Return a fallback calculation if all retries failed
+        const fallbackBasePrice = 1000000; // 0.001 SOL in lamports as fallback
+        const fallbackCost = (fallbackBasePrice * amount) / 1e9; // Simple linear fallback
+        return fallbackCost;
       }
-      
-      // Return a fallback calculation if all retries failed
-      // Failed to fetch market account after retries, using fallback calculation
-      const fallbackBasePrice = 1000000; // 0.001 SOL in lamports as fallback
-      const fallbackCost = (fallbackBasePrice * amount) / 1e9; // Simple linear fallback
-      return fallbackCost;
     },
     [program]
   );
@@ -1070,49 +1053,15 @@ export function useContract() {
   const getMarketDelegationStatus = useCallback(
     async (marketAddress: PublicKey) => {
       if (!program) throw new Error("Program not ready");
+      
+      const cacheKey = `getMarketDelegationStatus:${marketAddress.toString()}`;
+      
       try {
-        // First check if the account exists and has data
-        const accountInfo = await connection.getAccountInfo(marketAddress);
-        if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
-          // Market account does not exist or has no data
-          return {
-            isDelegated: false,
-            rollupAuthority: null,
-            currentSupply: 0,
-            circulatingSupply: 0,
-            initialSupply: 0,
-            basePrice: 0,
-            totalVolume: 0,
-            stakedAuthorTokens: 0,
-            accumulatedFees: 0,
-          };
-        }
-
-        // Check if the account has enough data for the Market struct
-        // Market struct should be at least 8 bytes (discriminator) + the struct fields
-        const minExpectedSize = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 8 + 32 + 1; // rough estimate
-        if (accountInfo.data.length < minExpectedSize) {
-          // Market account has insufficient data
-          return {
-            isDelegated: false,
-            rollupAuthority: null,
-            currentSupply: 0,
-            circulatingSupply: 0,
-            initialSupply: 0,
-            basePrice: 0,
-            totalVolume: 0,
-            stakedAuthorTokens: 0,
-            accumulatedFees: 0,
-          };
-        }
-
-        let marketAccount;
-        try {
-          marketAccount = await (program.account as any).market.fetch(marketAddress);
-        } catch (fetchError) {
-          // Handle specific buffer-related errors
-          if (fetchError instanceof Error && fetchError.message && fetchError.message.includes('buffer')) {
-            // Buffer error when fetching market account
+        const result = await requestCache.get(cacheKey, async () => {
+          // First check if the account exists and has data
+          const accountInfo = await connection.getAccountInfo(marketAddress);
+          if (!accountInfo || !accountInfo.data || accountInfo.data.length === 0) {
+            // Market account does not exist or has no data
             return {
               isDelegated: false,
               rollupAuthority: null,
@@ -1125,31 +1074,63 @@ export function useContract() {
               accumulatedFees: 0,
             };
           }
-          throw fetchError; // Re-throw if it's not a buffer error
-        }
+
+          // Check if the account has enough data for the Market struct
+          // Market struct should be at least 8 bytes (discriminator) + the struct fields
+          const minExpectedSize = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 8 + 32 + 1; // rough estimate
+          if (accountInfo.data.length < minExpectedSize) {
+            // Market account has insufficient data
+            return {
+              isDelegated: false,
+              rollupAuthority: null,
+              currentSupply: 0,
+              circulatingSupply: 0,
+              initialSupply: 0,
+              basePrice: 0,
+              totalVolume: 0,
+              stakedAuthorTokens: 0,
+              accumulatedFees: 0,
+            };
+          }
+
+          let marketAccount;
+          try {
+            marketAccount = await (program.account as any).market.fetch(marketAddress);
+          } catch (fetchError) {
+            // Handle specific buffer-related errors
+            if (fetchError instanceof Error && fetchError.message && fetchError.message.includes('buffer')) {
+              // Buffer error when fetching market account
+              return {
+                isDelegated: false,
+                rollupAuthority: null,
+                currentSupply: 0,
+                circulatingSupply: 0,
+                initialSupply: 0,
+                basePrice: 0,
+                totalVolume: 0,
+                stakedAuthorTokens: 0,
+                accumulatedFees: 0,
+              };
+            }
+            throw fetchError; // Re-throw if it's not a buffer error
+          }
+          
+          return {
+            isDelegated: marketAccount.isDelegated,
+            rollupAuthority: marketAccount.rollupAuthority,
+            currentSupply: marketAccount.currentSupply,
+            circulatingSupply: marketAccount.circulatingSupply,
+            initialSupply: marketAccount.initialSupply,
+            basePrice: marketAccount.basePrice,
+            totalVolume: marketAccount.totalVolume,
+            // Use the correct field names from IDL (with underscores)
+            stakedAuthorTokens: marketAccount.staked_author_tokens || 0,
+            accumulatedFees: marketAccount.accumulated_fees || 0,
+          };
+        }, 15000); // Cache for 15 seconds
         
-        // Log token price when fetching market status
-        const basePrice = Number(marketAccount.basePrice) / 1e9;
-        const circulatingSupply = Number(marketAccount.circulatingSupply);
-        const multiplier = (10000 + circulatingSupply) / 10000;
-        const currentPrice = basePrice * multiplier;
-        
-        // Token price info
-        
-        return {
-          isDelegated: marketAccount.isDelegated,
-          rollupAuthority: marketAccount.rollupAuthority,
-          currentSupply: marketAccount.currentSupply,
-          circulatingSupply: marketAccount.circulatingSupply,
-          initialSupply: marketAccount.initialSupply,
-          basePrice: marketAccount.basePrice,
-          totalVolume: marketAccount.totalVolume,
-          // Use the correct field names from IDL (with underscores)
-          stakedAuthorTokens: marketAccount.staked_author_tokens || 0,
-          accumulatedFees: marketAccount.accumulated_fees || 0,
-        };
+        return result;
       } catch (error) {
-        // Error fetching market account
         // Return a default structure if account fetch fails
         return {
           isDelegated: false,

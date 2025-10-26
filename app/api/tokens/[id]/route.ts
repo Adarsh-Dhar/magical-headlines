@@ -91,7 +91,7 @@ export async function GET(
           select: {
             id: true,
             headline: true,
-            author: true,
+            authorAddress: true,
             createdAt: true,
             arweaveUrl: true,
             arweaveId: true
@@ -110,9 +110,9 @@ export async function GET(
 
     // Fetch current blockchain data
     let marketData = null;
-    if (token.marketAddress) {
+    if (token.marketAccount) {
       try {
-        marketData = await fetchMarketAccount(token.marketAddress);
+        marketData = await fetchMarketAccount(token.marketAccount);
       } catch (error) {
         // Continue without blockchain data
       }
@@ -147,10 +147,10 @@ export async function GET(
 
     // Calculate user-specific data if userAddress is provided
     let userSpecificData = null;
-    if (userAddress && token.mintAddress) {
+    if (userAddress && token.mintAccount) {
       try {
         // Get user's current blockchain holdings
-        const currentHoldings = await getUserTokenBalance(userAddress, token.mintAddress);
+        const currentHoldings = await getUserTokenBalance(userAddress, token.mintAccount);
         
         // Calculate user statistics from database trades
         const userTrades = token.trades;
@@ -192,8 +192,8 @@ export async function GET(
     // Return combined data
     const response: any = {
       id: token.id,
-      marketAddress: token.marketAddress,
-      mintAddress: token.mintAddress,
+      marketAccount: token.marketAccount,
+      mintAccount: token.mintAccount,
       price: marketData?.currentPrice || token.price,
       priceChange24h: marketData ? (marketData.currentPrice - token.price) / token.price * 100 : priceChange24h,
       volume24h: marketData?.totalVolume || token.volume24h || 0,

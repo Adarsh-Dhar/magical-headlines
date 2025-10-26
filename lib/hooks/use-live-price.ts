@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useContract } from "@/lib/use-contract";
+import { requestCache } from "@/lib/request-cache";
 
 interface LivePriceData {
   currentPrice: number;
@@ -42,21 +43,24 @@ export function useLivePrice({
       setError(null);
 
       const marketPubkey = new PublicKey(marketAddress);
+      const cacheKey = `livePrice:${marketAddress}:${mintAddress}`;
       
-      // Fetch market data from the contract
-      const marketData = await getMarketDelegationStatus(marketPubkey);
-      
-      // Calculate current price using the same logic as the contract
-      const currentPrice = await estimateBuyCost(marketPubkey, 1);
-      
-      const liveData: LivePriceData = {
-        currentPrice,
-        currentSupply: Number(marketData.currentSupply),
-        solReserves: 0, // Not available from getMarketDelegationStatus
-        totalVolume: Number(marketData.totalVolume),
-        isDelegated: marketData.isDelegated,
-        timestamp: Date.now(),
-      };
+      const liveData = await requestCache.get(cacheKey, async () => {
+        // Fetch market data from the contract
+        const marketData = await getMarketDelegationStatus(marketPubkey);
+        
+        // Calculate current price using the same logic as the contract
+        const currentPrice = await estimateBuyCost(marketPubkey, 1);
+        
+        return {
+          currentPrice,
+          currentSupply: Number(marketData.currentSupply),
+          solReserves: 0, // Not available from getMarketDelegationStatus
+          totalVolume: Number(marketData.totalVolume),
+          isDelegated: marketData.isDelegated,
+          timestamp: Date.now(),
+        };
+      }, 5000); // Cache for 5 seconds
 
       setData(liveData);
     } catch (err) {
@@ -66,7 +70,7 @@ export function useLivePrice({
     } finally {
       setLoading(false);
     }
-  }, [program, marketAddress, enabled, estimateBuyCost, getMarketDelegationStatus]);
+  }, [program, marketAddress, enabled, estimateBuyCost, getMarketDelegationStatus, mintAddress]);
 
   // Initial fetch + optional polling
   useEffect(() => {

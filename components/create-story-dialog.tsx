@@ -32,6 +32,12 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [onChainPublishing, setOnChainPublishing] = useState(false)
+  const [onChainResult, setOnChainResult] = useState<{
+    success: boolean;
+    signature?: string;
+    error?: string;
+  } | null>(null)
   // Removed auto-signing state - no longer needed
   
   const [formData, setFormData] = useState({
@@ -54,7 +60,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   const wallet = useWallet()
   const { publicKey, connected } = wallet || {}
   const { setVisible: setWalletModalVisible } = useWalletModal()
-  const { publishNews: publishOnchain, testProgram } = useContract()
+  const { publishNews: publishOnchain, testProgram, pdas } = useContract()
   const { publishNews: publishToArweave, uploading: arweaveUploading, uploadProgress } = useArweavePublishNews()
   // no program ref needed when using useContract
 
@@ -286,78 +292,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       // Generate unique nonce for this transaction
       const uniqueNonce = generateUniqueNonce()
       
-      let txSignature: string | undefined
-      try {
-        
-        // Check wallet connection first
-        if (!connected || !publicKey) {
-          // console.error('[CreateStoryDialog] Wallet not connected')
-          throw new Error('Please connect your wallet to publish a story')
-        }
-        
-        // Test program creation for debugging
-        if (testProgram) {
-          const testResult = testProgram()
-        }
-        
-        // Add timeout to onchain call
-        const onchainTimeoutMs = 30000 // 30 seconds
-        
-        if (!publishOnchain) {
-          // console.error('[CreateStoryDialog] publishOnchain function not available')
-          throw new Error('Onchain publish failed: Please ensure your wallet is connected and try again')
-        }
-        
-        txSignature = await Promise.race([
-          publishOnchain({
-            headline: formData.headline,
-            arweaveLink: safeArweaveResult.arweaveUrl,
-            initialSupply: formData.initialSupply,
-            basePrice: formData.basePrice,
-            nonce: uniqueNonce,
-          }),
-          new Promise<string>((_, reject) => 
-            setTimeout(() => reject(new Error('Onchain transaction timed out')), onchainTimeoutMs)
-          )
-        ]) as string
-
-
-        if (!txSignature) {
-          // console.error('[CreateStoryDialog] No signature returned from blockchain transaction')
-          throw new Error('Failed to publish onchain - no signature returned')
-        }
-      } catch (onchainError) {
-        
-        // Handle specific error cases with detailed error messages
-        const errorMessage = onchainError instanceof Error ? onchainError.message : String(onchainError)
-        
-        if (errorMessage.includes('already been processed')) {
-          // Set a placeholder signature for database save
-          txSignature = 'already-processed-' + Date.now()
-        } else if (errorMessage.includes('timed out')) {
-          throw new Error('Transaction timed out. Please check your connection and try again.')
-        } else if (errorMessage.includes('account already exists') || errorMessage.includes('already in use')) {
-          throw new Error('A story with this identifier already exists. Please try again with different content.')
-        } else if (errorMessage.includes('InsufficientFunds')) {
-          throw new Error('Insufficient SOL balance. Please ensure you have at least 0.002 SOL for transaction fees.')
-        } else if (errorMessage.includes('HeadlineTooLong')) {
-          throw new Error('Headline is too long or contains invalid characters. Please use only printable characters and keep it under 200 characters.')
-        } else if (errorMessage.includes('LinkTooLong')) {
-          throw new Error('Arweave link is invalid. Please ensure it starts with https://arweave.net/ or ar://')
-        } else if (errorMessage.includes('ArithmeticOverflow')) {
-          throw new Error('Invalid input values. Please check your headline, content, and ensure you have sufficient SOL balance.')
-        } else if (errorMessage.includes('ConstraintSeeds')) {
-          throw new Error('Account validation failed. Please try again with a different nonce.')
-        } else if (errorMessage.includes('Transaction verification failed')) {
-          throw new Error('Transaction completed but verification failed. The story may not be properly created. Please try again.')
-        } else {
-          throw new Error(`Onchain publish failed: ${errorMessage}`)
-        }
-      }
-
-      const isBlockchainSkipped = txSignature.startsWith('already-processed-')
-      
-      // Save to database only after successful onchain transaction
+      // Save to database first (no on-chain publishing yet)
       
       const storyData = {
         headline: formData.headline,
@@ -365,7 +300,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
         originalUrl: uniqueUrl, // Using the unique URL to avoid conflicts
         arweaveUrl: safeArweaveResult.arweaveUrl,
         arweaveId: safeArweaveResult.arweaveId,
-        onchainSignature: txSignature,
+        onchainSignature: 'pending-on-chain-publishing-' + Date.now(), // Placeholder signature
         authorAddress: publicKey?.toString(), // Using publicKey from wallet
         nonce: uniqueNonce.toString(), // Using uniqueNonce
         tags: formData.tags,
@@ -395,12 +330,72 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
       const savedStory = await response.json()
 
+      // Now publish on-chain with the user's wallet
+      if (connected && publicKey) {
+        try {
+          setOnChainPublishing(true)
+          setOnChainResult({ success: false, error: "Publishing on-chain..." })
+
+          console.log('🚀 Publishing story on-chain with user wallet...')
+
+          // Call the on-chain publishing with user's wallet
+          const onChainSignature = await publishOnchain({
+            headline: formData.headline,
+            arweaveLink: safeArweaveResult.arweaveUrl,
+            initialSupply: formData.initialSupply,
+            basePrice: formData.basePrice,
+            nonce: uniqueNonce,
+          })
+
+          if (onChainSignature) {
+            console.log('✅ On-chain publishing successful:', onChainSignature)
+            
+            // Derive the account addresses (same as in the contract)
+            const newsPda = pdas.findNewsPda(publicKey, uniqueNonce)
+            const mintPda = pdas.findMintPda(newsPda)
+            const marketPda = pdas.findMarketPda(newsPda)
+
+            // Update the token record with on-chain addresses
+            const updateResponse = await fetch('/api/story/update-token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                storyId: savedStory.id,
+                mintAccount: mintPda.toString(),
+                marketAccount: marketPda.toString(),
+                newsAccount: newsPda.toString(),
+                signature: onChainSignature
+              }),
+            })
+
+            if (updateResponse.ok) {
+              setOnChainResult({ success: true, signature: onChainSignature })
+              console.log('✅ Token record updated with on-chain addresses')
+            } else {
+              console.warn('⚠️ Failed to update token record:', await updateResponse.text())
+              setOnChainResult({ success: true, signature: onChainSignature, error: "Published on-chain but failed to update database" })
+            }
+          } else {
+            throw new Error('No signature returned from on-chain publishing')
+          }
+        } catch (onChainError) {
+          console.error('❌ On-chain publishing failed:', onChainError)
+          setOnChainResult({ 
+            success: false, 
+            error: onChainError instanceof Error ? onChainError.message : 'Unknown error' 
+          })
+        } finally {
+          setOnChainPublishing(false)
+        }
+      }
 
       toast({
         title: "Success",
-        description: isBlockchainSkipped 
-          ? "Story published successfully on Arweave and saved to database! (Blockchain transaction was already processed)"
-          : "Story published successfully on both Arweave and blockchain!",
+        description: onChainResult?.success 
+          ? "Story published successfully on Arweave, blockchain, and database!"
+          : "Story published on Arweave and database! (On-chain publishing in progress...)",
       })
 
       // Reset form
@@ -414,6 +409,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
       })
       setTagInput("")
       setArweaveResult(null)
+      setOnChainResult(null)
       setUsedNonces(new Set()) // Clear used nonces on successful submission
       usedNoncesRef.current.clear() // Clear ref as well
       nonceCounterRef.current = 0 // Reset counter
@@ -526,7 +522,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 value={formData.headline}
                 onChange={(e) => setFormData(prev => ({ ...prev, headline: e.target.value }))}
                 required
-                disabled={loading}
+                disabled={loading || onChainPublishing}
               />
             </div>
 
@@ -538,7 +534,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 value={formData.content}
                 onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                 required
-                disabled={loading}
+                disabled={loading || onChainPublishing}
                 rows={4}
               />
             </div>
@@ -552,7 +548,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 value={formData.originalUrl}
                 onChange={(e) => setFormData(prev => ({ ...prev, originalUrl: e.target.value }))}
                 required
-                disabled={loading}
+                disabled={loading || onChainPublishing}
               />
             </div>
 
@@ -565,7 +561,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  disabled={loading}
+                  disabled={loading || onChainPublishing}
                 />
                 <Button type="button" variant="outline" onClick={addTag} disabled={!tagInput.trim() || loading}>
                   <Plus className="w-4 h-4" />
@@ -579,7 +575,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        disabled={loading}
+                        disabled={loading || onChainPublishing}
                         className="ml-1 hover:bg-destructive/20 rounded-full p-0.5 disabled:opacity-50"
                       >
                         <X className="w-3 h-3" />
@@ -601,7 +597,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                   placeholder="100"
                   value={formData.initialSupply}
                   onChange={(e) => setFormData(prev => ({ ...prev, initialSupply: parseInt(e.target.value) || 100 }))}
-                  disabled={loading}
+                  disabled={loading || onChainPublishing}
                 />
                 <p className="text-xs text-muted-foreground">100 - 10,000 tokens</p>
               </div>
@@ -616,7 +612,7 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                   placeholder="1000000"
                   value={formData.basePrice}
                   onChange={(e) => setFormData(prev => ({ ...prev, basePrice: parseInt(e.target.value) || 1000000 }))}
-                  disabled={loading}
+                  disabled={loading || onChainPublishing}
                 />
                 <p className="text-xs text-muted-foreground">1 lamport - 1 SOL</p>
               </div>
@@ -639,6 +635,46 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 </a>
               </div>
             )}
+
+            {/* On-chain publishing status */}
+            {onChainResult && (
+              <div className={`p-3 rounded-lg ${
+                onChainResult.success 
+                  ? 'bg-green-50 dark:bg-green-950' 
+                  : 'bg-yellow-50 dark:bg-yellow-950'
+              }`}>
+                <div className={`flex items-center gap-2 text-sm ${
+                  onChainResult.success 
+                    ? 'text-green-700 dark:text-green-300' 
+                    : 'text-yellow-700 dark:text-yellow-300'
+                }`}>
+                  <div className={`w-4 h-4 rounded-full ${
+                    onChainResult.success ? 'bg-green-500' : 'bg-yellow-500'
+                  }`} />
+                  <span>
+                    {onChainResult.success ? 'Published on Blockchain:' : 'On-chain Publishing:'}
+                  </span>
+                </div>
+                {onChainResult.success && onChainResult.signature ? (
+                  <a 
+                    href={`https://explorer.solana.com/tx/${onChainResult.signature}?cluster=devnet`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-green-600 dark:text-green-400 hover:underline break-all"
+                  >
+                    {onChainResult.signature}
+                  </a>
+                ) : onChainResult.error ? (
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                    {onChainResult.error}
+                  </div>
+                ) : (
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                    Publishing in progress...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading || isSubmitting}>
@@ -646,12 +682,12 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
             </Button>
             <Button
               type="submit"
-              disabled={loading || isSubmitting}
+              disabled={loading || isSubmitting || onChainPublishing}
               onClick={() => {
                 if (!connected) setWalletModalVisible(true)
               }}
             >
-              {loading || isSubmitting ? "Publishing..." : !connected ? "Connect Wallet" : "Create Story"}
+              {loading || isSubmitting ? "Publishing..." : onChainPublishing ? "Publishing on-chain..." : !connected ? "Connect Wallet" : "Create Story"}
             </Button>
             {!connected && (
               <div className="text-xs text-muted-foreground mt-2">

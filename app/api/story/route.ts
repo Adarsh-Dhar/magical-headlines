@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify onchain transaction exists (basic validation)
-    // Allow placeholder signatures for already-processed transactions
-    const isPlaceholderSignature = onchainSignature.startsWith('already-processed-')
+    // Allow placeholder signatures for already-processed transactions or pending on-chain publishing
+    const isPlaceholderSignature = onchainSignature.startsWith('already-processed-') || onchainSignature.startsWith('pending-on-chain-publishing-')
     // console.log removed for production
     
     if (!onchainSignature || (!isPlaceholderSignature && onchainSignature.length < 80)) {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 // console.log removed for production
 
     // Create associated token
-    await prisma.token.create({
+    const token = await prisma.token.create({
       data: {
         storyId: story.id,
         price: 0.01,
@@ -113,6 +113,10 @@ export async function POST(request: NextRequest) {
         marketCap: 0
       }
     })
+
+    // Note: On-chain publishing will be handled by the frontend
+    // The story is created in the database first, then the frontend
+    // will call the on-chain publishing and update the token record
 
     // Connect tags if any
     if (tags.length > 0) {
@@ -134,7 +138,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch the complete story with all relations
+    // Fetch the complete story with all relations (including updated token data)
     const completeStory = await prisma.story.findUnique({
       where: { id: story.id },
       include: {
@@ -149,6 +153,19 @@ export async function POST(request: NextRequest) {
         token: true
       }
     })
+
+    // Transform token field names for backward compatibility
+    if (completeStory?.token) {
+      completeStory.token = {
+        ...completeStory.token,
+        mintAccount: completeStory.token.mintAccount,
+        marketAccount: completeStory.token.marketAccount,
+        newsAccount: completeStory.token.newsAccount,
+        // Keep old field names for backward compatibility
+        mint: completeStory.token.mintAccount,
+        market: completeStory.token.marketAccount
+      } as any
+    }
 
     // Notify subscribers (DB + real-time)
     try {
@@ -235,6 +252,18 @@ export async function GET(request: NextRequest) {
         )
       }
       
+      // Transform token field names to match frontend expectations
+      if (story.token) {
+        story.token = {
+          ...story.token,
+          mintAccount: story.token.mintAccount,
+          marketAccount: story.token.marketAccount,
+          // Keep old field names for backward compatibility
+          mint: story.token.mintAccount,
+          market: story.token.marketAccount
+        } as any
+      }
+      
       return NextResponse.json(story)
     }
     
@@ -310,8 +339,23 @@ export async function GET(request: NextRequest) {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
+    // Transform token field names for all stories
+    const transformedStories = stories.map(story => {
+      if (story.token) {
+        story.token = {
+          ...story.token,
+          mintAccount: story.token.mintAccount,
+          marketAccount: story.token.marketAccount,
+          // Keep old field names for backward compatibility
+          mint: story.token.mintAccount,
+          market: story.token.marketAccount
+        } as any
+      }
+      return story
+    })
+
     return NextResponse.json({
-      stories,
+      stories: transformedStories,
       pagination: {
         page,
         limit,

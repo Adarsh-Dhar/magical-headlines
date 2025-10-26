@@ -127,6 +127,8 @@ model Trade {
   type         TradeType
   amount       Float
   priceAtTrade Float
+  costInSol    Float
+  signature    String?
 
   traderId     String
   trader       User      @relation(fields: [traderId], references: [id])
@@ -135,6 +137,8 @@ model Trade {
   token        Token     @relation(fields: [tokenId], references: [id])
 
   timestamp    DateTime  @default(now())
+
+  @@index([traderId, timestamp])
 }
 
 // Minute-granularity volume in SOL per token

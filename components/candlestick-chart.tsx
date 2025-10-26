@@ -44,7 +44,7 @@ export function CandlestickChart({
     newsAccountAddress: newsAccountAddress || "",
     mintAddress: mintAddress || "",
     enabled: live && !!marketAddress && !!newsAccountAddress && !!mintAddress,
-    refreshInterval: 5000, // Update every 5 seconds
+    refreshInterval: 15000, // Update every 15 seconds to reduce rate limiting
   })
 
   // Get 24h/1m candles derived from price-history + merged live price
@@ -53,7 +53,7 @@ export function CandlestickChart({
     marketAddress,
     newsAccountAddress,
     mintAddress,
-    refreshInterval: 5000,
+    refreshInterval: 15000, // Update every 15 seconds to reduce rate limiting
   })
 
   // Reflect hook candles into local state for chart draw; avoid redundant sets

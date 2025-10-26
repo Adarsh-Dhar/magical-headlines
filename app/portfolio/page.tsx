@@ -5,9 +5,10 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { TrendingUpIcon, TrendingDownIcon, WalletIcon, RefreshCwIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, WalletIcon, RefreshCwIcon, HistoryIcon, PackageIcon } from "lucide-react"
 import { useContract } from "@/lib/use-contract"
 import { useWallet } from "@solana/wallet-adapter-react"
+import { TradeHistory } from "@/components/trade-history"
 
 interface PortfolioHolding {
   newsAccount: string;
@@ -40,6 +41,7 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectingTokens, setDetectingTokens] = useState(false);
+  const [activeTab, setActiveTab] = useState<'holdings' | 'trades'>('holdings');
 
   const loadPortfolioData = async () => {
     if (!connected || !publicKey) {
@@ -171,143 +173,185 @@ export default function PortfolioPage() {
 
         <Card>
           <div className="p-6 border-b">
-            <h2 className="text-xl font-bold">Holdings</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Portfolio Overview</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant={activeTab === 'holdings' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('holdings')}
+                  className="flex items-center gap-2"
+                >
+                  <PackageIcon className="w-4 h-4" />
+                  Holdings
+                </Button>
+                <Button
+                  variant={activeTab === 'trades' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('trades')}
+                  className="flex items-center gap-2"
+                >
+                  <HistoryIcon className="w-4 h-4" />
+                  Trade History
+                </Button>
+              </div>
+            </div>
           </div>
           
-          {error && (
-            <div className="p-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-800">{error}</p>
-              </div>
-            </div>
-          )}
-          
-          {loading && (
-            <div className="p-6">
-              <div className="flex items-center justify-center py-8">
-                <RefreshCwIcon className="w-6 h-6 animate-spin mr-2" />
-                <div>
-                  <span>Loading portfolio data...</span>
-                  {detectingTokens && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Detecting news tokens from your wallet...
-                    </p>
-                  )}
+          {activeTab === 'holdings' && (
+            <>
+              {error && (
+                <div className="p-6">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800">{error}</p>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+              
+              {loading && (
+                <div className="p-6">
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCwIcon className="w-6 h-6 animate-spin mr-2" />
+                    <div>
+                      <span>Loading portfolio data...</span>
+                      {detectingTokens && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Detecting news tokens from your wallet...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!loading && !error && portfolioHoldings.length === 0 && (
+                <div className="p-6">
+                  <div className="text-center py-8">
+                    <WalletIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Holdings Found</h3>
+                    <p className="text-muted-foreground">
+                      {connected 
+                        ? "You don't have any news tokens in your portfolio yet. Start by purchasing some tokens from the marketplace!"
+                        : "Connect your wallet to view your portfolio holdings."
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {!loading && !error && portfolioHoldings.length > 0 && (
+                <div>
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                    <p className="text-green-800 text-sm">
+                      ✅ Found {portfolioHoldings.length} news token{portfolioHoldings.length !== 1 ? 's' : ''} in your portfolio
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-4 font-semibold">Token</th>
+                      <th className="text-left p-4 font-semibold">Headline</th>
+                      <th className="text-right p-4 font-semibold">Your Balance</th>
+                      <th className="text-right p-4 font-semibold">% of Supply</th>
+                      <th className="text-right p-4 font-semibold">Current Price</th>
+                      <th className="text-right p-4 font-semibold">Total Value</th>
+                      <th className="text-right p-4 font-semibold">Total Supply</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {portfolioHoldings.map((holding) => {
+                      const totalSupply = parseFloat(holding.marketData.currentSupply || '0');
+                      const userBalance = holding.amount;
+                      // Prefer precomputed market share percent; fallback to compute
+                      const percentageOwned = typeof holding.marketSharePercent === 'number'
+                        ? holding.marketSharePercent
+                        : (totalSupply > 0 ? (userBalance / totalSupply) * 100 : 0);
+                      
+                      return (
+                        <tr key={holding.mint} className="border-t hover:bg-accent/50 transition-colors">
+                          <td className="p-4">
+                            <Badge variant="outline" className="font-mono">
+                              {holding.mint.slice(0, 8)}...
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            <p className="font-medium">{holding.headline}</p>
+                            <p className="text-sm text-muted-foreground">
+                              by {holding.author.slice(0, 8)}...
+                            </p>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="font-bold text-lg text-primary">
+                                {userBalance > 0 ? 
+                                  (userBalance >= 1 ? userBalance.toFixed(0) : userBalance.toFixed(9)) : 
+                                  '0'
+                                }
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                tokens owned
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex flex-col items-end">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`font-bold text-lg ${
+                                  percentageOwned >= 10 ? 'text-green-600' : 
+                                  percentageOwned >= 5 ? 'text-yellow-600' : 
+                                  'text-muted-foreground'
+                                }`}>
+                                  {formatPercent(percentageOwned, 6)}
+                                </span>
+                                <Badge variant="secondary" className="ml-2">
+                                  Share
+                                </Badge>
+                              </div>
+                              <div className="w-32">
+                                <Progress value={Math.min(percentageOwned, 100)} />
+                              </div>
+                              <span className="text-xs text-muted-foreground mt-1">
+                                of total supply
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-bold">${holding.currentPrice.toFixed(6)}</span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="font-bold text-green-600">
+                              ${holding.totalValue.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className="text-sm text-muted-foreground">
+                              {totalSupply.toLocaleString(undefined, { maximumFractionDigits: 9 })}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
-          
-          {!loading && !error && portfolioHoldings.length === 0 && (
+
+          {activeTab === 'trades' && publicKey && (
+            <TradeHistory userAddress={publicKey.toString()} />
+          )}
+
+          {activeTab === 'trades' && !publicKey && (
             <div className="p-6">
               <div className="text-center py-8">
-                <WalletIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Holdings Found</h3>
+                <HistoryIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Connect Wallet to View Trade History</h3>
                 <p className="text-muted-foreground">
-                  {connected 
-                    ? "You don't have any news tokens in your portfolio yet. Start by purchasing some tokens from the marketplace!"
-                    : "Connect your wallet to view your portfolio holdings."
-                  }
+                  Please connect your wallet to view your trading history.
                 </p>
-              </div>
-            </div>
-          )}
-          
-          {!loading && !error && portfolioHoldings.length > 0 && (
-            <div>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
-                <p className="text-green-800 text-sm">
-                  ✅ Found {portfolioHoldings.length} news token{portfolioHoldings.length !== 1 ? 's' : ''} in your portfolio
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-left p-4 font-semibold">Token</th>
-                  <th className="text-left p-4 font-semibold">Headline</th>
-                  <th className="text-right p-4 font-semibold">Your Balance</th>
-                  <th className="text-right p-4 font-semibold">% of Supply</th>
-                  <th className="text-right p-4 font-semibold">Current Price</th>
-                  <th className="text-right p-4 font-semibold">Total Value</th>
-                  <th className="text-right p-4 font-semibold">Total Supply</th>
-                </tr>
-              </thead>
-              <tbody>
-                {portfolioHoldings.map((holding) => {
-                  const totalSupply = parseFloat(holding.marketData.currentSupply || '0');
-                  const userBalance = holding.amount;
-                  // Prefer precomputed market share percent; fallback to compute
-                  const percentageOwned = typeof holding.marketSharePercent === 'number'
-                    ? holding.marketSharePercent
-                    : (totalSupply > 0 ? (userBalance / totalSupply) * 100 : 0);
-                  
-                  return (
-                    <tr key={holding.mint} className="border-t hover:bg-accent/50 transition-colors">
-                      <td className="p-4">
-                        <Badge variant="outline" className="font-mono">
-                          {holding.mint.slice(0, 8)}...
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <p className="font-medium">{holding.headline}</p>
-                        <p className="text-sm text-muted-foreground">
-                          by {holding.author.slice(0, 8)}...
-                        </p>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="font-bold text-lg text-primary">
-                            {userBalance > 0 ? 
-                              (userBalance >= 1 ? userBalance.toFixed(0) : userBalance.toFixed(9)) : 
-                              '0'
-                            }
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            tokens owned
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`font-bold text-lg ${
-                              percentageOwned >= 10 ? 'text-green-600' : 
-                              percentageOwned >= 5 ? 'text-yellow-600' : 
-                              'text-muted-foreground'
-                            }`}>
-                              {formatPercent(percentageOwned, 6)}
-                            </span>
-                            <Badge variant="secondary" className="ml-2">
-                              Share
-                            </Badge>
-                          </div>
-                          <div className="w-32">
-                            <Progress value={Math.min(percentageOwned, 100)} />
-                          </div>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            of total supply
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="font-bold">${holding.currentPrice.toFixed(6)}</span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="font-bold text-green-600">
-                          ${holding.totalValue.toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="text-sm text-muted-foreground">
-                          {totalSupply.toLocaleString(undefined, { maximumFractionDigits: 9 })}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-                </tbody>
-              </table>
               </div>
             </div>
           )}
