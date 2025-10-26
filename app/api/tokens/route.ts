@@ -225,3 +225,56 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+// POST /api/tokens - Get tokens by mint accounts
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { mintAccounts } = body;
+
+    if (!mintAccounts || !Array.isArray(mintAccounts)) {
+      return NextResponse.json(
+        { error: "mintAccounts array is required" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch tokens by mint accounts
+    const tokens = await prisma.token.findMany({
+      where: {
+        mintAccount: {
+          in: mintAccounts
+        }
+      },
+      select: {
+        id: true,
+        mintAccount: true,
+        marketAccount: true,
+        newsAccount: true,
+        price: true,
+        priceChange24h: true,
+        volume24h: true,
+        marketCap: true,
+        story: {
+          select: {
+            id: true,
+            headline: true,
+            authorAddress: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({
+      tokens,
+      count: tokens.length
+    });
+
+  } catch (error) {
+    console.error("Error fetching tokens by mint accounts:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

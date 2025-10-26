@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { TrendingUpIcon, TrendingDownIcon, WalletIcon, RefreshCwIcon, HistoryIcon, PackageIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, WalletIcon, RefreshCwIcon, HistoryIcon, PackageIcon, BarChart3Icon } from "lucide-react"
 import { useContract } from "@/lib/use-contract"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { TradeHistory } from "@/components/trade-history"
+import { ProfitLossStatement } from "@/components/profit-loss-statement"
 
 interface PortfolioHolding {
   newsAccount: string;
@@ -41,7 +42,33 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectingTokens, setDetectingTokens] = useState(false);
-  const [activeTab, setActiveTab] = useState<'holdings' | 'trades'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'trades' | 'pnl'>('holdings');
+  const [tokenIdMap, setTokenIdMap] = useState<Record<string, string>>({});
+
+  const fetchTokenIdsByMint = async (mintAccounts: string[]) => {
+    try {
+      const response = await fetch('/api/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mintAccounts })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const mapping: Record<string, string> = {};
+        data.tokens?.forEach((token: any) => {
+          if (token.mintAccount) {
+            mapping[token.mintAccount] = token.id;
+          }
+        });
+        setTokenIdMap(mapping);
+        return mapping;
+      }
+    } catch (error) {
+      console.error('Failed to fetch token IDs:', error);
+    }
+    return {};
+  };
 
   const loadPortfolioData = async () => {
     if (!connected || !publicKey) {
@@ -69,6 +96,12 @@ export default function PortfolioPage() {
       // console.log("Token statistics:", tokenStats);
       
       setPortfolioHoldings(newsTokens);
+      
+      // Fetch token IDs for P&L analysis
+      if (newsTokens.length > 0) {
+        const mintAccounts = newsTokens.map(token => token.mint);
+        await fetchTokenIdsByMint(mintAccounts);
+      }
       
     } catch (err) {
       // console.error("Error loading portfolio:", err);
@@ -193,6 +226,15 @@ export default function PortfolioPage() {
                 >
                   <HistoryIcon className="w-4 h-4" />
                   Trade History
+                </Button>
+                <Button
+                  variant={activeTab === 'pnl' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('pnl')}
+                  className="flex items-center gap-2"
+                >
+                  <BarChart3Icon className="w-4 h-4" />
+                  P&L Analysis
                 </Button>
               </div>
             </div>
@@ -351,6 +393,69 @@ export default function PortfolioPage() {
                 <h3 className="text-lg font-semibold mb-2">Connect Wallet to View Trade History</h3>
                 <p className="text-muted-foreground">
                   Please connect your wallet to view your trading history.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pnl' && publicKey && (
+            <div className="p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">Portfolio P&L Analysis</h3>
+                <p className="text-muted-foreground">
+                  Detailed profit and loss analysis for each token in your portfolio
+                </p>
+              </div>
+              
+              {portfolioHoldings.length === 0 ? (
+                <div className="text-center py-8">
+                  <BarChart3Icon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Holdings for P&L Analysis</h3>
+                  <p className="text-muted-foreground">
+                    You need to have token holdings to view profit/loss analysis.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {portfolioHoldings.map((holding) => {
+                    const tokenId = tokenIdMap[holding.mint];
+                    if (!tokenId) {
+                      return (
+                        <Card key={holding.mint} className="p-4 mb-4">
+                          <div className="text-center py-4">
+                            <p className="text-muted-foreground">
+                              P&L data not available for {holding.headline}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Token not found in database
+                            </p>
+                          </div>
+                        </Card>
+                      );
+                    }
+                    
+                    return (
+                      <ProfitLossStatement
+                        key={holding.mint}
+                        tokenId={tokenId}
+                        userAddress={publicKey.toString()}
+                        currentPrice={holding.currentPrice}
+                        className="mb-4"
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'pnl' && !publicKey && (
+            <div className="p-6">
+              <div className="text-center py-8">
+                <BarChart3Icon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Connect Wallet to View P&L Analysis</h3>
+                <p className="text-muted-foreground">
+                  Please connect your wallet to view your profit and loss analysis.
                 </p>
               </div>
             </div>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
 import { CandlestickChart } from "@/components/candlestick-chart"
 import { TokenOrderBook } from "@/components/token-order-book"
+import { ProfitLossStatement } from "@/components/profit-loss-statement"
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -1693,6 +1694,15 @@ const StoryDetailPage = memo(function StoryDetailPage() {
                 </div>
               )}
             </Card>
+
+            {/* Profit/Loss Statement - Only show when user is connected and token exists */}
+            {connected && publicKey && story?.token && (
+              <ProfitLossStatement 
+                tokenId={story.token.id} 
+                userAddress={publicKey.toString()}
+                currentPrice={currentPrice || story.token.price}
+              />
+            )}
 
             {/* Order Book - Only show when token exists */}
             {story?.token && (
