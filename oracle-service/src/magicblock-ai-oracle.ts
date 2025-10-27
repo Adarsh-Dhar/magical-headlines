@@ -1,4 +1,4 @@
-import { AITrendCalculator, TrendCalculationResult } from "./ai-trend-calculator";
+import { TrendCalculationResult } from "./ai-trend-calculator";
 import { Connection, Keypair, Transaction, PublicKey } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { NewsPlatform } from "../../contract/target/types/news_platform";
@@ -9,19 +9,17 @@ import { PrismaClient } from "@prisma/client";
 export interface MagicBlockConfig {
   rpcUrl: string;
   sessionKeypair: string;
-  fallbackProvider: 'gemini' | 'openai';
 }
 
 export interface MagicBlockAIResponse {
   success: boolean;
   result?: TrendCalculationResult;
   error?: string;
-  provider: 'magicblock' | 'fallback';
+  provider: 'magicblock';
 }
 
 export class MagicBlockAIOracle {
   private config: MagicBlockConfig;
-  private aiCalculator: AITrendCalculator;
   private circuitBreakerOpen: boolean = false;
   private circuitBreakerFailures: number = 0;
   private circuitBreakerThreshold: number = 5;
@@ -29,10 +27,19 @@ export class MagicBlockAIOracle {
   private connection?: Connection;
   private sessionKeypair?: Keypair;
   private prisma: PrismaClient;
+  private magicBlockCalls: number = 0;
+  private magicBlockFailures: number = 0;
 
   constructor(config: MagicBlockConfig) {
+    // Validate required configuration
+    if (!config.rpcUrl || config.rpcUrl.trim() === "") {
+      throw new Error("MAGICBLOCK_RPC_URL is required - no fallback available");
+    }
+    if (!config.sessionKeypair || config.sessionKeypair.trim() === "") {
+      throw new Error("MAGICBLOCK_SESSION_KEYPAIR is required - no fallback available");
+    }
+    
     this.config = config;
-    this.aiCalculator = new AITrendCalculator();
     this.prisma = new PrismaClient();
     this.initializeConnection();
   }
@@ -41,39 +48,36 @@ export class MagicBlockAIOracle {
    * Initialize MagicBlock connection
    */
   private initializeConnection(): void {
+    this.connection = getConnection();
+    console.log(`Ephemeral Rollup connection initialized`);
+    
+    if (!this.config.sessionKeypair) {
+      throw new Error("MAGICBLOCK_SESSION_KEYPAIR is required");
+    }
+    
     try {
-      // Use default Solana connection - Ephemeral Rollups work with any Solana RPC
-      // The #[ephemeral] macro in the contract handles ER execution automatically
-      this.connection = getConnection();
-      console.log(`✅ Ephemeral Rollup connection initialized - transactions will execute via ER`);
-      
-      // Initialize session keypair if provided
-      if (this.config.sessionKeypair) {
-        try {
-          const secretKey = JSON.parse(this.config.sessionKeypair);
-          this.sessionKeypair = Keypair.fromSecretKey(Uint8Array.from(secretKey));
-          console.log(`✅ Session keypair loaded`);
-        } catch (error) {
-          console.warn("⚠️ Failed to load session keypair:", error);
-        }
-      }
+      const secretKey = JSON.parse(this.config.sessionKeypair);
+      this.sessionKeypair = Keypair.fromSecretKey(Uint8Array.from(secretKey));
+      console.log(`Session keypair loaded`);
     } catch (error) {
-      console.error("❌ Error initializing connection:", error);
+      throw new Error(`Failed to parse MAGICBLOCK_SESSION_KEYPAIR: ${error}`);
     }
   }
 
   /**
-   * Calculate trend index using MagicBlock AI Oracle Plugin with fallback
+   * Calculate trend index using MagicBlock AI Oracle (strict mode - no fallback)
+   * Throws error if MagicBlock is unavailable
    */
   async calculateTrendIndex(tokenId: string): Promise<MagicBlockAIResponse> {
+    this.magicBlockCalls++;
+    
     // Check circuit breaker
     if (this.circuitBreakerOpen) {
-      console.log("🔴 Circuit breaker open, using fallback provider");
-      return this.useFallbackProvider(tokenId);
+      throw new Error("MagicBlock AI Oracle unavailable - circuit breaker is open");
     }
 
     try {
-      // Try MagicBlock AI Oracle Plugin first
+      // Try MagicBlock AI Oracle Plugin
       const result = await this.callMagicBlockAI(tokenId);
       
       // Reset circuit breaker on success
@@ -86,9 +90,8 @@ export class MagicBlockAIOracle {
       };
       
     } catch (error) {
-      console.error("❌ MagicBlock AI Oracle failed:", error);
-      
-      // Increment failure count
+      console.error("MagicBlock AI Oracle failed:", error);
+      this.magicBlockFailures++;
       this.circuitBreakerFailures++;
       
       // Open circuit breaker if threshold reached
@@ -96,8 +99,8 @@ export class MagicBlockAIOracle {
         this.openCircuitBreaker();
       }
       
-      // Use fallback provider
-      return this.useFallbackProvider(tokenId);
+      // Propagate error - no fallback
+      throw new Error(`MagicBlock AI Oracle failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -157,10 +160,9 @@ export class MagicBlockAIOracle {
         }
       });
       
-      // If token doesn't have on-chain account, use fallback
+      // If token doesn't have on-chain account, throw error
       if (!token || !token.newsAccount) {
-        console.log("⚠️ Token has no on-chain account, using off-chain fallback");
-        return this.aiCalculator.calculateTrendIndex(tokenId);
+        throw new Error(`Token ${tokenId} does not have an on-chain newsAccount. Please publish the news story on-chain first using the publish_news instruction.`);
       }
       
       const newsAccountPubkey = new PublicKey(token.newsAccount);
@@ -243,32 +245,6 @@ export class MagicBlockAIOracle {
   }
 
   /**
-   * Use fallback provider (Gemini)
-   */
-  private async useFallbackProvider(tokenId: string): Promise<MagicBlockAIResponse> {
-    console.log(`🔄 Using fallback provider (${this.config.fallbackProvider}) for token ${tokenId}...`);
-    
-    try {
-      const result = await this.aiCalculator.calculateTrendIndex(tokenId);
-      
-      return {
-        success: true,
-        result,
-        provider: 'fallback'
-      };
-      
-    } catch (error) {
-      console.error("❌ Fallback provider also failed:", error);
-      
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        provider: 'fallback'
-      };
-    }
-  }
-
-  /**
    * Open circuit breaker
    */
   private openCircuitBreaker(): void {
@@ -306,17 +282,27 @@ export class MagicBlockAIOracle {
    */
   async testConnection(): Promise<boolean> {
     try {
-      console.log("🧪 Testing MagicBlock AI Oracle connection...");
+      console.log("Testing MagicBlock AI Oracle connection...");
       
-      // TODO: Implement actual connection test
-      // For now, simulate connection test
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!this.connection) {
+        throw new Error("Connection not initialized");
+      }
       
-      console.log("✅ MagicBlock AI Oracle connection test passed");
+      if (!this.sessionKeypair) {
+        throw new Error("Session keypair not loaded");
+      }
+      
+      const blockHeight = await this.connection.getBlockHeight();
+      console.log(`Connected to Solana - Block height: ${blockHeight}`);
+      
+      const programId = getProgramId();
+      console.log(`Program ID: ${programId.toString()}`);
+      
+      console.log("MagicBlock AI Oracle connection test passed");
       return true;
       
     } catch (error) {
-      console.error("❌ MagicBlock AI Oracle connection test failed:", error);
+      console.error("MagicBlock AI Oracle connection test failed:", error);
       return false;
     }
   }
@@ -324,18 +310,62 @@ export class MagicBlockAIOracle {
   /**
    * Get provider statistics
    */
-  getProviderStats(): { magicblock: { calls: number; failures: number }; fallback: { calls: number; failures: number } } {
-    // TODO: Implement actual statistics tracking
+  getProviderStats(): { magicblock: { calls: number; failures: number } } {
     return {
-      magicblock: { calls: 0, failures: 0 },
-      fallback: { calls: 0, failures: 0 }
+      magicblock: { 
+        calls: this.magicBlockCalls, 
+        failures: this.magicBlockFailures 
+      }
     };
   }
 }
 
-// Export singleton instance
-export const magicBlockAIOracle = new MagicBlockAIOracle({
-  rpcUrl: process.env.MAGICBLOCK_RPC_URL || "",
-  sessionKeypair: process.env.MAGICBLOCK_SESSION_KEYPAIR || "",
-  fallbackProvider: (process.env.AI_ORACLE_FALLBACK as 'gemini' | 'openai') || 'gemini'
-});
+// Lazy-load singleton to prevent errors on module load
+let _magicBlockAIOracle: MagicBlockAIOracle | null = null;
+
+export function getMagicBlockAIOracle(): MagicBlockAIOracle {
+  if (!_magicBlockAIOracle) {
+    const rpcUrl = process.env.MAGICBLOCK_RPC_URL || "";
+    const sessionKeypair = process.env.MAGICBLOCK_SESSION_KEYPAIR || "";
+    
+    if (!rpcUrl || !sessionKeypair) {
+      throw new Error("MagicBlock AI Oracle requires MAGICBLOCK_RPC_URL and MAGICBLOCK_SESSION_KEYPAIR environment variables to be set");
+    }
+    
+    _magicBlockAIOracle = new MagicBlockAIOracle({
+      rpcUrl,
+      sessionKeypair
+    });
+  }
+  
+  return _magicBlockAIOracle;
+}
+
+// Export a function that checks if MagicBlock is available
+export const magicBlockAIOracle = {
+  isAvailable: (): boolean => {
+    return !!(process.env.MAGICBLOCK_RPC_URL && process.env.MAGICBLOCK_SESSION_KEYPAIR);
+  },
+  calculateTrendIndex: async (tokenId: string) => {
+    if (!magicBlockAIOracle.isAvailable()) {
+      return {
+        success: false,
+        error: "MagicBlock AI Oracle not configured",
+        provider: 'magicblock'
+      };
+    }
+    return await getMagicBlockAIOracle().calculateTrendIndex(tokenId);
+  },
+  getCircuitBreakerStatus: () => {
+    if (!magicBlockAIOracle.isAvailable()) {
+      return { open: true, failures: 999, threshold: 5 };
+    }
+    return getMagicBlockAIOracle().getCircuitBreakerStatus();
+  },
+  getProviderStats: () => {
+    if (!magicBlockAIOracle.isAvailable()) {
+      return { magicblock: { calls: 0, failures: 0 } };
+    }
+    return getMagicBlockAIOracle().getProviderStats();
+  }
+};

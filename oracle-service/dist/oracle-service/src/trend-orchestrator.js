@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.trendOrchestrator = exports.TrendOrchestrator = void 0;
 const client_1 = require("@prisma/client");
 const magicblock_ai_oracle_1 = require("./magicblock-ai-oracle");
+const ai_trend_calculator_1 = require("./ai-trend-calculator");
 const prisma = new client_1.PrismaClient();
 class TrendOrchestrator {
     constructor(config) {
@@ -51,6 +52,7 @@ class TrendOrchestrator {
         this.updateTimer = setInterval(() => __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.updateActiveMarkets();
+                console.log("✅ Periodic update completed");
             }
             catch (error) {
                 console.error("❌ Error in periodic update:", error);
@@ -63,19 +65,34 @@ class TrendOrchestrator {
             console.log("🔄 Starting periodic update of active markets...");
             const activeMarkets = yield this.getActiveMarkets();
             console.log(`📊 Found ${activeMarkets.length} active markets to update`);
+            let successCount = 0;
+            let failureCount = 0;
             for (let i = 0; i < activeMarkets.length; i += this.config.batchSize) {
                 const batch = activeMarkets.slice(i, i + this.config.batchSize);
-                yield Promise.all(batch.map(market => this.updateMarketTrend(market.tokenId)));
+                yield Promise.all(batch.map((market) => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        yield this.updateMarketTrend(market.tokenId);
+                        successCount++;
+                    }
+                    catch (error) {
+                        failureCount++;
+                        console.error(`❌ Failed to update trend for token ${market.tokenId}:`, error);
+                    }
+                })));
                 if (i + this.config.batchSize < activeMarkets.length) {
                     yield new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
-            console.log("✅ Periodic update completed");
+            console.log(`✅ Periodic update completed: ${successCount} succeeded, ${failureCount} failed`);
         });
     }
     getActiveMarkets() {
         return __awaiter(this, void 0, void 0, function* () {
             const thresholdTime = new Date(Date.now() - this.config.activeMarketThresholdHours * 60 * 60 * 1000);
+            console.log(`🔍 Querying active markets with threshold: ${thresholdTime.toISOString()}`);
+            console.log(`   Threshold hours: ${this.config.activeMarketThresholdHours}`);
+            const totalTokens = yield prisma.token.count();
+            console.log(`📊 Total tokens in database: ${totalTokens}`);
             const tokens = yield prisma.token.findMany({
                 where: {
                     OR: [
@@ -87,7 +104,7 @@ class TrendOrchestrator {
                             }
                         },
                         {
-                            volume24h: { gt: 1.0 }
+                            volume24h: { gt: 0 }
                         },
                         {
                             lastTrendUpdate: { lt: thresholdTime }
@@ -106,6 +123,27 @@ class TrendOrchestrator {
                 },
                 orderBy: { volume24h: 'desc' }
             });
+            console.log(`📊 Found ${tokens.length} tokens matching active market criteria`);
+            if (tokens.length === 0) {
+                console.log(`⚠️ No tokens matched criteria. Checking all tokens...`);
+                const allTokens = yield prisma.token.findMany({
+                    select: {
+                        id: true,
+                        volume24h: true,
+                        lastTrendUpdate: true,
+                        trendIndexScore: true
+                    },
+                    take: 5
+                });
+                allTokens.forEach(token => {
+                    console.log(`   Token ${token.id}: volume=${token.volume24h}, lastUpdate=${token.lastTrendUpdate}, score=${token.trendIndexScore}`);
+                });
+            }
+            else {
+                tokens.forEach(token => {
+                    console.log(`   Token ${token.id}: volume=${token.volume24h}, trades=${token.trades.length}, lastUpdate=${token.lastTrendUpdate}`);
+                });
+            }
             return tokens.map(token => {
                 const lastTrade = token.trades[0];
                 const hoursSinceUpdate = token.lastTrendUpdate
@@ -132,30 +170,67 @@ class TrendOrchestrator {
     }
     updateMarketTrend(tokenId_1) {
         return __awaiter(this, arguments, void 0, function* (tokenId, forceUpdate = false) {
+            console.log(`\n========== TREND UPDATE START ==========`);
+            console.log(`Token ID: ${tokenId}`);
+            console.log(`Force update: ${forceUpdate}`);
             try {
                 if (!forceUpdate) {
                     const cached = this.getCachedResult(tokenId);
                     if (cached) {
-                        console.log(`📋 Using cached trend result for token ${tokenId}`);
+                        console.log(`✅ Using cached trend result for token ${tokenId}`);
                         return cached;
                     }
                 }
-                console.log(`🤖 Calculating trend index for token ${tokenId}...`);
-                const response = yield magicblock_ai_oracle_1.magicBlockAIOracle.calculateTrendIndex(tokenId);
-                if (!response.success || !response.result) {
-                    console.error(`❌ Failed to calculate trend for token ${tokenId}:`, response.error);
-                    return null;
+                console.log(`🔄 Calculating fresh trend index for token ${tokenId}...`);
+                let result;
+                if (magicblock_ai_oracle_1.magicBlockAIOracle.isAvailable()) {
+                    console.log(`📞 Calling magicBlockAIOracle.calculateTrendIndex(${tokenId})...`);
+                    try {
+                        const response = yield magicblock_ai_oracle_1.magicBlockAIOracle.calculateTrendIndex(tokenId);
+                        console.log(`📥 Response received:`, {
+                            success: response.success,
+                            hasResult: !!response.result,
+                            error: response.error,
+                            provider: response.provider
+                        });
+                        if (response.success && response.result) {
+                            result = response.result;
+                            console.log(`✅ MagicBlock AI calculation successful`);
+                        }
+                        else {
+                            throw new Error(`MagicBlock calculation failed: ${response.error}`);
+                        }
+                    }
+                    catch (magicBlockError) {
+                        console.log(`⚠️ MagicBlock failed, using Gemini AI fallback...`);
+                        console.log(`   Error: ${magicBlockError.message}`);
+                        result = yield ai_trend_calculator_1.aiTrendCalculator.calculateTrendIndex(tokenId);
+                        console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
+                    }
                 }
-                const result = response.result;
-                console.log(`✅ Trend calculation complete for token ${tokenId}: score=${result.score}, provider=${response.provider}`);
+                else {
+                    console.log(`📞 MagicBlock not configured, using Gemini AI...`);
+                    result = yield ai_trend_calculator_1.aiTrendCalculator.calculateTrendIndex(tokenId);
+                    console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
+                }
+                console.log(`   Confidence: ${result.confidence}`);
+                console.log(`   Timestamp: ${result.timestamp}`);
+                console.log(`💾 Updating database...`);
                 yield this.updateDatabase(tokenId, result);
+                console.log(`🗄️ Updating cache...`);
                 this.setCachedResult(tokenId, result);
+                console.log(`⛓️ Updating on-chain...`);
                 yield this.updateOnChain(tokenId, result);
+                console.log(`========== TREND UPDATE SUCCESS ==========\n`);
                 return result;
             }
             catch (error) {
-                console.error(`❌ Error updating trend for token ${tokenId}:`, error);
-                return null;
+                console.error(`\n========== TREND UPDATE FAILED ==========`);
+                console.error(`Token ID: ${tokenId}`);
+                console.error(`Error: ${error}`);
+                console.error(`Error stack:`, error.stack);
+                console.error(`==========================================\n`);
+                throw error;
             }
         });
     }

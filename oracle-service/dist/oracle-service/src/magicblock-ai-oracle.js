@@ -46,7 +46,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.magicBlockAIOracle = exports.MagicBlockAIOracle = void 0;
-const ai_trend_calculator_1 = require("./ai-trend-calculator");
+exports.getMagicBlockAIOracle = getMagicBlockAIOracle;
 const web3_js_1 = require("@solana/web3.js");
 const anchor = __importStar(require("@coral-xyz/anchor"));
 const news_platform_json_1 = __importDefault(require("../../contract/target/idl/news_platform.json"));
@@ -58,35 +58,38 @@ class MagicBlockAIOracle {
         this.circuitBreakerFailures = 0;
         this.circuitBreakerThreshold = 5;
         this.circuitBreakerTimeout = 60000;
+        this.magicBlockCalls = 0;
+        this.magicBlockFailures = 0;
+        if (!config.rpcUrl || config.rpcUrl.trim() === "") {
+            throw new Error("MAGICBLOCK_RPC_URL is required - no fallback available");
+        }
+        if (!config.sessionKeypair || config.sessionKeypair.trim() === "") {
+            throw new Error("MAGICBLOCK_SESSION_KEYPAIR is required - no fallback available");
+        }
         this.config = config;
-        this.aiCalculator = new ai_trend_calculator_1.AITrendCalculator();
         this.prisma = new client_1.PrismaClient();
         this.initializeConnection();
     }
     initializeConnection() {
+        this.connection = (0, config_1.getConnection)();
+        console.log(`Ephemeral Rollup connection initialized`);
+        if (!this.config.sessionKeypair) {
+            throw new Error("MAGICBLOCK_SESSION_KEYPAIR is required");
+        }
         try {
-            this.connection = (0, config_1.getConnection)();
-            console.log(`✅ Ephemeral Rollup connection initialized - transactions will execute via ER`);
-            if (this.config.sessionKeypair) {
-                try {
-                    const secretKey = JSON.parse(this.config.sessionKeypair);
-                    this.sessionKeypair = web3_js_1.Keypair.fromSecretKey(Uint8Array.from(secretKey));
-                    console.log(`✅ Session keypair loaded`);
-                }
-                catch (error) {
-                    console.warn("⚠️ Failed to load session keypair:", error);
-                }
-            }
+            const secretKey = JSON.parse(this.config.sessionKeypair);
+            this.sessionKeypair = web3_js_1.Keypair.fromSecretKey(Uint8Array.from(secretKey));
+            console.log(`Session keypair loaded`);
         }
         catch (error) {
-            console.error("❌ Error initializing connection:", error);
+            throw new Error(`Failed to parse MAGICBLOCK_SESSION_KEYPAIR: ${error}`);
         }
     }
     calculateTrendIndex(tokenId) {
         return __awaiter(this, void 0, void 0, function* () {
+            this.magicBlockCalls++;
             if (this.circuitBreakerOpen) {
-                console.log("🔴 Circuit breaker open, using fallback provider");
-                return this.useFallbackProvider(tokenId);
+                throw new Error("MagicBlock AI Oracle unavailable - circuit breaker is open");
             }
             try {
                 const result = yield this.callMagicBlockAI(tokenId);
@@ -98,12 +101,13 @@ class MagicBlockAIOracle {
                 };
             }
             catch (error) {
-                console.error("❌ MagicBlock AI Oracle failed:", error);
+                console.error("MagicBlock AI Oracle failed:", error);
+                this.magicBlockFailures++;
                 this.circuitBreakerFailures++;
                 if (this.circuitBreakerFailures >= this.circuitBreakerThreshold) {
                     this.openCircuitBreaker();
                 }
-                return this.useFallbackProvider(tokenId);
+                throw new Error(`MagicBlock AI Oracle failed: ${error instanceof Error ? error.message : String(error)}`);
             }
         });
     }
@@ -147,8 +151,7 @@ class MagicBlockAIOracle {
                     }
                 });
                 if (!token || !token.newsAccount) {
-                    console.log("⚠️ Token has no on-chain account, using off-chain fallback");
-                    return this.aiCalculator.calculateTrendIndex(tokenId);
+                    throw new Error(`Token ${tokenId} does not have an on-chain newsAccount. Please publish the news story on-chain first using the publish_news instruction.`);
                 }
                 const newsAccountPubkey = new web3_js_1.PublicKey(token.newsAccount);
                 const [marketPda] = web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("market"), newsAccountPubkey.toBuffer()], programId);
@@ -199,27 +202,6 @@ class MagicBlockAIOracle {
             }
         });
     }
-    useFallbackProvider(tokenId) {
-        return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🔄 Using fallback provider (${this.config.fallbackProvider}) for token ${tokenId}...`);
-            try {
-                const result = yield this.aiCalculator.calculateTrendIndex(tokenId);
-                return {
-                    success: true,
-                    result,
-                    provider: 'fallback'
-                };
-            }
-            catch (error) {
-                console.error("❌ Fallback provider also failed:", error);
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : "Unknown error",
-                    provider: 'fallback'
-                };
-            }
-        });
-    }
     openCircuitBreaker() {
         this.circuitBreakerOpen = true;
         console.log("🔴 Circuit breaker opened - MagicBlock AI Oracle unavailable");
@@ -242,28 +224,76 @@ class MagicBlockAIOracle {
     testConnection() {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("🧪 Testing MagicBlock AI Oracle connection...");
-                yield new Promise(resolve => setTimeout(resolve, 1000));
-                console.log("✅ MagicBlock AI Oracle connection test passed");
+                console.log("Testing MagicBlock AI Oracle connection...");
+                if (!this.connection) {
+                    throw new Error("Connection not initialized");
+                }
+                if (!this.sessionKeypair) {
+                    throw new Error("Session keypair not loaded");
+                }
+                const blockHeight = yield this.connection.getBlockHeight();
+                console.log(`Connected to Solana - Block height: ${blockHeight}`);
+                const programId = (0, config_1.getProgramId)();
+                console.log(`Program ID: ${programId.toString()}`);
+                console.log("MagicBlock AI Oracle connection test passed");
                 return true;
             }
             catch (error) {
-                console.error("❌ MagicBlock AI Oracle connection test failed:", error);
+                console.error("MagicBlock AI Oracle connection test failed:", error);
                 return false;
             }
         });
     }
     getProviderStats() {
         return {
-            magicblock: { calls: 0, failures: 0 },
-            fallback: { calls: 0, failures: 0 }
+            magicblock: {
+                calls: this.magicBlockCalls,
+                failures: this.magicBlockFailures
+            }
         };
     }
 }
 exports.MagicBlockAIOracle = MagicBlockAIOracle;
-exports.magicBlockAIOracle = new MagicBlockAIOracle({
-    rpcUrl: process.env.MAGICBLOCK_RPC_URL || "",
-    sessionKeypair: process.env.MAGICBLOCK_SESSION_KEYPAIR || "",
-    fallbackProvider: process.env.AI_ORACLE_FALLBACK || 'gemini'
-});
+let _magicBlockAIOracle = null;
+function getMagicBlockAIOracle() {
+    if (!_magicBlockAIOracle) {
+        const rpcUrl = process.env.MAGICBLOCK_RPC_URL || "";
+        const sessionKeypair = process.env.MAGICBLOCK_SESSION_KEYPAIR || "";
+        if (!rpcUrl || !sessionKeypair) {
+            throw new Error("MagicBlock AI Oracle requires MAGICBLOCK_RPC_URL and MAGICBLOCK_SESSION_KEYPAIR environment variables to be set");
+        }
+        _magicBlockAIOracle = new MagicBlockAIOracle({
+            rpcUrl,
+            sessionKeypair
+        });
+    }
+    return _magicBlockAIOracle;
+}
+exports.magicBlockAIOracle = {
+    isAvailable: () => {
+        return !!(process.env.MAGICBLOCK_RPC_URL && process.env.MAGICBLOCK_SESSION_KEYPAIR);
+    },
+    calculateTrendIndex: (tokenId) => __awaiter(void 0, void 0, void 0, function* () {
+        if (!exports.magicBlockAIOracle.isAvailable()) {
+            return {
+                success: false,
+                error: "MagicBlock AI Oracle not configured",
+                provider: 'magicblock'
+            };
+        }
+        return yield getMagicBlockAIOracle().calculateTrendIndex(tokenId);
+    }),
+    getCircuitBreakerStatus: () => {
+        if (!exports.magicBlockAIOracle.isAvailable()) {
+            return { open: true, failures: 999, threshold: 5 };
+        }
+        return getMagicBlockAIOracle().getCircuitBreakerStatus();
+    },
+    getProviderStats: () => {
+        if (!exports.magicBlockAIOracle.isAvailable()) {
+            return { magicblock: { calls: 0, failures: 0 } };
+        }
+        return getMagicBlockAIOracle().getProviderStats();
+    }
+};
 //# sourceMappingURL=magicblock-ai-oracle.js.map

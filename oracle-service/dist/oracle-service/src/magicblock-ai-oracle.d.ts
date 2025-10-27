@@ -2,17 +2,15 @@ import { TrendCalculationResult } from "./ai-trend-calculator";
 export interface MagicBlockConfig {
     rpcUrl: string;
     sessionKeypair: string;
-    fallbackProvider: 'gemini' | 'openai';
 }
 export interface MagicBlockAIResponse {
     success: boolean;
     result?: TrendCalculationResult;
     error?: string;
-    provider: 'magicblock' | 'fallback';
+    provider: 'magicblock';
 }
 export declare class MagicBlockAIOracle {
     private config;
-    private aiCalculator;
     private circuitBreakerOpen;
     private circuitBreakerFailures;
     private circuitBreakerThreshold;
@@ -20,11 +18,12 @@ export declare class MagicBlockAIOracle {
     private connection?;
     private sessionKeypair?;
     private prisma;
+    private magicBlockCalls;
+    private magicBlockFailures;
     constructor(config: MagicBlockConfig);
     private initializeConnection;
     calculateTrendIndex(tokenId: string): Promise<MagicBlockAIResponse>;
     private callMagicBlockAI;
-    private useFallbackProvider;
     private openCircuitBreaker;
     private resetCircuitBreaker;
     getCircuitBreakerStatus(): {
@@ -38,11 +37,26 @@ export declare class MagicBlockAIOracle {
             calls: number;
             failures: number;
         };
-        fallback: {
+    };
+}
+export declare function getMagicBlockAIOracle(): MagicBlockAIOracle;
+export declare const magicBlockAIOracle: {
+    isAvailable: () => boolean;
+    calculateTrendIndex: (tokenId: string) => Promise<MagicBlockAIResponse | {
+        success: boolean;
+        error: string;
+        provider: string;
+    }>;
+    getCircuitBreakerStatus: () => {
+        open: boolean;
+        failures: number;
+        threshold: number;
+    };
+    getProviderStats: () => {
+        magicblock: {
             calls: number;
             failures: number;
         };
     };
-}
-export declare const magicBlockAIOracle: MagicBlockAIOracle;
+};
 //# sourceMappingURL=magicblock-ai-oracle.d.ts.map

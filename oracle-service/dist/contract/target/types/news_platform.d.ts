@@ -144,7 +144,9 @@ export type NewsPlatform = {
         {
             "name": "buy";
             "docs": [
-                "Buy tokens from the bonding curve with automatic delegation"
+                "Buy tokens from the bonding curve",
+                "NOTE: This runs on Ephemeral Rollup automatically due to #[ephemeral] directive",
+                "The rollup provides <50ms latency and gasless execution for users"
             ];
             "discriminator": [
                 102,
@@ -725,8 +727,9 @@ export type NewsPlatform = {
         {
             "name": "delegate";
             "docs": [
-                "Delegate the market to the delegation program",
-                "IMPORTANT: Set specific validator based on ER"
+                "Manually delegate the market to a specific ephemeral rollup validator",
+                "NOTE: With #[ephemeral] directive, this is optional - most operations are already on ER",
+                "Use this for explicit cross-rollup delegation when needed"
             ];
             "discriminator": [
                 90,
@@ -1649,7 +1652,8 @@ export type NewsPlatform = {
         {
             "name": "sell";
             "docs": [
-                "Sell tokens back to the bonding curve with commit recommendations"
+                "Sell tokens back to the bonding curve",
+                "NOTE: This runs on Ephemeral Rollup automatically due to #[ephemeral] directive"
             ];
             "discriminator": [
                 51,

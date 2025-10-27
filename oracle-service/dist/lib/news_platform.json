@@ -1,0 +1,3679 @@
+{
+  "address": "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3",
+  "metadata": {
+    "name": "news_platform",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "add_authority",
+      "docs": [
+        "Add a whitelisted oracle authority"
+      ],
+      "discriminator": [
+        229,
+        9,
+        106,
+        73,
+        91,
+        213,
+        109,
+        183
+      ],
+      "accounts": [
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle"
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "award_trophy",
+      "docs": [
+        "Award a trophy to a user"
+      ],
+      "discriminator": [
+        65,
+        149,
+        0,
+        95,
+        225,
+        132,
+        103,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user"
+        },
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "buy",
+      "docs": [
+        "Buy tokens from the bonding curve",
+        "NOTE: This runs on Ephemeral Rollup automatically due to #[ephemeral] directive",
+        "The rollup provides <50ms latency and gasless execution for users"
+      ],
+      "discriminator": [
+        102,
+        6,
+        61,
+        18,
+        1,
+        218,
+        235,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_sol_account",
+          "docs": [
+            "Market SOL account (PDA for SOL storage)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  115,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "news_account",
+          "docs": [
+            "News account for minting authority"
+          ]
+        },
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buyer_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_staking_fees",
+      "docs": [
+        "Claim accumulated staking fees"
+      ],
+      "discriminator": [
+        41,
+        122,
+        96,
+        254,
+        10,
+        172,
+        37,
+        75
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_sol_account",
+          "docs": [
+            "Market SOL account (PDA for SOL storage)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  115,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_flash_market",
+      "docs": [
+        "Close flash market and record final velocity"
+      ],
+      "discriminator": [
+        36,
+        93,
+        151,
+        173,
+        52,
+        232,
+        32,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "final_velocity",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "commit",
+      "docs": [
+        "Commit rollup state back to main chain"
+      ],
+      "discriminator": [
+        223,
+        140,
+        142,
+        165,
+        229,
+        208,
+        156,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "rollup_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_supply",
+          "type": "u64"
+        },
+        {
+          "name": "new_reserves",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "compute_ai_trend_index",
+      "docs": [
+        "Compute AI trend index on-chain within an Ephemeral Rollup session",
+        "This instruction accepts market factors and computes the adaptive trend score",
+        "The computation happens within ER for <50ms latency and gasless execution"
+      ],
+      "discriminator": [
+        144,
+        47,
+        53,
+        69,
+        212,
+        59,
+        232,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sentiment",
+          "type": "i64"
+        },
+        {
+          "name": "trading_velocity",
+          "type": "u64"
+        },
+        {
+          "name": "volume_spike",
+          "type": "i64"
+        },
+        {
+          "name": "price_momentum",
+          "type": "i64"
+        },
+        {
+          "name": "social_activity",
+          "type": "u64"
+        },
+        {
+          "name": "holder_momentum",
+          "type": "u64"
+        },
+        {
+          "name": "cross_market_corr",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "create_flash_market",
+      "docs": [
+        "Create a flash trend market for high-frequency velocity trading"
+      ],
+      "discriminator": [
+        36,
+        96,
+        101,
+        221,
+        76,
+        104,
+        181,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "initial_velocity",
+          "type": "i64"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "delegate",
+      "docs": [
+        "Manually delegate the market to a specific ephemeral rollup validator",
+        "NOTE: With #[ephemeral] directive, this is optional - most operations are already on ER",
+        "Use this for explicit cross-rollup delegation when needed"
+      ],
+      "discriminator": [
+        90,
+        147,
+        75,
+        178,
+        85,
+        88,
+        4,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "validator",
+          "optional": true
+        },
+        {
+          "name": "buffer_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                241,
+                70,
+                137,
+                76,
+                211,
+                31,
+                181,
+                249,
+                158,
+                211,
+                17,
+                61,
+                131,
+                176,
+                19,
+                217,
+                157,
+                116,
+                72,
+                19,
+                157,
+                227,
+                182,
+                73,
+                38,
+                227,
+                31,
+                249,
+                208,
+                32,
+                137,
+                20
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_pda",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pda"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "pda",
+          "docs": [
+            "CHECK The pda to delegate"
+          ],
+          "writable": true
+        },
+        {
+          "name": "owner_program",
+          "address": "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_all_news_tokens",
+      "docs": [
+        "Get all news tokens with optional filtering and pagination",
+        "This is a view function that doesn't modify state"
+      ],
+      "discriminator": [
+        32,
+        132,
+        53,
+        119,
+        89,
+        118,
+        103,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "requester",
+          "docs": [
+            "The account requesting the news tokens"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "offset",
+          "type": "u32"
+        },
+        {
+          "name": "limit",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "get_current_price",
+      "docs": [
+        "Get the current price for buying 1 token"
+      ],
+      "discriminator": [
+        82,
+        101,
+        90,
+        124,
+        192,
+        68,
+        89,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_market_cap",
+      "docs": [
+        "Get the market cap in lamports (price * circulating_supply)"
+      ],
+      "discriminator": [
+        74,
+        93,
+        195,
+        202,
+        10,
+        163,
+        74,
+        16
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_news_by_author",
+      "docs": [
+        "Get news tokens by a specific author",
+        "This function returns the news account data for a specific author and nonce"
+      ],
+      "discriminator": [
+        73,
+        145,
+        196,
+        198,
+        138,
+        170,
+        75,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "news_account",
+          "docs": [
+            "The news account to retrieve"
+          ]
+        },
+        {
+          "name": "requester",
+          "docs": [
+            "The account requesting the news token data"
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_oracle",
+      "docs": [
+        "Initialize the oracle with whitelisted authorities"
+      ],
+      "discriminator": [
+        144,
+        223,
+        131,
+        120,
+        196,
+        253,
+        181,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_profile",
+      "docs": [
+        "Initialize a user profile for tracking PnL and stats"
+      ],
+      "discriminator": [
+        32,
+        145,
+        77,
+        213,
+        58,
+        39,
+        251,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_season",
+      "docs": [
+        "Initialize a new season"
+      ],
+      "discriminator": [
+        48,
+        218,
+        111,
+        51,
+        235,
+        207,
+        4,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "season_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "process_undelegation",
+      "discriminator": [
+        196,
+        28,
+        41,
+        206,
+        48,
+        37,
+        51,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "base_account",
+          "writable": true
+        },
+        {
+          "name": "buffer"
+        },
+        {
+          "name": "payer",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "account_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "publish_news",
+      "docs": [
+        "Publishes a new news story and creates a tradable token"
+      ],
+      "discriminator": [
+        210,
+        212,
+        54,
+        71,
+        207,
+        75,
+        130,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "news_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  101,
+                  119,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "author_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "headline",
+          "type": "string"
+        },
+        {
+          "name": "arweave_link",
+          "type": "string"
+        },
+        {
+          "name": "initial_supply",
+          "type": "u64"
+        },
+        {
+          "name": "base_price",
+          "type": "u64"
+        },
+        {
+          "name": "nonce",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "record_trade_pnl",
+      "docs": [
+        "Record trade PnL for a user"
+      ],
+      "discriminator": [
+        46,
+        223,
+        161,
+        64,
+        215,
+        41,
+        219,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "season",
+          "writable": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "trade_type",
+          "type": {
+            "defined": {
+              "name": "TradeType"
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "reset_season_pnl",
+      "docs": [
+        "Reset season PnL for a user (admin only)"
+      ],
+      "discriminator": [
+        218,
+        241,
+        207,
+        119,
+        226,
+        77,
+        183,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user"
+        },
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "sell",
+      "docs": [
+        "Sell tokens back to the bonding curve",
+        "NOTE: This runs on Ephemeral Rollup automatically due to #[ephemeral] directive"
+      ],
+      "discriminator": [
+        51,
+        230,
+        133,
+        164,
+        1,
+        127,
+        131,
+        173
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_sol_account",
+          "docs": [
+            "Market SOL account (PDA for SOL storage)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  115,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "news_account",
+          "docs": [
+            "News account for minting authority"
+          ]
+        },
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buyer_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "stake_author_tokens",
+      "docs": [
+        "Stake author tokens to earn trading fees"
+      ],
+      "discriminator": [
+        233,
+        45,
+        32,
+        33,
+        120,
+        22,
+        190,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "author_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "undelegate",
+      "docs": [
+        "Undelegate the market from the delegation program"
+      ],
+      "discriminator": [
+        131,
+        148,
+        180,
+        198,
+        91,
+        104,
+        42,
+        238
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "docs": [
+            "CHECK The market pda to undelegate"
+          ],
+          "writable": true
+        },
+        {
+          "name": "magic_context"
+        },
+        {
+          "name": "magic_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unstake_author_tokens",
+      "docs": [
+        "Unstake author tokens"
+      ],
+      "discriminator": [
+        11,
+        19,
+        226,
+        239,
+        6,
+        77,
+        174,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "author_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_summary_link",
+      "docs": [
+        "Update the AI summary link for a news token"
+      ],
+      "discriminator": [
+        92,
+        42,
+        122,
+        247,
+        116,
+        160,
+        240,
+        0
+      ],
+      "accounts": [
+        {
+          "name": "news_account",
+          "writable": true
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "summary_link",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "update_trend_index",
+      "docs": [
+        "Update the AI-powered trend index score for a market",
+        "This runs within an Ephemeral Rollup session for optimized execution"
+      ],
+      "discriminator": [
+        145,
+        233,
+        14,
+        68,
+        118,
+        75,
+        120,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "trend_score",
+          "type": "u64"
+        },
+        {
+          "name": "factors_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    },
+    {
+      "name": "NewsAccount",
+      "discriminator": [
+        137,
+        119,
+        255,
+        157,
+        133,
+        133,
+        89,
+        191
+      ]
+    },
+    {
+      "name": "Oracle",
+      "discriminator": [
+        139,
+        194,
+        131,
+        179,
+        140,
+        179,
+        229,
+        244
+      ]
+    },
+    {
+      "name": "Profile",
+      "discriminator": [
+        184,
+        101,
+        165,
+        188,
+        95,
+        63,
+        127,
+        188
+      ]
+    },
+    {
+      "name": "Season",
+      "discriminator": [
+        76,
+        67,
+        93,
+        156,
+        180,
+        157,
+        248,
+        47
+      ]
+    },
+    {
+      "name": "TradePosition",
+      "discriminator": [
+        37,
+        143,
+        119,
+        76,
+        200,
+        164,
+        122,
+        202
+      ]
+    },
+    {
+      "name": "WhitelistedAuthority",
+      "discriminator": [
+        166,
+        187,
+        126,
+        67,
+        19,
+        108,
+        184,
+        141
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "CurrentPriceRetrieved",
+      "discriminator": [
+        172,
+        231,
+        7,
+        52,
+        84,
+        76,
+        184,
+        67
+      ]
+    },
+    {
+      "name": "FeesClaimed",
+      "discriminator": [
+        22,
+        104,
+        110,
+        222,
+        38,
+        157,
+        14,
+        62
+      ]
+    },
+    {
+      "name": "FlashMarketClosed",
+      "discriminator": [
+        49,
+        238,
+        74,
+        225,
+        184,
+        155,
+        137,
+        253
+      ]
+    },
+    {
+      "name": "FlashMarketCreated",
+      "discriminator": [
+        148,
+        146,
+        134,
+        217,
+        208,
+        17,
+        43,
+        172
+      ]
+    },
+    {
+      "name": "MarketAutoDelegated",
+      "discriminator": [
+        193,
+        112,
+        102,
+        53,
+        162,
+        96,
+        115,
+        225
+      ]
+    },
+    {
+      "name": "MarketCapRetrieved",
+      "discriminator": [
+        221,
+        119,
+        33,
+        230,
+        181,
+        184,
+        237,
+        213
+      ]
+    },
+    {
+      "name": "MarketDelegated",
+      "discriminator": [
+        222,
+        133,
+        6,
+        58,
+        71,
+        21,
+        95,
+        219
+      ]
+    },
+    {
+      "name": "MarketUndelegated",
+      "discriminator": [
+        88,
+        59,
+        175,
+        236,
+        157,
+        99,
+        0,
+        14
+      ]
+    },
+    {
+      "name": "NewsPublished",
+      "discriminator": [
+        196,
+        175,
+        152,
+        128,
+        114,
+        192,
+        216,
+        23
+      ]
+    },
+    {
+      "name": "NewsTokenRetrieved",
+      "discriminator": [
+        242,
+        218,
+        182,
+        91,
+        19,
+        238,
+        37,
+        106
+      ]
+    },
+    {
+      "name": "NewsTokensRequested",
+      "discriminator": [
+        155,
+        137,
+        222,
+        122,
+        132,
+        166,
+        174,
+        181
+      ]
+    },
+    {
+      "name": "ProfileInitialized",
+      "discriminator": [
+        1,
+        31,
+        122,
+        19,
+        193,
+        205,
+        23,
+        27
+      ]
+    },
+    {
+      "name": "RollupCommitted",
+      "discriminator": [
+        243,
+        229,
+        84,
+        172,
+        201,
+        71,
+        172,
+        163
+      ]
+    },
+    {
+      "name": "SeasonStarted",
+      "discriminator": [
+        13,
+        80,
+        245,
+        91,
+        31,
+        220,
+        154,
+        47
+      ]
+    },
+    {
+      "name": "StateCommitRecommended",
+      "discriminator": [
+        232,
+        228,
+        30,
+        105,
+        209,
+        183,
+        40,
+        173
+      ]
+    },
+    {
+      "name": "SummaryUpdated",
+      "discriminator": [
+        250,
+        47,
+        192,
+        20,
+        242,
+        11,
+        24,
+        141
+      ]
+    },
+    {
+      "name": "TokensPurchased",
+      "discriminator": [
+        214,
+        119,
+        105,
+        186,
+        114,
+        205,
+        228,
+        181
+      ]
+    },
+    {
+      "name": "TokensSold",
+      "discriminator": [
+        217,
+        83,
+        68,
+        137,
+        134,
+        225,
+        94,
+        45
+      ]
+    },
+    {
+      "name": "TokensStaked",
+      "discriminator": [
+        220,
+        130,
+        145,
+        142,
+        109,
+        123,
+        38,
+        100
+      ]
+    },
+    {
+      "name": "TokensUnstaked",
+      "discriminator": [
+        137,
+        203,
+        131,
+        80,
+        135,
+        107,
+        181,
+        150
+      ]
+    },
+    {
+      "name": "TradeRecorded",
+      "discriminator": [
+        153,
+        142,
+        127,
+        129,
+        64,
+        214,
+        134,
+        138
+      ]
+    },
+    {
+      "name": "TrendIndexUpdated",
+      "discriminator": [
+        21,
+        79,
+        191,
+        2,
+        41,
+        0,
+        227,
+        123
+      ]
+    },
+    {
+      "name": "TrophyAwarded",
+      "discriminator": [
+        221,
+        236,
+        21,
+        237,
+        108,
+        172,
+        89,
+        52
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "HeadlineTooLong",
+      "msg": "Headline exceeds maximum length of 200 characters"
+    },
+    {
+      "code": 6001,
+      "name": "LinkTooLong",
+      "msg": "Link exceeds maximum length of 200 characters"
+    },
+    {
+      "code": 6002,
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds for purchase"
+    },
+    {
+      "code": 6003,
+      "name": "InsufficientSupply",
+      "msg": "Insufficient token supply"
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientReserves",
+      "msg": "Insufficient SOL reserves in market"
+    },
+    {
+      "code": 6005,
+      "name": "AlreadyDelegated",
+      "msg": "Market is already delegated to a rollup"
+    },
+    {
+      "code": 6006,
+      "name": "NotDelegated",
+      "msg": "Market is not currently delegated"
+    },
+    {
+      "code": 6007,
+      "name": "UnauthorizedRollup",
+      "msg": "Unauthorized rollup authority"
+    },
+    {
+      "code": 6008,
+      "name": "UnauthorizedOracle",
+      "msg": "Unauthorized oracle authority"
+    },
+    {
+      "code": 6009,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow in bonding curve calculation"
+    },
+    {
+      "code": 6010,
+      "name": "ConstraintSeeds",
+      "msg": "A seeds constraint was violated"
+    },
+    {
+      "code": 6011,
+      "name": "SeasonNotActive",
+      "msg": "Season is not currently active"
+    },
+    {
+      "code": 6012,
+      "name": "SeasonNotEnded",
+      "msg": "Season has not ended yet"
+    },
+    {
+      "code": 6013,
+      "name": "SeasonAlreadyExists",
+      "msg": "Season already exists"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidAccount",
+      "msg": "Account must be a system account (no data)"
+    },
+    {
+      "code": 6015,
+      "name": "FlashMarketActive",
+      "msg": "Flash market is already active"
+    },
+    {
+      "code": 6016,
+      "name": "NoActiveFlashMarket",
+      "msg": "No active flash market"
+    },
+    {
+      "code": 6017,
+      "name": "FlashMarketNotExpired",
+      "msg": "Flash market has not expired yet"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidDuration",
+      "msg": "Invalid flash market duration"
+    }
+  ],
+  "types": [
+    {
+      "name": "CurrentPriceRetrieved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "circulating_supply",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CurveType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Linear"
+          },
+          {
+            "name": "Exponential"
+          },
+          {
+            "name": "Logarithmic"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeesClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FlashMarketClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "initial_velocity",
+            "type": "i64"
+          },
+          {
+            "name": "final_velocity",
+            "type": "i64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FlashMarketCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "initial_velocity",
+            "type": "i64"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Market",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "news_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "curve_type",
+            "type": {
+              "defined": {
+                "name": "CurveType"
+              }
+            }
+          },
+          {
+            "name": "circulating_supply",
+            "type": "u64"
+          },
+          {
+            "name": "initial_supply",
+            "type": "u64"
+          },
+          {
+            "name": "base_price",
+            "type": "u64"
+          },
+          {
+            "name": "sol_reserves",
+            "type": "u64"
+          },
+          {
+            "name": "total_volume",
+            "type": "u64"
+          },
+          {
+            "name": "is_delegated",
+            "type": "bool"
+          },
+          {
+            "name": "rollup_authority",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "staked_author_tokens",
+            "type": "u64"
+          },
+          {
+            "name": "accumulated_fees",
+            "type": "u64"
+          },
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "trend_index_score",
+            "type": "u64"
+          },
+          {
+            "name": "trend_last_updated",
+            "type": "i64"
+          },
+          {
+            "name": "trend_factors_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "flash_market_active",
+            "type": "bool"
+          },
+          {
+            "name": "flash_market_end",
+            "type": "i64"
+          },
+          {
+            "name": "flash_initial_velocity",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketAutoDelegated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "rollup_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "trigger",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketCapRetrieved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_cap",
+            "type": "u64"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "circulating_supply",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketDelegated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "rollup_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketUndelegated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NewsAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "headline",
+            "type": "string"
+          },
+          {
+            "name": "arweave_link",
+            "type": "string"
+          },
+          {
+            "name": "summary_link",
+            "type": "string"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "published_at",
+            "type": "i64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NewsPublished",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "news_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "headline",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NewsTokenRetrieved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "news_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "headline",
+            "type": "string"
+          },
+          {
+            "name": "arweave_link",
+            "type": "string"
+          },
+          {
+            "name": "summary_link",
+            "type": "string"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "published_at",
+            "type": "i64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NewsTokensRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "requester",
+            "type": "pubkey"
+          },
+          {
+            "name": "offset",
+            "type": "u32"
+          },
+          {
+            "name": "limit",
+            "type": "u32"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Oracle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Profile",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_pnl",
+            "type": "i64"
+          },
+          {
+            "name": "total_volume",
+            "type": "u64"
+          },
+          {
+            "name": "trades_count",
+            "type": "u64"
+          },
+          {
+            "name": "wins",
+            "type": "u64"
+          },
+          {
+            "name": "trophies",
+            "type": "u64"
+          },
+          {
+            "name": "current_season_pnl",
+            "type": "i64"
+          },
+          {
+            "name": "last_trade_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProfileInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RollupCommitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "supply",
+            "type": "u64"
+          },
+          {
+            "name": "reserves",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Season",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "season_id",
+            "type": "u64"
+          },
+          {
+            "name": "start_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "end_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "total_participants",
+            "type": "u64"
+          },
+          {
+            "name": "total_volume",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SeasonStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "season_id",
+            "type": "u64"
+          },
+          {
+            "name": "start_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "end_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StateCommitRecommended",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SummaryUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "news_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "summary_link",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokensPurchased",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "cost",
+            "type": "u64"
+          },
+          {
+            "name": "new_supply",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokensSold",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "refund",
+            "type": "u64"
+          },
+          {
+            "name": "new_supply",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokensStaked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_staked",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokensUnstaked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_staked",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradePosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_bought",
+            "type": "u64"
+          },
+          {
+            "name": "total_sold",
+            "type": "u64"
+          },
+          {
+            "name": "avg_buy_price",
+            "type": "u64"
+          },
+          {
+            "name": "realized_pnl",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradeRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_type",
+            "type": {
+              "defined": {
+                "name": "TradeType"
+              }
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "pnl_delta",
+            "type": "i64"
+          },
+          {
+            "name": "total_pnl",
+            "type": "i64"
+          },
+          {
+            "name": "season_pnl",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TradeType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Buy"
+          },
+          {
+            "name": "Sell"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TrendIndexUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "trend_score",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TrophyAwarded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_trophies",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WhitelistedAuthority",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -53,7 +53,7 @@ function getEnv(name, fallback) {
     throw new Error(`Missing required env: ${name}`);
 }
 function getProgramId() {
-    const programIdStr = getEnv("PROGRAM_ID", "7RaYxrc55bJSewXZMcPASrcjaGwSy8soVR4Q3KiGcjvf");
+    const programIdStr = getEnv("PROGRAM_ID", "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3");
     return new web3_js_1.PublicKey(programIdStr);
 }
 function getRpcUrl() {

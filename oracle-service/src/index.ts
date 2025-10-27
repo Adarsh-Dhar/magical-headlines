@@ -13,20 +13,20 @@ const connection = getConnection();
 
 // Main function to start the listener
 async function main() {
-    console.log("Starting oracle listener...");
+  console.log("Starting oracle listener...");
 
-    connection.onProgramAccountChange(
-        PROGRAM_ID,
-        (change) => {
-            console.log("New account activity detected!");
-            handleNewArticle(change.accountId, change.accountInfo.data);
-        },
-        "confirmed"
-    );
+  connection.onProgramAccountChange(
+      PROGRAM_ID,
+      (change) => {
+          console.log("New account activity detected!");
+          handleNewArticle(change.accountId, change.accountInfo.data);
+      },
+      "confirmed"
+  );
 
-    // Start flash market spotter
-    const flashSpotter = new FlashMarketSpotter();
-    flashSpotter.start();
+  // Start flash market spotter
+  const flashSpotter = new FlashMarketSpotter();
+  flashSpotter.start();
 }
 
 main();

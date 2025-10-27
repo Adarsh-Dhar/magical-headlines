@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { magicBlockAIOracle, MagicBlockAIResponse } from "./magicblock-ai-oracle";
-import { TrendCalculationResult } from "./ai-trend-calculator";
+import { TrendCalculationResult, aiTrendCalculator } from "./ai-trend-calculator";
 
 // Initialize Prisma client
 const prisma = new PrismaClient();
@@ -78,6 +78,7 @@ export class TrendOrchestrator {
     this.updateTimer = setInterval(async () => {
       try {
         await this.updateActiveMarkets();
+        console.log("✅ Periodic update completed");
       } catch (error) {
         console.error("❌ Error in periodic update:", error);
       }
@@ -96,11 +97,25 @@ export class TrendOrchestrator {
     const activeMarkets = await this.getActiveMarkets();
     console.log(`📊 Found ${activeMarkets.length} active markets to update`);
 
-    // Process in batches
+    // Process in batches with error handling
+    let successCount = 0;
+    let failureCount = 0;
+
     for (let i = 0; i < activeMarkets.length; i += this.config.batchSize) {
       const batch = activeMarkets.slice(i, i + this.config.batchSize);
       
-      await Promise.all(batch.map(market => this.updateMarketTrend(market.tokenId)));
+      await Promise.all(
+        batch.map(async (market) => {
+          try {
+            await this.updateMarketTrend(market.tokenId);
+            successCount++;
+          } catch (error) {
+            failureCount++;
+            console.error(`❌ Failed to update trend for token ${market.tokenId}:`, error);
+            // Continue processing other markets
+          }
+        })
+      );
       
       // Small delay between batches to avoid overwhelming the system
       if (i + this.config.batchSize < activeMarkets.length) {
@@ -108,7 +123,7 @@ export class TrendOrchestrator {
       }
     }
 
-    console.log("✅ Periodic update completed");
+    console.log(`✅ Periodic update completed: ${successCount} succeeded, ${failureCount} failed`);
   }
 
   /**
@@ -116,6 +131,13 @@ export class TrendOrchestrator {
    */
   private async getActiveMarkets(): Promise<MarketUpdateStatus[]> {
     const thresholdTime = new Date(Date.now() - this.config.activeMarketThresholdHours * 60 * 60 * 1000);
+    
+    console.log(`🔍 Querying active markets with threshold: ${thresholdTime.toISOString()}`);
+    console.log(`   Threshold hours: ${this.config.activeMarketThresholdHours}`);
+
+    // First, get total tokens to understand the database
+    const totalTokens = await prisma.token.count();
+    console.log(`📊 Total tokens in database: ${totalTokens}`);
 
     const tokens = await prisma.token.findMany({
       where: {
@@ -128,9 +150,9 @@ export class TrendOrchestrator {
               }
             }
           },
-          // Markets with high volume
+          // Markets with any volume
           {
-            volume24h: { gt: 1.0 }
+            volume24h: { gt: 0 }
           },
           // Markets that haven't been updated recently
           {
@@ -151,6 +173,30 @@ export class TrendOrchestrator {
       },
       orderBy: { volume24h: 'desc' }
     });
+
+    console.log(`📊 Found ${tokens.length} tokens matching active market criteria`);
+    
+    // Debug each token
+    if (tokens.length === 0) {
+      console.log(`⚠️ No tokens matched criteria. Checking all tokens...`);
+      const allTokens = await prisma.token.findMany({
+        select: {
+          id: true,
+          volume24h: true,
+          lastTrendUpdate: true,
+          trendIndexScore: true
+        },
+        take: 5
+      });
+      
+      allTokens.forEach(token => {
+        console.log(`   Token ${token.id}: volume=${token.volume24h}, lastUpdate=${token.lastTrendUpdate}, score=${token.trendIndexScore}`);
+      });
+    } else {
+      tokens.forEach(token => {
+        console.log(`   Token ${token.id}: volume=${token.volume24h}, trades=${token.trades.length}, lastUpdate=${token.lastTrendUpdate}`);
+      });
+    }
 
     return tokens.map(token => {
       const lastTrade = token.trades[0];
@@ -185,43 +231,86 @@ export class TrendOrchestrator {
    * Update trend index for a specific market (on-demand)
    */
   async updateMarketTrend(tokenId: string, forceUpdate: boolean = false): Promise<TrendCalculationResult | null> {
+    console.log(`\n========== TREND UPDATE START ==========`);
+    console.log(`Token ID: ${tokenId}`);
+    console.log(`Force update: ${forceUpdate}`);
+    
     try {
       // Check cache first
       if (!forceUpdate) {
         const cached = this.getCachedResult(tokenId);
         if (cached) {
-          console.log(`📋 Using cached trend result for token ${tokenId}`);
+          console.log(`✅ Using cached trend result for token ${tokenId}`);
           return cached;
         }
       }
 
-      console.log(`🤖 Calculating trend index for token ${tokenId}...`);
+      console.log(`🔄 Calculating fresh trend index for token ${tokenId}...`);
 
-      // Call AI oracle
-      const response: MagicBlockAIResponse = await magicBlockAIOracle.calculateTrendIndex(tokenId);
+      // Try MagicBlock first, fallback to Gemini AI
+      let result: TrendCalculationResult;
       
-      if (!response.success || !response.result) {
-        console.error(`❌ Failed to calculate trend for token ${tokenId}:`, response.error);
-        return null;
+      if (magicBlockAIOracle.isAvailable()) {
+        // Call MagicBlock AI oracle
+        console.log(`📞 Calling magicBlockAIOracle.calculateTrendIndex(${tokenId})...`);
+        
+        try {
+          const response = await magicBlockAIOracle.calculateTrendIndex(tokenId);
+          
+          console.log(`📥 Response received:`, {
+            success: response.success,
+            hasResult: !!(response as any).result,
+            error: (response as any).error,
+            provider: response.provider
+          });
+          
+          if (response.success && (response as any).result) {
+            result = (response as any).result;
+            console.log(`✅ MagicBlock AI calculation successful`);
+          } else {
+            throw new Error(`MagicBlock calculation failed: ${(response as any).error}`);
+          }
+        } catch (magicBlockError) {
+          console.log(`⚠️ MagicBlock failed, using Gemini AI fallback...`);
+          console.log(`   Error: ${magicBlockError.message}`);
+          
+          // Fallback to Gemini AI
+          result = await aiTrendCalculator.calculateTrendIndex(tokenId);
+          console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
+        }
+      } else {
+        // MagicBlock not configured, use Gemini AI directly
+        console.log(`📞 MagicBlock not configured, using Gemini AI...`);
+        result = await aiTrendCalculator.calculateTrendIndex(tokenId);
+        console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
       }
-
-      const result = response.result;
-      console.log(`✅ Trend calculation complete for token ${tokenId}: score=${result.score}, provider=${response.provider}`);
+      
+      console.log(`   Confidence: ${result.confidence}`);
+      console.log(`   Timestamp: ${result.timestamp}`);
 
       // Update database
+      console.log(`💾 Updating database...`);
       await this.updateDatabase(tokenId, result);
 
       // Update cache
+      console.log(`🗄️ Updating cache...`);
       this.setCachedResult(tokenId, result);
 
       // Update on-chain if needed
+      console.log(`⛓️ Updating on-chain...`);
       await this.updateOnChain(tokenId, result);
 
+      console.log(`========== TREND UPDATE SUCCESS ==========\n`);
       return result;
 
     } catch (error) {
-      console.error(`❌ Error updating trend for token ${tokenId}:`, error);
-      return null;
+      console.error(`\n========== TREND UPDATE FAILED ==========`);
+      console.error(`Token ID: ${tokenId}`);
+      console.error(`Error: ${error}`);
+      console.error(`Error stack:`, error.stack);
+      console.error(`==========================================\n`);
+      // Re-throw instead of returning null
+      throw error;
     }
   }
 
