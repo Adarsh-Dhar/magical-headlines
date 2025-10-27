@@ -251,6 +251,48 @@ model TrendIndexHistory {
   @@index([tokenId, timestamp])
 }
 
+model FlashTrendMarket {
+  id                String   @id @default(cuid())
+  parentTokenId     String
+  trendSnapshot     Json     // Initial trend state
+  startTimestamp    DateTime
+  endTimestamp    DateTime // 60s after start
+  initialVelocity   Float    // Velocity at market creation
+  finalVelocity     Float?   // Velocity at resolution
+  isActive          Boolean  @default(true)
+  isResolved        Boolean  @default(false)
+  totalUpAmount     Float    @default(0)
+  totalDownAmount   Float    @default(0)
+  participantCount  Int      @default(0)
+  winningSide       String?  // 'up' or 'down'
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  positions         FlashTrendPosition[]
+  
+  @@index([parentTokenId, startTimestamp])
+  @@index([isActive, endTimestamp])
+}
+
+model FlashTrendPosition {
+  id                String            @id @default(cuid())
+  marketId          String
+  userId            String
+  walletAddress     String
+  direction         String            // 'up' or 'down'
+  amount            Float
+  entryTimestamp    DateTime          @default(now())
+  isResolved        Boolean           @default(false)
+  payout            Float?
+  profitLoss        Float?
+  
+  market            FlashTrendMarket  @relation(fields: [marketId], references: [id])
+  
+  @@index([marketId])
+  @@index([userId])
+  @@index([walletAddress])
+}
+
 enum TradeType {
   BUY
   SELL

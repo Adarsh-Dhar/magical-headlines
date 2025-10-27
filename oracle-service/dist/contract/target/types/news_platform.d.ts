@@ -420,6 +420,85 @@ export type NewsPlatform = {
             "args": [];
         },
         {
+            "name": "closeFlashMarket";
+            "docs": [
+                "Close flash market and record final velocity"
+            ];
+            "discriminator": [
+                36,
+                93,
+                151,
+                173,
+                52,
+                232,
+                32,
+                88
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                },
+                {
+                    "name": "whitelist";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "oracleAuthority";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "oracleAuthority";
+                    "signer": true;
+                }
+            ];
+            "args": [
+                {
+                    "name": "finalVelocity";
+                    "type": "i64";
+                }
+            ];
+        },
+        {
             "name": "commit";
             "docs": [
                 "Commit rollup state back to main chain"
@@ -452,6 +531,194 @@ export type NewsPlatform = {
                 {
                     "name": "newReserves";
                     "type": "u64";
+                }
+            ];
+        },
+        {
+            "name": "computeAiTrendIndex";
+            "docs": [
+                "Compute AI trend index on-chain within an Ephemeral Rollup session",
+                "This instruction accepts market factors and computes the adaptive trend score",
+                "The computation happens within ER for <50ms latency and gasless execution"
+            ];
+            "discriminator": [
+                144,
+                47,
+                53,
+                69,
+                212,
+                59,
+                232,
+                143
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                },
+                {
+                    "name": "whitelist";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "oracleAuthority";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "oracleAuthority";
+                    "signer": true;
+                }
+            ];
+            "args": [
+                {
+                    "name": "sentiment";
+                    "type": "i64";
+                },
+                {
+                    "name": "tradingVelocity";
+                    "type": "u64";
+                },
+                {
+                    "name": "volumeSpike";
+                    "type": "i64";
+                },
+                {
+                    "name": "priceMomentum";
+                    "type": "i64";
+                },
+                {
+                    "name": "socialActivity";
+                    "type": "u64";
+                },
+                {
+                    "name": "holderMomentum";
+                    "type": "u64";
+                },
+                {
+                    "name": "crossMarketCorr";
+                    "type": "i64";
+                }
+            ];
+        },
+        {
+            "name": "createFlashMarket";
+            "docs": [
+                "Create a flash trend market for high-frequency velocity trading"
+            ];
+            "discriminator": [
+                36,
+                96,
+                101,
+                221,
+                76,
+                104,
+                181,
+                68
+            ];
+            "accounts": [
+                {
+                    "name": "market";
+                    "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "newsAccount";
+                },
+                {
+                    "name": "whitelist";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "oracleAuthority";
+                            }
+                        ];
+                    };
+                },
+                {
+                    "name": "oracleAuthority";
+                    "signer": true;
+                }
+            ];
+            "args": [
+                {
+                    "name": "initialVelocity";
+                    "type": "i64";
+                },
+                {
+                    "name": "durationSeconds";
+                    "type": "i64";
                 }
             ];
         },
@@ -1991,7 +2258,8 @@ export type NewsPlatform = {
         {
             "name": "updateTrendIndex";
             "docs": [
-                "Update the AI-powered trend index score for a market"
+                "Update the AI-powered trend index score for a market",
+                "This runs within an Ephemeral Rollup session for optimized execution"
             ];
             "discriminator": [
                 145,
@@ -2195,6 +2463,32 @@ export type NewsPlatform = {
                 157,
                 14,
                 62
+            ];
+        },
+        {
+            "name": "flashMarketClosed";
+            "discriminator": [
+                49,
+                238,
+                74,
+                225,
+                184,
+                155,
+                137,
+                253
+            ];
+        },
+        {
+            "name": "flashMarketCreated";
+            "discriminator": [
+                148,
+                146,
+                134,
+                217,
+                208,
+                17,
+                43,
+                172
             ];
         },
         {
@@ -2520,6 +2814,26 @@ export type NewsPlatform = {
             "code": 6014;
             "name": "invalidAccount";
             "msg": "Account must be a system account (no data)";
+        },
+        {
+            "code": 6015;
+            "name": "flashMarketActive";
+            "msg": "Flash market is already active";
+        },
+        {
+            "code": 6016;
+            "name": "noActiveFlashMarket";
+            "msg": "No active flash market";
+        },
+        {
+            "code": 6017;
+            "name": "flashMarketNotExpired";
+            "msg": "Flash market has not expired yet";
+        },
+        {
+            "code": 6018;
+            "name": "invalidDuration";
+            "msg": "Invalid flash market duration";
         }
     ];
     "types": [
@@ -2576,6 +2890,54 @@ export type NewsPlatform = {
                     {
                         "name": "amount";
                         "type": "u64";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "flashMarketClosed";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "initialVelocity";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "finalVelocity";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "timestamp";
+                        "type": "i64";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "flashMarketCreated";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "market";
+                        "type": "pubkey";
+                    },
+                    {
+                        "name": "initialVelocity";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "startTime";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "endTime";
+                        "type": "i64";
                     }
                 ];
             };
@@ -2663,6 +3025,18 @@ export type NewsPlatform = {
                                 32
                             ];
                         };
+                    },
+                    {
+                        "name": "flashMarketActive";
+                        "type": "bool";
+                    },
+                    {
+                        "name": "flashMarketEnd";
+                        "type": "i64";
+                    },
+                    {
+                        "name": "flashInitialVelocity";
+                        "type": "i64";
                     }
                 ];
             };

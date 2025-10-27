@@ -27,6 +27,7 @@ export function TrendingStories() {
   const [error, setError] = useState<string | null>(null)
   const [volumes, setVolumes] = useState<Record<string, number>>({})
   const [isUpdating, setIsUpdating] = useState(false)
+  const [diagnostic, setDiagnostic] = useState<any>(null)
 
   const didInitialVolumeUpdateRef = useRef(false)
 
@@ -49,6 +50,7 @@ export function TrendingStories() {
           volume: market.volume_24h
         })) || []
         setStories(aiStories)
+        setDiagnostic(data.diagnostic) // Store diagnostic info
       } else {
         // Fallback to regular stories API
         res = await fetch("/api/story")
@@ -160,7 +162,7 @@ export function TrendingStories() {
       ) : error ? (
         <div className="text-sm text-red-500">{error}</div>
       ) : trending.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-2">No trending stories yet</div>
+        <DiagnosticInfo error={error} fetchStories={fetchStories} />
       ) : (
         <div className="space-y-2">
           {trending.map((item, idx) => (
@@ -216,5 +218,77 @@ export function TrendingStories() {
         </Badge>
       </Link>
     </Card>
+  )
+}
+
+function DiagnosticInfo({ error, fetchStories }: { error: string | null; fetchStories: () => void }) {
+  const [diagnostic, setDiagnostic] = useState<any>(null)
+
+  useEffect(() => {
+    fetch("/api/v1/trending-ai?limit=10")
+      .then(res => res.json())
+      .then(data => setDiagnostic(data.diagnostic))
+      .catch(() => {})
+  }, [])
+
+  if (!diagnostic && !error) {
+    return (
+      <div className="text-sm text-muted-foreground py-2">No trending stories yet</div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-2">
+        <div className="text-sm text-red-500 font-medium">Error loading trending stories</div>
+        <div className="text-xs text-muted-foreground">{error}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 py-2">
+      <div className="text-sm font-medium text-orange-500 flex items-center gap-2">
+        <span>⚠️</span>
+        <span>Why no trending stories?</span>
+      </div>
+      
+      {diagnostic?.reasons_no_trending?.map((reason: string, idx: number) => (
+        <div key={idx} className="text-xs text-muted-foreground">
+          • {reason}
+        </div>
+      ))}
+
+      <div className="border-t pt-2 space-y-1">
+        <div className="text-xs text-muted-foreground">
+          📊 Stats: {diagnostic.total_stories} stories total
+        </div>
+        <div className="text-xs text-muted-foreground">
+          🤖 With trend scores: {diagnostic.stories_with_trend_scores}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          📈 With volume: {diagnostic.stories_with_volume}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          ✅ Eligible: {diagnostic.stories_eligible}
+        </div>
+      </div>
+
+      {diagnostic?.recommendation && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded p-2 mt-2">
+          <div className="text-xs font-medium text-blue-400 mb-1">💡 Suggestion:</div>
+          <div className="text-xs text-muted-foreground">{diagnostic.recommendation}</div>
+        </div>
+      )}
+
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={fetchStories}
+        className="w-full text-xs"
+      >
+        🔄 Refresh
+      </Button>
+    </div>
   )
 }

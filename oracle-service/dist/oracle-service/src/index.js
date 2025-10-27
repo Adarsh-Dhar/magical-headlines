@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const article_1 = require("./article");
+const flash_spotter_1 = require("./flash-spotter");
 const config_1 = require("./config");
 const PROGRAM_ID = (0, config_1.getProgramId)();
 const connection = (0, config_1.getConnection)();
@@ -20,6 +21,8 @@ function main() {
             console.log("New account activity detected!");
             (0, article_1.handleNewArticle)(change.accountId, change.accountInfo.data);
         }, "confirmed");
+        const flashSpotter = new flash_spotter_1.FlashMarketSpotter();
+        flashSpotter.start();
     });
 }
 main();

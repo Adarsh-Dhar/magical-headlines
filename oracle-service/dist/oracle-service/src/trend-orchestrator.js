@@ -91,6 +91,9 @@ class TrendOrchestrator {
                         },
                         {
                             lastTrendUpdate: { lt: thresholdTime }
+                        },
+                        {
+                            lastTrendUpdate: null
                         }
                     ]
                 },
@@ -105,7 +108,9 @@ class TrendOrchestrator {
             });
             return tokens.map(token => {
                 const lastTrade = token.trades[0];
-                const hoursSinceUpdate = (Date.now() - token.lastTrendUpdate.getTime()) / (1000 * 60 * 60);
+                const hoursSinceUpdate = token.lastTrendUpdate
+                    ? (Date.now() - token.lastTrendUpdate.getTime()) / (1000 * 60 * 60)
+                    : Infinity;
                 let priority = 'low';
                 if (token.volume24h > 10 || hoursSinceUpdate > 2) {
                     priority = 'high';
@@ -113,9 +118,12 @@ class TrendOrchestrator {
                 else if (token.volume24h > 1 || hoursSinceUpdate > 1) {
                     priority = 'medium';
                 }
+                if (!token.lastTrendUpdate) {
+                    priority = 'high';
+                }
                 return {
                     tokenId: token.id,
-                    needsUpdate: hoursSinceUpdate > 0.5,
+                    needsUpdate: hoursSinceUpdate > 0.5 || token.lastTrendUpdate === null,
                     lastUpdate: token.lastTrendUpdate,
                     priority
                 };

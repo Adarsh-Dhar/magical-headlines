@@ -8,6 +8,20 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const includeFactors = searchParams.get('includeFactors') === 'true';
 
+    // DIAGNOSTIC: Get all tokens to understand why some aren't trending
+    const allTokens = await prisma.token.findMany({
+      include: {
+        story: true,
+        trades: true
+      }
+    });
+
+    // Calculate diagnostic stats
+    const totalTokens = allTokens.length;
+    const tokensWithTrend = allTokens.filter(t => t.trendIndexScore && t.trendIndexScore > 0).length;
+    const tokensWithVolume = allTokens.filter(t => t.volume24h && t.volume24h > 0).length;
+    const tokensNeverUpdated = allTokens.filter(t => !t.lastTrendUpdate).length;
+
     // Fetch tokens ordered by AI trend index score
     const tokens = await prisma.token.findMany({
       where: {
@@ -107,6 +121,18 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     };
 
+    // Determine why there are no results
+    const reasons = [];
+    if (totalTokens === 0) {
+      reasons.push("No stories exist in the database");
+    } else if (tokensWithTrend === 0) {
+      reasons.push(`No stories have trend scores calculated (oracle may not be running or calculated for 0 tokens)`);
+    } else if (tokensWithVolume === 0) {
+      reasons.push(`No stories have trading volume (${tokensWithTrend} stories have trend scores but 0 volume)`);
+    } else if (tokens.length === 0 && tokensWithTrend > 0 && tokensWithVolume > 0) {
+      reasons.push(`No stories meet both criteria (trend score > 0 AND volume > 0)`);
+    }
+
     const response = {
       trending_markets: trendingMarkets,
       aggregate_stats: aggregateStats,
@@ -120,7 +146,22 @@ export async function GET(request: NextRequest) {
         "social_activity",
         "holder_momentum",
         "cross_market_correlation"
-      ]
+      ],
+      // Diagnostic information
+      diagnostic: trendingMarkets.length === 0 ? {
+        total_stories: totalTokens,
+        stories_with_trend_scores: tokensWithTrend,
+        stories_with_volume: tokensWithVolume,
+        stories_eligible: tokens.length,
+        reasons_no_trending: reasons,
+        recommendation: totalTokens > 0 
+          ? (tokensWithTrend === 0 
+              ? "Start the oracle service to calculate trend scores" 
+              : tokensWithVolume === 0 
+                ? "Create trades/buy tokens to generate volume"
+                : "Check if trend scores and volume meet the filtering criteria")
+          : "Create news stories first"
+      } : undefined
     };
 
     // Add caching headers

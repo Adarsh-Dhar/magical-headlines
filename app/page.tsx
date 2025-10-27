@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { NewsFeed } from "@/components/news-feed"
 import { TrendingStories } from "@/components/trending-stories"
 import { MarketStats } from "@/components/market-stats"
 import { SeasonCountdown } from "@/components/season-countdown"
 import { UserProfile } from "@/components/user-profile"
+import { FlashTrendMarket } from "@/components/flash-trend-market"
 import { useContract } from "@/lib/use-contract"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
@@ -14,6 +15,7 @@ export default function HomePage() {
   const { program } = useContract();
   const { connected, publicKey, connecting } = useWallet();
   const { connection } = useConnection();
+  const [flashMarkets, setFlashMarkets] = useState([]);
 
   useEffect(() => {
     const fetchNewsTokens = async () => {
@@ -44,6 +46,38 @@ export default function HomePage() {
 
     fetchNewsTokens();
   }, [connected, publicKey, program]);
+
+  // Fetch active flash markets
+  useEffect(() => {
+    const fetchFlashMarkets = async () => {
+      try {
+        const res = await fetch('/api/flash-markets/active');
+        
+        // Check if response is ok before parsing
+        if (!res.ok) {
+          console.error("Error fetching flash markets: HTTP", res.status);
+          return;
+        }
+        
+        // Check if response has content
+        const text = await res.text();
+        if (!text) {
+          console.warn("Empty response from flash markets API");
+          return;
+        }
+        
+        const data = JSON.parse(text);
+        setFlashMarkets(data.markets || []);
+      } catch (error) {
+        console.error("Error fetching flash markets:", error);
+      }
+    };
+    
+    fetchFlashMarkets();
+    // Poll less frequently to reduce API load
+    const interval = setInterval(fetchFlashMarkets, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Show loading state while wallet is connecting
   if (connecting) {
@@ -99,6 +133,17 @@ export default function HomePage() {
         </div>
 
         <MarketStats />
+
+        {flashMarkets.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4">⚡ Flash Trend Markets</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {flashMarkets.map((market: any) => (
+                <FlashTrendMarket key={market.id} market={market} />
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6 mt-8">
           <div className="lg:col-span-2">

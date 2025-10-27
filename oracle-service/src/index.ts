@@ -4,6 +4,7 @@ import { PublicKey } from "@solana/web3.js";
 import { NewsPlatform } from "../../contract/target/types/news_platform";
 import IDL from "../../contract/target/idl/news_platform.json";
 import { handleNewArticle } from "./article";
+import { FlashMarketSpotter } from "./flash-spotter";
 
 import { getConnection, getProgramId } from "./config";
 
@@ -22,6 +23,10 @@ async function main() {
         },
         "confirmed"
     );
+
+    // Start flash market spotter
+    const flashSpotter = new FlashMarketSpotter();
+    flashSpotter.start();
 }
 
 main();

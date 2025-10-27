@@ -420,6 +420,85 @@
             "args": []
         },
         {
+            "name": "close_flash_market",
+            "docs": [
+                "Close flash market and record final velocity"
+            ],
+            "discriminator": [
+                36,
+                93,
+                151,
+                173,
+                52,
+                232,
+                32,
+                88
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "whitelist",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "oracle_authority"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "oracle_authority",
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "final_velocity",
+                    "type": "i64"
+                }
+            ]
+        },
+        {
             "name": "commit",
             "docs": [
                 "Commit rollup state back to main chain"
@@ -452,6 +531,194 @@
                 {
                     "name": "new_reserves",
                     "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "compute_ai_trend_index",
+            "docs": [
+                "Compute AI trend index on-chain within an Ephemeral Rollup session",
+                "This instruction accepts market factors and computes the adaptive trend score",
+                "The computation happens within ER for <50ms latency and gasless execution"
+            ],
+            "discriminator": [
+                144,
+                47,
+                53,
+                69,
+                212,
+                59,
+                232,
+                143
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "whitelist",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "oracle_authority"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "oracle_authority",
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "sentiment",
+                    "type": "i64"
+                },
+                {
+                    "name": "trading_velocity",
+                    "type": "u64"
+                },
+                {
+                    "name": "volume_spike",
+                    "type": "i64"
+                },
+                {
+                    "name": "price_momentum",
+                    "type": "i64"
+                },
+                {
+                    "name": "social_activity",
+                    "type": "u64"
+                },
+                {
+                    "name": "holder_momentum",
+                    "type": "u64"
+                },
+                {
+                    "name": "cross_market_corr",
+                    "type": "i64"
+                }
+            ]
+        },
+        {
+            "name": "create_flash_market",
+            "docs": [
+                "Create a flash trend market for high-frequency velocity trading"
+            ],
+            "discriminator": [
+                36,
+                96,
+                101,
+                221,
+                76,
+                104,
+                181,
+                68
+            ],
+            "accounts": [
+                {
+                    "name": "market",
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "news_account"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "news_account"
+                },
+                {
+                    "name": "whitelist",
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    119,
+                                    104,
+                                    105,
+                                    116,
+                                    101,
+                                    108,
+                                    105,
+                                    115,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "oracle_authority"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "oracle_authority",
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "initial_velocity",
+                    "type": "i64"
+                },
+                {
+                    "name": "duration_seconds",
+                    "type": "i64"
                 }
             ]
         },
@@ -1991,7 +2258,8 @@
         {
             "name": "update_trend_index",
             "docs": [
-                "Update the AI-powered trend index score for a market"
+                "Update the AI-powered trend index score for a market",
+                "This runs within an Ephemeral Rollup session for optimized execution"
             ],
             "discriminator": [
                 145,
@@ -2195,6 +2463,32 @@
                 157,
                 14,
                 62
+            ]
+        },
+        {
+            "name": "FlashMarketClosed",
+            "discriminator": [
+                49,
+                238,
+                74,
+                225,
+                184,
+                155,
+                137,
+                253
+            ]
+        },
+        {
+            "name": "FlashMarketCreated",
+            "discriminator": [
+                148,
+                146,
+                134,
+                217,
+                208,
+                17,
+                43,
+                172
             ]
         },
         {
@@ -2520,6 +2814,26 @@
             "code": 6014,
             "name": "InvalidAccount",
             "msg": "Account must be a system account (no data)"
+        },
+        {
+            "code": 6015,
+            "name": "FlashMarketActive",
+            "msg": "Flash market is already active"
+        },
+        {
+            "code": 6016,
+            "name": "NoActiveFlashMarket",
+            "msg": "No active flash market"
+        },
+        {
+            "code": 6017,
+            "name": "FlashMarketNotExpired",
+            "msg": "Flash market has not expired yet"
+        },
+        {
+            "code": 6018,
+            "name": "InvalidDuration",
+            "msg": "Invalid flash market duration"
         }
     ],
     "types": [
@@ -2576,6 +2890,54 @@
                     {
                         "name": "amount",
                         "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "FlashMarketClosed",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "initial_velocity",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "final_velocity",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "timestamp",
+                        "type": "i64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "FlashMarketCreated",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "market",
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "initial_velocity",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "start_time",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "end_time",
+                        "type": "i64"
                     }
                 ]
             }
@@ -2663,6 +3025,18 @@
                                 32
                             ]
                         }
+                    },
+                    {
+                        "name": "flash_market_active",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "flash_market_end",
+                        "type": "i64"
+                    },
+                    {
+                        "name": "flash_initial_velocity",
+                        "type": "i64"
                     }
                 ]
             }

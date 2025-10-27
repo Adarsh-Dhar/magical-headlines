@@ -142,30 +142,11 @@ export function useContract() {
   const walletAdapter = useWallet();
 
   // Create program on demand to avoid dependency issues
-  const getProgram = useCallback(() => {
-    // Only log in development mode to reduce console spam
-    if (process.env.NODE_ENV === 'development') {
-      //   publicKey: walletAdapter.publicKey?.toString(),
-      //   signTransaction: !!walletAdapter.signTransaction,
-      //   connected: walletAdapter.connected,
-      //   connecting: walletAdapter.connecting
-      // });
-    }
-    
+  // Use useMemo to cache the program instance and prevent unnecessary re-creation
+  const program = useMemo(() => {
     // Check if wallet is connected and has required methods
     if (!walletAdapter.connected || !walletAdapter.publicKey || !walletAdapter.signTransaction) {
-      if (process.env.NODE_ENV === 'development') {
-        //   connected: walletAdapter.connected,
-        //   publicKey: !!walletAdapter.publicKey,
-        //   signTransaction: !!walletAdapter.signTransaction,
-        //   connecting: walletAdapter.connecting,
-        //   walletAdapter: walletAdapter
-        // });
-      }
       return null;
-    }
-    
-    if (process.env.NODE_ENV === 'development') {
     }
     
     try {
@@ -210,104 +191,7 @@ export function useContract() {
         address: programId.toString()
       } as Idl;
       
-      if (process.env.NODE_ENV === 'development') {
-        // Program ID validation
-        const idlAddressMatches = programId.toString() === NEWS_PLATFORM_IDL.address;
-        const idlLoaded = !!NEWS_PLATFORM_IDL;
-        const idlInstructionsCount = NEWS_PLATFORM_IDL.instructions?.length;
-        const hasStakeAuthorTokens = NEWS_PLATFORM_IDL.instructions?.some((ix: any) => ix.name === 'stake_author_tokens');
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        // Debug info removed for production
-      }
-        
-      // Debug: Check if publish_news instruction exists in IDL
-      const publishNewsInstruction = minimalIdl.instructions?.find((ix: any) => ix.name === 'publish_news');
-      
-      
       const program = new Program(minimalIdl, provider) as Program;
-      
-      if (process.env.NODE_ENV === 'development') {
-        // Program created successfully
-        const programIdStr = program.programId.toString();
-        const methodsCount = Object.keys(program.methods || {}).length;
-        const hasStakeAuthorTokens = !!program.methods?.stake_author_tokens;
-        
-        // Verify program is actually deployed (async check)
-        connection.getAccountInfo(programId).then(programInfo => {
-          const deploymentInfo = {
-            exists: !!programInfo,
-            owner: programInfo?.owner.toString(),
-            executable: programInfo?.executable,
-            dataLength: programInfo?.data.length
-          };
-        }).catch(error => {
-          // Error checking program deployment
-        });
-        
-        // Check if program is deployed
-        connection.getAccountInfo(programId).then(programInfo => {
-          const isDeployed = !!programInfo;
-          const owner = programInfo?.owner.toString();
-        }).catch(error => {
-          // Error checking program deployment
-        });
-      }
-      
-      // Comprehensive debugging and error handling
-      if (process.env.NODE_ENV === 'development') {
-        // Program debug info
-        const programIdStr = program.programId.toString();
-        const methodsType = typeof program.methods;
-        const methodsExists = !!program.methods;
-        const availableMethods = Object.keys(program.methods || {});
-        const methodsCount = Object.keys(program.methods || {}).length;
-        
-        // Check IDL vs Program methods
-        const idlAddress = NEWS_PLATFORM_IDL.address;
-        const programAddress = program.programId.toString();
-        const addressesMatch = NEWS_PLATFORM_IDL.address === program.programId.toString();
-        
-        // Check IDL instructions
-        const idlInstructionsCount = NEWS_PLATFORM_IDL.instructions?.length;
-        const idlStakingMethods = NEWS_PLATFORM_IDL.instructions?.filter((ix: any) => 
-          ix.name === 'stake_author_tokens' || 
-          ix.name === 'unstake_author_tokens' || 
-          ix.name === 'claim_staking_fees'
-        ) || [];
-        
-        // Check program methods
-        const programStakingMethods = {
-          stakeAuthorTokens: !!(program.methods?.stakeAuthorTokens),
-          unstakeAuthorTokens: !!(program.methods?.unstakeAuthorTokens),
-          claimStakingFees: !!(program.methods?.claimStakingFees),
-        };
-        
-        // Detailed method inspection
-        if (program.methods) {
-          Object.keys(program.methods).forEach(methodName => {
-            if (methodName.includes('stake') || methodName.includes('claim')) {
-              const methodInfo = {
-                exists: !!program.methods[methodName],
-                type: typeof program.methods[methodName],
-                isFunction: typeof program.methods[methodName] === 'function'
-              };
-            }
-          });
-        }
-        
-        // Test method creation
-        try {
-          if (program.methods.stakeAuthorTokens) {
-            const testCall = program.methods.stakeAuthorTokens(new anchor.BN(1));
-          } else {
-            const availableStakeMethods = Object.keys(program.methods || {}).filter(name => name.includes('stake'));
-          }
-        } catch (error) {
-          // Error testing stakeAuthorTokens method
-        }
-      }
       
       // Check if Anchor converted snake_case to camelCase
       const hasPublishNews = !!(program.methods?.publishNews);
@@ -318,18 +202,14 @@ export function useContract() {
       const hasPublishNewsMethod = !!(program.methods?.publish_news || program.methods?.publishNews);
       
       if (!program.methods || !hasPublishNewsMethod) {
-        // Program missing required methods
         return null;
       }
       
       return program;
     } catch (error) {
-      // Failed to create program
       return null;
     }
-  }, [connection, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
-
-  const program = getProgram();
+  }, [connection, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
   
   // Only log in development mode to reduce console spam
   if (process.env.NODE_ENV === 'development') {
@@ -345,11 +225,8 @@ export function useContract() {
       nonce: number | anchor.BN;
     }) => {
       console.log('publishNews', params);
-      // Try to get the program again in case it wasn't ready initially
+      // Use the program from useMemo
       let currentProgram = program;
-      if (!currentProgram) {
-        currentProgram = getProgram();
-      }
       
       if (!currentProgram) {
         // Program not ready
@@ -1127,7 +1004,7 @@ export function useContract() {
             stakedAuthorTokens: marketAccount.staked_author_tokens || 0,
             accumulatedFees: marketAccount.accumulated_fees || 0,
           };
-        }, 15000); // Cache for 15 seconds
+        }, 60000); // Cache for 60 seconds to reduce API calls
         
         return result;
       } catch (error) {
@@ -1479,10 +1356,9 @@ export function useContract() {
 
   // Debug function to test program creation
   const testProgram = useCallback(() => {
-    const testProgram = getProgram();
-    // Debug info removed for production
-    return testProgram;
-  }, [getProgram, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction]);
+    // Return the memoized program
+    return program;
+  }, [program]);
 
   // Game Layer methods
   const initializeProfile = useCallback(async () => {

@@ -175,6 +175,41 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // IMPORTANT: Update volume24h for the token
+    try {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      const allTrades = await prisma.trade.findMany({
+        where: {
+          tokenId,
+          timestamp: { gte: oneDayAgo }
+        }
+      });
+
+      if (allTrades.length > 0) {
+        // Calculate 24h volume
+        const volume24h = allTrades.reduce((sum, t) => sum + (t.amount * t.priceAtTrade), 0);
+        
+        // Calculate price change
+        const currentPrice = allTrades[0].priceAtTrade;
+        const oldestPrice = allTrades[allTrades.length - 1].priceAtTrade;
+        const priceChange24h = oldestPrice > 0 ? ((currentPrice - oldestPrice) / oldestPrice) * 100 : 0;
+
+        // Update token statistics
+        await prisma.token.update({
+          where: { id: tokenId },
+          data: {
+            price: currentPrice,
+            priceChange24h,
+            volume24h,
+          }
+        });
+      }
+    } catch (updateError) {
+      console.error('Error updating volume24h:', updateError);
+      // Don't fail the trade creation if volume update fails
+    }
+
     return NextResponse.json({ success: true, trade });
   } catch (error) {
     console.error('Error creating trade:', error);

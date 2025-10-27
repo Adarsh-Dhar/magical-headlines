@@ -135,6 +135,10 @@ export class TrendOrchestrator {
           // Markets that haven't been updated recently
           {
             lastTrendUpdate: { lt: thresholdTime }
+          },
+          // FIX: Include markets that have NEVER been updated (NULL lastTrendUpdate)
+          {
+            lastTrendUpdate: null
           }
         ]
       },
@@ -150,7 +154,11 @@ export class TrendOrchestrator {
 
     return tokens.map(token => {
       const lastTrade = token.trades[0];
-      const hoursSinceUpdate = (Date.now() - token.lastTrendUpdate.getTime()) / (1000 * 60 * 60);
+      
+      // FIX: Handle NULL lastTrendUpdate (never updated)
+      const hoursSinceUpdate = token.lastTrendUpdate
+        ? (Date.now() - token.lastTrendUpdate.getTime()) / (1000 * 60 * 60)
+        : Infinity; // Never updated = highest priority
       
       let priority: 'high' | 'medium' | 'low' = 'low';
       if (token.volume24h > 10 || hoursSinceUpdate > 2) {
@@ -158,10 +166,15 @@ export class TrendOrchestrator {
       } else if (token.volume24h > 1 || hoursSinceUpdate > 1) {
         priority = 'medium';
       }
+      
+      // If never updated, treat as high priority
+      if (!token.lastTrendUpdate) {
+        priority = 'high';
+      }
 
       return {
         tokenId: token.id,
-        needsUpdate: hoursSinceUpdate > 0.5, // Update if older than 30 minutes
+        needsUpdate: hoursSinceUpdate > 0.5 || token.lastTrendUpdate === null, // Update if older than 30 minutes OR never updated
         lastUpdate: token.lastTrendUpdate,
         priority
       };
