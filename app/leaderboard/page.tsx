@@ -61,11 +61,14 @@ export default function LeaderboardPage() {
   const [pnlLeaderboard, setPnlLeaderboard] = useState<PnLTrader[]>([])
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<SeasonTrader[]>([])
   const [currentSeason, setCurrentSeason] = useState<Season | null>(null)
+  const [pastSeasons, setPastSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState("")
   const [appliedSearch, setAppliedSearch] = useState("")
   const [activeTab, setActiveTab] = useState<'roi' | 'pnl' | 'season'>('roi')
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>("")
+  const [minimalRows, setMinimalRows] = useState<Array<{ rank: number; address: string; name: string; totalPnl: number; roi: number }>>([])
   
   const isUserAdmin = isAdmin(publicKey?.toString())
   useEffect(() => {
@@ -98,6 +101,17 @@ export default function LeaderboardPage() {
         if (response.ok) {
           const data = await response.json()
           setCurrentSeason(data.currentSeason)
+          setPastSeasons(data.pastSeasons || [])
+          const initial = data.currentSeason?.seasonId ? String(data.currentSeason.seasonId) : ""
+          setSelectedSeasonId(initial)
+          // Prime minimal table
+          const qs = new URLSearchParams({ limit: '50', minimal: 'true' })
+          if (initial) qs.set('seasonId', initial)
+          const lb = await fetch(`/api/leaderboard?${qs.toString()}`)
+          if (lb.ok) {
+            const d = await lb.json()
+            setMinimalRows(d.rows || [])
+          }
         }
       } catch (err) {
         console.error('Error fetching season data:', err)
@@ -107,6 +121,34 @@ export default function LeaderboardPage() {
     fetchLeaderboardData()
     fetchSeasonData()
   }, [])
+  const seasonOptions = useMemo(() => {
+    const opts: Array<{ label: string; value: string }> = [{ label: 'All-time', value: '' }]
+    if (currentSeason) opts.push({ label: `Season ${currentSeason.seasonId} (Active)`, value: String(currentSeason.seasonId) })
+    for (const s of pastSeasons) opts.push({ label: `Season ${s.seasonId}`, value: String(s.seasonId) })
+    // Ensure uniqueness and stable order: All-time, Active, then past desc by label already from API
+    const seen = new Set<string>()
+    return opts.filter(o => (seen.has(o.value) ? false : seen.add(o.value)))
+  }, [currentSeason, pastSeasons])
+
+  const onSeasonChange = async (value: string) => {
+    setSelectedSeasonId(value)
+    setLoading(true)
+    try {
+      const qs = new URLSearchParams({ limit: '50', minimal: 'true' })
+      if (value) qs.set('seasonId', value)
+      const res = await fetch(`/api/leaderboard?${qs.toString()}`)
+      if (!res.ok) throw new Error('Failed to fetch leaderboard')
+      const data = await res.json()
+      setMinimalRows(data.rows || [])
+      setError(null)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load leaderboard')
+      setMinimalRows([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   const handleSeasonEnd = async () => {
     try {
@@ -273,8 +315,17 @@ export default function LeaderboardPage() {
           onResetSeasonPnl={handleResetSeasonPnl}
         />
 
-        {/* Tab Navigation */}
+        {/* Season Filter + Tabs */}
         <div className="flex gap-2 mb-6">
+          <select
+            value={selectedSeasonId}
+            onChange={(e) => onSeasonChange(e.target.value)}
+            className="w-56 h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {seasonOptions.map(opt => (
+              <option key={opt.value || 'all'} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
           <Button 
             variant={activeTab === 'roi' ? 'default' : 'outline'}
             onClick={() => setActiveTab('roi')}
@@ -340,11 +391,11 @@ export default function LeaderboardPage() {
               )}
             </div>
           </Card>
-        ) : traders.length === 0 ? (
+        ) : minimalRows.length === 0 ? (
           <Card className="p-8">
             <div className="text-center text-muted-foreground">
-              <p className="text-lg font-semibold mb-2">No trading data found</p>
-              <p className="text-sm">Connect your wallet and start trading to see leaderboard data</p>
+              <p className="text-lg font-semibold mb-2">No data for this season yet</p>
+              <p className="text-sm">Try switching to a different season or All-time</p>
             </div>
           </Card>
         ) : (
@@ -355,137 +406,52 @@ export default function LeaderboardPage() {
                   <tr>
                     <th className="text-left p-4 font-semibold">Rank</th>
                     <th className="text-left p-4 font-semibold">Trader</th>
-                    {activeTab === 'roi' && (
-                      <>
-                        <th className="text-right p-4 font-semibold">ROI</th>
-                        <th className="text-right p-4 font-semibold">Tokens Owned</th>
-                        <th className="text-right p-4 font-semibold">Stories</th>
-                        <th className="text-right p-4 font-semibold">Volume</th>
-                      </>
-                    )}
-                    {activeTab === 'pnl' && (
-                      <>
-                        <th className="text-right p-4 font-semibold">Total PnL</th>
-                        <th className="text-right p-4 font-semibold">Season PnL</th>
-                        <th className="text-right p-4 font-semibold">Trades</th>
-                        <th className="text-right p-4 font-semibold">Trophies</th>
-                      </>
-                    )}
-                    {activeTab === 'season' && (
-                      <>
-                        <th className="text-right p-4 font-semibold">Season PnL</th>
-                        <th className="text-right p-4 font-semibold">Trades</th>
-                        <th className="text-right p-4 font-semibold">Wins</th>
-                        <th className="text-right p-4 font-semibold">Volume</th>
-                      </>
-                    )}
+                    <th className="text-right p-4 font-semibold">PnL</th>
+                    <th className="text-right p-4 font-semibold">ROI %</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTraders.map((trader, index) => (
-                    <tr key={trader.address || `trader-${index}`} className="border-t hover:bg-accent/50 transition-colors">
+                  {minimalRows.map((r) => (
+                    <tr key={r.address} className="border-t hover:bg-accent/50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          {trader.rank <= 3 && (
+                          {r.rank <= 3 && (
                             <TrophyIcon
                               className={`w-5 h-5 ${
-                                trader.rank === 1
+                                r.rank === 1
                                   ? "text-yellow-500"
-                                  : trader.rank === 2
+                                  : r.rank === 2
                                     ? "text-gray-400"
                                     : "text-amber-600"
                               }`}
                             />
                           )}
-                          <span className="font-bold text-lg">{trader.rank}</span>
+                          <span className="font-bold text-lg">{r.rank}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div>
-                          <div className="font-mono font-medium">{formatAddress(trader.address)}</div>
-                          {trader.name !== "Anonymous" && (
-                            <div className="text-sm text-muted-foreground">{trader.name}</div>
+                          <div className="font-mono font-medium">{formatAddress(r.address)}</div>
+                          {r.name !== "Anonymous" && (
+                            <div className="text-sm text-muted-foreground">{r.name}</div>
                           )}
                         </div>
                       </td>
-                      
-                      {activeTab === 'roi' && 'roi' in trader && (
-                        <>
-                          <td className="p-4 text-right">
-                            <span className={`flex items-center justify-end gap-1 font-bold ${
-                              (trader.roi || 0) >= 0 ? "text-green-500" : "text-red-500"
-                            }`}>
-                              <TrendingUpIcon className={`w-4 h-4 ${(trader.roi || 0) < 0 ? "rotate-180" : ""}`} />
-                              {(trader.roi || 0) > 0 ? "+" : ""}{trader.roi || 0}%
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <div className="text-right">
-                              <div className="font-medium">{(trader.totalTokensOwned || 0).toFixed(2)}</div>
-                              {(trader.currentHoldingsValue || 0) > 0 && (
-                                <div className="text-sm text-muted-foreground">
-                                  ${(trader.currentHoldingsValue || 0).toFixed(2)}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{trader.storiesPublished || 0}</span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{formatVolume(trader.volume || 0)}</span>
-                          </td>
-                        </>
-                      )}
-                      
-                      {activeTab === 'pnl' && 'totalPnl' in trader && (
-                        <>
-                          <td className="p-4 text-right">
-                            <span className={`font-bold ${
-                              (trader.totalPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
-                            }`}>
-                              ${(trader.totalPnl || 0).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`font-bold ${
-                              (trader.currentSeasonPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
-                            }`}>
-                              ${(trader.currentSeasonPnl || 0).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{trader.tradesCount || 0}</span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <TrophyIcon className="w-4 h-4 text-yellow-500" />
-                              <span className="font-medium">{trader.trophies || 0}</span>
-                            </div>
-                          </td>
-                        </>
-                      )}
-                      
-                      {activeTab === 'season' && 'seasonPnl' in trader && (
-                        <>
-                          <td className="p-4 text-right">
-                            <span className={`font-bold ${
-                              (trader.seasonPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
-                            }`}>
-                              ${(trader.seasonPnl || 0).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{trader.seasonTrades || 0}</span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{trader.seasonWins || 0}</span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className="font-medium">{formatVolume(trader.seasonVolume || 0)}</span>
-                          </td>
-                        </>
-                      )}
+                      <td className="p-4 text-right">
+                        <span className={`font-bold ${
+                          (r.totalPnl || 0) >= 0 ? "text-green-500" : "text-red-500"
+                        }`}>
+                          ${(r.totalPnl || 0).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className={`flex items-center justify-end gap-1 font-bold ${
+                          (r.roi || 0) >= 0 ? "text-green-500" : "text-red-500"
+                        }`}>
+                          <TrendingUpIcon className={`w-4 h-4 ${(r.roi || 0) < 0 ? "rotate-180" : ""}`} />
+                          {(r.roi || 0) > 0 ? "+" : ""}{(r.roi || 0).toFixed(1)}%
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

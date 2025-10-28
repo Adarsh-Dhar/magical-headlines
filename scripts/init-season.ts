@@ -4,7 +4,8 @@ import * as anchor from "@coral-xyz/anchor"
 import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json'
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { prisma } from "../lib/prisma"
+import { PrismaClient } from "@prisma/client"
+const prisma = new PrismaClient()
 
 async function initializeFirstSeason() {
   const connection = new Connection("https://api.devnet.solana.com")
@@ -92,6 +93,8 @@ async function initializeFirstSeason() {
     )[0].toString())
   } catch (error) {
     console.error("Error initializing season:", error)
+  } finally {
+    try { await prisma.$disconnect() } catch {}
   }
 }
 
