@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
-import { CandlestickChart } from "@/components/candlestick-chart"
+// Chart removed
 import { TokenOrderBook } from "@/components/token-order-book"
 import { ProfitLossStatement } from "@/components/profit-loss-statement"
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
@@ -598,10 +598,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         const calculatedPrice = (Number(prev.basePrice) / 1e9) * ((10000 + updatedSupply) / 10000)
         setCurrentPrice(calculatedPrice)
         
-        // Update candlestick chart with new price
-        if (typeof window !== 'undefined' && (window as any).updateCandlestickChart) {
-          (window as any).updateCandlestickChart(calculatedPrice)
-        }
+        // Chart updates removed
         
         return { ...prev, circulatingSupply: updatedSupply }
       })
@@ -723,10 +720,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
         const calculatedPrice = (Number(prev.basePrice) / 1e9) * ((10000 + updatedSupply) / 10000)
         setCurrentPrice(calculatedPrice)
         
-        // Update candlestick chart with new price
-        if (typeof window !== 'undefined' && (window as any).updateCandlestickChart) {
-          (window as any).updateCandlestickChart(calculatedPrice)
-        }
+        // Chart updates removed
         
         return { ...prev, circulatingSupply: updatedSupply }
       })
@@ -1324,25 +1318,7 @@ const StoryDetailPage = memo(function StoryDetailPage() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {story?.token ? (
-              <CandlestickChart 
-                tokenId={story.token.id} 
-                live={true} 
-                interval="1m"
-                height={400}
-                marketAddress={story.token?.marketAccount || ''}
-                newsAccountAddress={story.token?.newsAccount || ''}
-                mintAddress={story.token?.mintAccount || ''}
-              />
-            ) : (
-              <Card className="p-6">
-                <div className="flex items-center justify-center" style={{ height: 400 }}>
-                  <div className="text-center">
-                    <p className="text-muted-foreground">No token data available for charting</p>
-                  </div>
-                </div>
-              </Card>
-            )}
+            {/* Chart removed */}
 
             <Card className="p-6" id="comments">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>

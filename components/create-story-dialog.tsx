@@ -67,32 +67,29 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
   // No authentication needed - wallet connection is sufficient
 
   // Generate a unique nonce that combines timestamp with counter and random component
-  // Using smaller values to stay within safe integer range for anchor.BN
+  // Using millisecond precision for better uniqueness
   const generateUniqueNonce = () => {
     // Increment counter for this session
     nonceCounterRef.current += 1
     
-    // Use a simpler approach with smaller numbers to avoid overflow
-    const timestamp = Math.floor(Date.now() / 1000) // Unix timestamp in seconds
+    // Use millisecond precision timestamp + counter + large random component
+    const timestamp = Date.now() // Milliseconds precision for better uniqueness
     const counter = nonceCounterRef.current
-    const random = Math.floor(Math.random() * 1000) // Random component 0-999
+    const random = Math.floor(Math.random() * 1000000) // Larger random component (0-999999)
     
-    // Create nonce: timestamp + counter * 1000 + random
-    // This keeps the number much smaller and within safe integer range
-    const nonce = timestamp + (counter * 1000) + random
+    // Create nonce: timestamp + counter * 1000000 + random
+    // This ensures much better uniqueness even with rapid successive calls
+    const nonce = timestamp + (counter * 1000000) + random
     
-    // Validate nonce is within safe integer range
-    if (nonce > Number.MAX_SAFE_INTEGER) {
-      const fallbackNonce = Math.floor(Math.random() * 1000000000)
-      usedNoncesRef.current.add(fallbackNonce)
-      setUsedNonces(prev => new Set(prev).add(fallbackNonce))
-      return fallbackNonce
-    }
+    // Fallback if somehow we exceed safe integer
+    const finalNonce = nonce > Number.MAX_SAFE_INTEGER 
+      ? Math.floor(Math.random() * 1000000000)
+      : nonce
     
     // Mark nonce as used immediately in ref (synchronous)
-    usedNoncesRef.current.add(nonce)
-    setUsedNonces(prev => new Set(prev).add(nonce))
-    return nonce
+    usedNoncesRef.current.add(finalNonce)
+    setUsedNonces(prev => new Set(prev).add(finalNonce))
+    return finalNonce
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -338,24 +335,67 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
 
           console.log('🚀 Publishing story on-chain with user wallet...')
 
-          // Call the on-chain publishing with user's wallet
-          const onChainSignature = await publishOnchain({
-            headline: formData.headline,
-            arweaveLink: safeArweaveResult.arweaveUrl,
-            initialSupply: formData.initialSupply,
-            basePrice: formData.basePrice,
-            nonce: uniqueNonce,
-          })
+          // Retry logic for "transaction already processed" errors
+          let attempts = 0
+          let lastError: any = null
+          let currentNonce = uniqueNonce
+          let onChainSignature: string | null = null
+          const maxAttempts = 3
+
+          while (attempts < maxAttempts && !onChainSignature) {
+            try {
+              onChainSignature = await publishOnchain({
+                headline: formData.headline,
+                arweaveLink: safeArweaveResult.arweaveUrl,
+                initialSupply: formData.initialSupply,
+                basePrice: formData.basePrice,
+                nonce: currentNonce,
+              })
+              
+              // Success - break out of retry loop
+              lastError = null
+              break
+            } catch (error) {
+              lastError = error
+              // Check if this is a "transaction already processed" or "duplicate" error
+              const errorMessage = error instanceof Error ? error.message : String(error)
+              
+              if (errorMessage.includes('already been processed') || 
+                  errorMessage.includes('duplicate') ||
+                  errorMessage.includes('AccountDidNotDeserialize') ||
+                  errorMessage.includes('disconnected port') ||
+                  errorMessage.includes('Failed to send message to service worker')) {
+                // Generate a new nonce and retry
+                attempts++
+                if (attempts < maxAttempts) {
+                  currentNonce = generateUniqueNonce()
+                  console.log(`🔄 Retrying with new nonce (attempt ${attempts}/${maxAttempts}):`, currentNonce)
+                  
+                  // Longer delay to allow wallet service worker to reconnect
+                  await new Promise(resolve => setTimeout(resolve, 2000))
+                  continue
+                }
+              }
+              
+              // Different error or max attempts reached - don't retry
+              throw error
+            }
+          }
+
+          if (lastError && !onChainSignature) {
+            throw lastError
+          }
 
           if (onChainSignature) {
             console.log('✅ On-chain publishing successful:', onChainSignature)
             
             // Derive the account addresses (same as in the contract)
-            const newsPda = pdas.findNewsPda(publicKey, uniqueNonce)
+            const newsPda = pdas.findNewsPda(publicKey, currentNonce)
             const mintPda = pdas.findMintPda(newsPda)
             const marketPda = pdas.findMarketPda(newsPda)
 
             // Update the token record with on-chain addresses
+            // Also update nonce if it changed during retry
             const updateResponse = await fetch('/api/story/update-token', {
               method: 'POST',
               headers: {
@@ -366,9 +406,15 @@ export function CreateStoryDialog({ onStoryCreated }: CreateStoryDialogProps) {
                 mintAccount: mintPda.toString(),
                 marketAccount: marketPda.toString(),
                 newsAccount: newsPda.toString(),
-                signature: onChainSignature
+                signature: onChainSignature,
+                ...(currentNonce !== uniqueNonce && { nonce: currentNonce.toString() })
               }),
             })
+            
+            // If nonce changed, log it
+            if (currentNonce !== uniqueNonce) {
+              console.log('✅ Used retry nonce:', currentNonce, 'instead of original:', uniqueNonce)
+            }
 
             if (updateResponse.ok) {
               setOnChainResult({ success: true, signature: onChainSignature })

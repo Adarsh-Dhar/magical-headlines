@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.trendOrchestrator = exports.TrendOrchestrator = void 0;
 const client_1 = require("@prisma/client");
-const magicblock_ai_oracle_1 = require("./magicblock-ai-oracle");
 const ai_trend_calculator_1 = require("./ai-trend-calculator");
 const prisma = new client_1.PrismaClient();
 class TrendOrchestrator {
@@ -182,37 +181,9 @@ class TrendOrchestrator {
                     }
                 }
                 console.log(`🔄 Calculating fresh trend index for token ${tokenId}...`);
-                let result;
-                if (magicblock_ai_oracle_1.magicBlockAIOracle.isAvailable()) {
-                    console.log(`📞 Calling magicBlockAIOracle.calculateTrendIndex(${tokenId})...`);
-                    try {
-                        const response = yield magicblock_ai_oracle_1.magicBlockAIOracle.calculateTrendIndex(tokenId);
-                        console.log(`📥 Response received:`, {
-                            success: response.success,
-                            hasResult: !!response.result,
-                            error: response.error,
-                            provider: response.provider
-                        });
-                        if (response.success && response.result) {
-                            result = response.result;
-                            console.log(`✅ MagicBlock AI calculation successful`);
-                        }
-                        else {
-                            throw new Error(`MagicBlock calculation failed: ${response.error}`);
-                        }
-                    }
-                    catch (magicBlockError) {
-                        console.log(`⚠️ MagicBlock failed, using Gemini AI fallback...`);
-                        console.log(`   Error: ${magicBlockError.message}`);
-                        result = yield ai_trend_calculator_1.aiTrendCalculator.calculateTrendIndex(tokenId);
-                        console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
-                    }
-                }
-                else {
-                    console.log(`📞 MagicBlock not configured, using Gemini AI...`);
-                    result = yield ai_trend_calculator_1.aiTrendCalculator.calculateTrendIndex(tokenId);
-                    console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
-                }
+                console.log(`📞 Calling Gemini AI for trend calculation...`);
+                const result = yield ai_trend_calculator_1.aiTrendCalculator.calculateTrendIndex(tokenId);
+                console.log(`✅ Gemini AI trend calculation complete for token ${tokenId}: score=${result.score}`);
                 console.log(`   Confidence: ${result.confidence}`);
                 console.log(`   Timestamp: ${result.timestamp}`);
                 console.log(`💾 Updating database...`);
@@ -318,7 +289,7 @@ class TrendOrchestrator {
         };
     }
     getCircuitBreakerStatus() {
-        return magicblock_ai_oracle_1.magicBlockAIOracle.getCircuitBreakerStatus();
+        return { open: false, failures: 0, threshold: 0 };
     }
     clearCache() {
         this.cache.clear();

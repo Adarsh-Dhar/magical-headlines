@@ -209,7 +209,7 @@ export function useContract() {
     } catch (error) {
       return null;
     }
-  }, [connection, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions]);
+  }, [connection, walletAdapter.connected, walletAdapter.publicKey, walletAdapter.signTransaction, walletAdapter.signAllTransactions, walletAdapter]);
   
   // Only log in development mode to reduce console spam
   if (process.env.NODE_ENV === 'development') {
@@ -355,17 +355,23 @@ export function useContract() {
 
         // Create transaction with proper signer setup
         const transaction = new Transaction().add(instruction);
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = author;
+
+        // CRITICAL: Ensure we're using the CURRENT wallet adapter, not cached
+        if (!walletAdapter.signTransaction) {
+          throw new Error("Wallet sign transaction not available - wallet may have disconnected");
+        }
 
         // Sign the transaction with the wallet adapter
         const signedTransaction = await walletAdapter.signTransaction!(transaction);
 
-        // Send the signed transaction
+        // Send the signed transaction with retry logic
         const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
           skipPreflight: false,
-          preflightCommitment: 'confirmed'
+          preflightCommitment: 'confirmed',
+          maxRetries: 3
         });
 
         console.log('signature', signature);
@@ -425,7 +431,7 @@ export function useContract() {
         throw new Error(`Publish news transaction failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
-    [program, walletAdapter.publicKey, getProgram]
+    [program, walletAdapter.publicKey, walletAdapter, connection, getProgram]
   );
 
 

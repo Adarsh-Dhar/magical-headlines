@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, HeartIcon, Share2Icon, CheckIcon, UserPlusIcon, ExternalLinkIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, HeartIcon, Share2Icon, CheckIcon, UserPlusIcon, ExternalLinkIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useWallet } from "@solana/wallet-adapter-react"
@@ -193,12 +193,6 @@ export function NewsCard({ story }: NewsCardProps) {
               {isSharing ? <CheckIcon className="w-4 h-4" /> : <Share2Icon className="w-4 h-4" />}
             </Button>
 
-            <Link href={`/${story.id}`}>
-              <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                <BarChart3Icon className="w-4 h-4" />
-                Chart
-              </Button>
-            </Link>
             <Link href={`/${story.id}`}>
               <Button size="sm" className="bg-primary hover:bg-primary/90">
                 Trade

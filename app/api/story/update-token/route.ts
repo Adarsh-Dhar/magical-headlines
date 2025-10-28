@@ -9,6 +9,7 @@ const updateTokenSchema = z.object({
   marketAccount: z.string().min(1, "Market account is required"),
   newsAccount: z.string().min(1, "News account is required"),
   signature: z.string().min(1, "Transaction signature is required"),
+  nonce: z.string().optional(), // Optional nonce update for retry scenarios
 })
 
 // POST /api/story/update-token - Update token with on-chain addresses
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { storyId, mintAccount, marketAccount, newsAccount, signature } = validation.data
+    const { storyId, mintAccount, marketAccount, newsAccount, signature, nonce } = validation.data
 
     // Find the story
     const story = await prisma.story.findUnique({
@@ -62,10 +63,16 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Update story to mark it as on-market
+    // Update story to mark it as on-market (and optionally update nonce if provided)
+    const storyUpdateData: any = { onMarket: true }
+    if (nonce) {
+      storyUpdateData.nonce = nonce
+      console.log('📝 Updating nonce to:', nonce)
+    }
+    
     await prisma.story.update({
       where: { id: storyId },
-      data: { onMarket: true }
+      data: storyUpdateData
     })
 
     console.log('✅ Token updated with on-chain addresses:', {

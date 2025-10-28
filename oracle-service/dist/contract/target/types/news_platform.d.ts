@@ -747,158 +747,36 @@ export type NewsPlatform = {
                     "signer": true;
                 },
                 {
-                    "name": "validator";
-                    "optional": true;
-                },
-                {
-                    "name": "bufferPda";
-                    "writable": true;
-                    "pda": {
-                        "seeds": [
-                            {
-                                "kind": "const";
-                                "value": [
-                                    98,
-                                    117,
-                                    102,
-                                    102,
-                                    101,
-                                    114
-                                ];
-                            },
-                            {
-                                "kind": "account";
-                                "path": "pda";
-                            }
-                        ];
-                        "program": {
-                            "kind": "const";
-                            "value": [
-                                241,
-                                70,
-                                137,
-                                76,
-                                211,
-                                31,
-                                181,
-                                249,
-                                158,
-                                211,
-                                17,
-                                61,
-                                131,
-                                176,
-                                19,
-                                217,
-                                157,
-                                116,
-                                72,
-                                19,
-                                157,
-                                227,
-                                182,
-                                73,
-                                38,
-                                227,
-                                31,
-                                249,
-                                208,
-                                32,
-                                137,
-                                20
-                            ];
-                        };
-                    };
-                },
-                {
-                    "name": "delegationRecordPda";
-                    "writable": true;
-                    "pda": {
-                        "seeds": [
-                            {
-                                "kind": "const";
-                                "value": [
-                                    100,
-                                    101,
-                                    108,
-                                    101,
-                                    103,
-                                    97,
-                                    116,
-                                    105,
-                                    111,
-                                    110
-                                ];
-                            },
-                            {
-                                "kind": "account";
-                                "path": "pda";
-                            }
-                        ];
-                        "program": {
-                            "kind": "account";
-                            "path": "delegationProgram";
-                        };
-                    };
-                },
-                {
-                    "name": "delegationMetadataPda";
-                    "writable": true;
-                    "pda": {
-                        "seeds": [
-                            {
-                                "kind": "const";
-                                "value": [
-                                    100,
-                                    101,
-                                    108,
-                                    101,
-                                    103,
-                                    97,
-                                    116,
-                                    105,
-                                    111,
-                                    110,
-                                    45,
-                                    109,
-                                    101,
-                                    116,
-                                    97,
-                                    100,
-                                    97,
-                                    116,
-                                    97
-                                ];
-                            },
-                            {
-                                "kind": "account";
-                                "path": "pda";
-                            }
-                        ];
-                        "program": {
-                            "kind": "account";
-                            "path": "delegationProgram";
-                        };
-                    };
-                },
-                {
-                    "name": "pda";
+                    "name": "newsAccount";
                     "docs": [
-                        "CHECK The pda to delegate"
+                        "The news account to get seeds from"
+                    ];
+                },
+                {
+                    "name": "market";
+                    "docs": [
+                        "The market PDA to delegate"
                     ];
                     "writable": true;
-                },
-                {
-                    "name": "ownerProgram";
-                    "address": "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3";
-                },
-                {
-                    "name": "delegationProgram";
-                    "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh";
-                },
-                {
-                    "name": "systemProgram";
-                    "address": "11111111111111111111111111111111";
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
                 }
             ];
             "args": [];
@@ -2026,11 +1904,36 @@ export type NewsPlatform = {
                     "signer": true;
                 },
                 {
+                    "name": "newsAccount";
+                    "docs": [
+                        "The news account to get seeds from"
+                    ];
+                },
+                {
                     "name": "market";
                     "docs": [
-                        "CHECK The market pda to undelegate"
+                        "The market PDA to undelegate"
                     ];
                     "writable": true;
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const";
+                                "value": [
+                                    109,
+                                    97,
+                                    114,
+                                    107,
+                                    101,
+                                    116
+                                ];
+                            },
+                            {
+                                "kind": "account";
+                                "path": "newsAccount";
+                            }
+                        ];
+                    };
                 },
                 {
                     "name": "magicContext";
