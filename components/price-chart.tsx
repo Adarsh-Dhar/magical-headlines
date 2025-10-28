@@ -50,6 +50,7 @@ interface PriceChartProps {
   liveUpdates?: boolean
   refreshInterval?: number
   onchainVolumeSOL?: number
+  livePrice?: number
 }
 
 const chartConfig: ChartConfig = {
@@ -72,15 +73,17 @@ export function PriceChart({
   className,
   showVolume = false,
   height = 300,
-  liveUpdates = false,
+  liveUpdates = true,
   refreshInterval = 0,
-  onchainVolumeSOL
+  onchainVolumeSOL,
+  livePrice
 }: PriceChartProps) {
   // State for current volume and data
   const [currentVolume, setCurrentVolume] = useState(0.1006); // Latest volume from trading status
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isEstimated, setIsEstimated] = useState(false);
   const [onchainSeries, setOnchainSeries] = useState<Array<{ timestamp: string; volume: number }>>([]);
+  const [liveSeries, setLiveSeries] = useState<Array<{ timestamp: string; price: number }>>([]);
 
   // Real-time polling disabled to avoid frequent requests
 
@@ -89,7 +92,7 @@ export function PriceChart({
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
-  const [dataSource, setDataSource] = useState<'database' | 'onchain' | 'none'>('none');
+  const [dataSource, setDataSource] = useState<'database' | 'live' | 'none'>('none');
 
   useEffect(() => {
     const fetchPriceHistory = async () => {
@@ -112,26 +115,10 @@ export function PriceChart({
           const data = await response.json();
         
         if (!data.priceHistory || data.priceHistory.length === 0) {
-          // No DB trades; fall back to plotting on-chain volume samples if available
-          if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0) {
-            const now = new Date();
-            const initialPoint = { timestamp: now.toISOString(), volume: onchainVolumeSOL };
-            // Create a simple time series with the current volume
-            const timeSeries = [
-              { timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), volume: onchainVolumeSOL },
-              { timestamp: now.toISOString(), volume: onchainVolumeSOL }
-            ];
-            setOnchainSeries(timeSeries);
-            setChartData([]);
-            setDataSource('onchain');
-            setIsEstimated(false);
-            setLastSuccessfulFetch(now);
-            // Price/volume log only
-          } else {
-            setFetchError('No trading data available. Oracle service may not be running or no trades have occurred.');
-            setChartData([]);
-            setDataSource('none');
-          }
+          // No DB trades; if we have a live price, switch to live streaming mode
+          setFetchError(null);
+          setChartData([]);
+          setDataSource(typeof livePrice === 'number' ? 'live' : 'none');
         } else {
           setChartData(data.priceHistory);
           setVolumeChange(data.volumeChange || 0);
@@ -144,10 +131,10 @@ export function PriceChart({
           const totalVolume = volumes.reduce((a: number, b: number) => a + b, 0);
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        setFetchError(`Failed to load chart data: ${errorMsg}`);
+        // On error, only show live stream if we have a price; otherwise none
+        setFetchError(null);
         setChartData([]);
-        setDataSource('none');
+        setDataSource(typeof livePrice === 'number' ? 'live' : 'none');
       } finally {
         setLoading(false);
       }
@@ -156,19 +143,29 @@ export function PriceChart({
     fetchPriceHistory();
   }, [tokenId, currentVolume, lastUpdate, onchainVolumeSOL]);
 
-  // Update chart when on-chain volume changes
+  // Keep footer stats updated from on-chain volume if provided
   useEffect(() => {
-    if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0 && dataSource === 'onchain') {
-      const now = new Date();
-      const newPoint = { timestamp: now.toISOString(), volume: onchainVolumeSOL };
-      setOnchainSeries(prev => {
-        const updated = [...prev, newPoint].slice(-200);
-        return updated;
-      });
-      setCurrentVolume(onchainVolumeSOL);
-      setLastUpdate(now);
+    if (typeof onchainVolumeSOL === 'number' && onchainVolumeSOL > 0) {
+      setCurrentVolume(onchainVolumeSOL)
+      setLastUpdate(new Date())
     }
-  }, [onchainVolumeSOL, dataSource]);
+  }, [onchainVolumeSOL]);
+
+  // Live mode: append actual livePrice without synthetic noise
+  useEffect(() => {
+    if (dataSource !== 'live') return;
+    const append = () => {
+      if (typeof livePrice === 'number' && livePrice > 0) {
+        const point = { timestamp: new Date().toISOString(), price: Number(livePrice.toFixed(10)) };
+        setLiveSeries(prev => [...prev, point].slice(-600));
+        setLastUpdate(new Date());
+      }
+    };
+    // seed immediately and then every second
+    append();
+    const id = setInterval(append, 1000);
+    return () => clearInterval(id);
+  }, [dataSource, livePrice]);
 
   const formatPrice = (price: number) => {
     if (price < 0.01) {
@@ -216,7 +213,7 @@ export function PriceChart({
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Volume Chart</h3>
+              <h3 className="text-lg font-semibold">Price Chart</h3>
               {liveUpdates && (
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -225,15 +222,10 @@ export function PriceChart({
               )}
             </div>
             <p className="text-sm text-muted-foreground truncate max-w-xs">
-              Trading Volume (SOL)
+              Token Price
               {dataSource === 'database' && (
                 <span className="ml-2 text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
                   Real Data
-                </span>
-              )}
-              {dataSource === 'onchain' && (
-                <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                  On-Chain Data
                 </span>
               )}
               {dataSource === 'none' && (
@@ -241,11 +233,16 @@ export function PriceChart({
                   {fetchError ? 'Error' : 'No Data'}
                 </span>
               )}
+              {dataSource === 'live' && (
+                <span className="ml-2 text-xs text-emerald-600 bg-emerald-100 px-2 py-1 rounded">
+                  Live
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {dataSource === 'onchain' ? onchainSeries.length : chartData.length} data points
+              {dataSource === 'live' ? liveSeries.length : chartData.length} data points
             </Badge>
             <Badge 
               variant={isVolumeUp ? "default" : "destructive"}
@@ -264,7 +261,7 @@ export function PriceChart({
 
         {/* Chart */}
         <div style={{ height }}>
-          {fetchError || (chartData.length === 0 && onchainSeries.length === 0) ? (
+          {dataSource === 'none' ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center p-8">
                 <p className="text-red-500 font-medium mb-2">
@@ -277,42 +274,40 @@ export function PriceChart({
             </div>
           ) : (
           <ChartContainer config={chartConfig} className="h-full">
-              <AreaChart data={chartData.length > 0 ? chartData : onchainSeries}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dataSource === 'database' ? chartData : liveSeries}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="timestamp" 
                 tickFormatter={formatTimestamp}
-                tick={{ fontSize: 12 }}
-                axisLine={false}
+                tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#374151' }}
                 tickLine={false}
               />
               <YAxis 
-                domain={[0, 'dataMax + 0.01']}
-                tickFormatter={formatVolume}
-                tick={{ fontSize: 12 }}
-                axisLine={false}
+                domain={[0, 'dataMax']}
+                tickFormatter={(v: number) => `$${Number(v).toFixed(6)}`}
+                tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#374151' }}
                 tickLine={false}
               />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value, name) => [
-                      name === "volume" ? formatVolume(Number(value)) : formatPrice(Number(value)),
-                      name === "volume" ? "Volume (SOL)" : "Price"
-                    ]}
+                     formatter={(value) => [formatPrice(Number(value)), 'Price']}
                     labelFormatter={(label) => formatTimestamp(label)}
                   />
                 }
               />
-              <Area
-                type="monotone"
-                dataKey="volume"
-                stroke="var(--color-volume)"
-                fill="var(--color-volume)"
-                fillOpacity={0.2}
-                strokeWidth={2}
-              />
+              <defs>
+                <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#34d399" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#34d399" stopOpacity="0.08" />
+                </linearGradient>
+              </defs>
+              <Area type="monotone" dataKey="price" stroke="#34d399" fill="url(#volumeGradient)" fillOpacity={1} strokeWidth={2} />
             </AreaChart>
+            </ResponsiveContainer>
           </ChartContainer>
           )}
         </div>

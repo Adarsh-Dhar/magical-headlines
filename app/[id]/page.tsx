@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { TrendingUpIcon, TrendingDownIcon, ArrowLeftIcon, ExternalLinkIcon, WalletIcon, HeartIcon, MessageCircleIcon, Share2Icon, CheckIcon } from "lucide-react"
 // Chart removed
 import { TokenOrderBook } from "@/components/token-order-book"
+import { PriceChart } from "@/components/price-chart"
 import { ProfitLossStatement } from "@/components/profit-loss-statement"
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -1318,7 +1319,18 @@ const StoryDetailPage = memo(function StoryDetailPage() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {/* Chart removed */}
+            {story?.token && (
+              <PriceChart
+                tokenId={story.token.id}
+                marketAddress={story.token.marketAccount || ""}
+                newsAccountAddress={story.token.newsAccount || ""}
+                mintAddress={story.token.mintAccount || ""}
+                showVolume
+                height={320}
+                onchainVolumeSOL={delegationStatus ? Number(delegationStatus.totalVolume || 0) / 1e9 : undefined}
+                livePrice={currentPrice ?? story.token.price}
+              />
+            )}
 
             <Card className="p-6" id="comments">
               <h2 className="text-xl font-semibold mb-4">Story Content</h2>
