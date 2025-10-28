@@ -338,90 +338,6 @@
       ]
     },
     {
-      "name": "claim_staking_fees",
-      "docs": [
-        "Claim accumulated staking fees"
-      ],
-      "discriminator": [
-        41,
-        122,
-        96,
-        254,
-        10,
-        172,
-        37,
-        75
-      ],
-      "accounts": [
-        {
-          "name": "market",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "news_account"
-              }
-            ]
-          }
-        },
-        {
-          "name": "market_sol_account",
-          "docs": [
-            "Market SOL account (PDA for SOL storage)"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116,
-                  95,
-                  115,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "news_account"
-        },
-        {
-          "name": "author",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "close_flash_market",
       "docs": [
         "Close flash market and record final velocity"
@@ -747,158 +663,36 @@
           "signer": true
         },
         {
-          "name": "validator",
-          "optional": true
-        },
-        {
-          "name": "buffer_pda",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  98,
-                  117,
-                  102,
-                  102,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pda"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                241,
-                70,
-                137,
-                76,
-                211,
-                31,
-                181,
-                249,
-                158,
-                211,
-                17,
-                61,
-                131,
-                176,
-                19,
-                217,
-                157,
-                116,
-                72,
-                19,
-                157,
-                227,
-                182,
-                73,
-                38,
-                227,
-                31,
-                249,
-                208,
-                32,
-                137,
-                20
-              ]
-            }
-          }
-        },
-        {
-          "name": "delegation_record_pda",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  100,
-                  101,
-                  108,
-                  101,
-                  103,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pda"
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "delegation_program"
-            }
-          }
-        },
-        {
-          "name": "delegation_metadata_pda",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  100,
-                  101,
-                  108,
-                  101,
-                  103,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110,
-                  45,
-                  109,
-                  101,
-                  116,
-                  97,
-                  100,
-                  97,
-                  116,
-                  97
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pda"
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "delegation_program"
-            }
-          }
-        },
-        {
-          "name": "pda",
+          "name": "news_account",
           "docs": [
-            "CHECK The pda to delegate"
+            "The news account to get seeds from"
+          ]
+        },
+        {
+          "name": "market",
+          "docs": [
+            "The market PDA to delegate"
           ],
-          "writable": true
-        },
-        {
-          "name": "owner_program",
-          "address": "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3"
-        },
-        {
-          "name": "delegation_program",
-          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -1216,6 +1010,192 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "migrate_clear_staking",
+      "docs": [
+        "One-time migration: return staked tokens and pay accumulated fees to author"
+      ],
+      "discriminator": [
+        203,
+        178,
+        38,
+        232,
+        201,
+        245,
+        108,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "news_account"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_sol_account",
+          "docs": [
+            "Market SOL account (PDA for SOL storage)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  115,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "news_account"
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "author_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "process_undelegation",
@@ -1845,167 +1825,6 @@
       ]
     },
     {
-      "name": "stake_author_tokens",
-      "docs": [
-        "Stake author tokens to earn trading fees"
-      ],
-      "discriminator": [
-        233,
-        45,
-        32,
-        33,
-        120,
-        22,
-        190,
-        188
-      ],
-      "accounts": [
-        {
-          "name": "market",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "news_account"
-              }
-            ]
-          }
-        },
-        {
-          "name": "news_account"
-        },
-        {
-          "name": "mint",
-          "writable": true
-        },
-        {
-          "name": "author",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "author_token_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "author"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "undelegate",
       "docs": [
         "Undelegate the market from the delegation program"
@@ -2026,39 +1845,16 @@
           "signer": true
         },
         {
+          "name": "news_account",
+          "docs": [
+            "The news account to get seeds from"
+          ]
+        },
+        {
           "name": "market",
           "docs": [
-            "CHECK The market pda to undelegate"
+            "The market PDA to undelegate"
           ],
-          "writable": true
-        },
-        {
-          "name": "magic_context"
-        },
-        {
-          "name": "magic_program"
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "unstake_author_tokens",
-      "docs": [
-        "Unstake author tokens"
-      ],
-      "discriminator": [
-        11,
-        19,
-        226,
-        239,
-        6,
-        77,
-        174,
-        215
-      ],
-      "accounts": [
-        {
-          "name": "market",
           "writable": true,
           "pda": {
             "seeds": [
@@ -2081,126 +1877,13 @@
           }
         },
         {
-          "name": "news_account"
+          "name": "magic_context"
         },
         {
-          "name": "mint",
-          "writable": true
-        },
-        {
-          "name": "author",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "author_token_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "author"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "associated_token_program",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "magic_program"
         }
       ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
+      "args": []
     },
     {
       "name": "update_summary_link",
@@ -2457,19 +2140,6 @@
       ]
     },
     {
-      "name": "FeesClaimed",
-      "discriminator": [
-        22,
-        104,
-        110,
-        222,
-        38,
-        157,
-        14,
-        62
-      ]
-    },
-    {
       "name": "FlashMarketClosed",
       "discriminator": [
         49,
@@ -2626,6 +2296,19 @@
       ]
     },
     {
+      "name": "StakingMigrated",
+      "discriminator": [
+        106,
+        2,
+        62,
+        232,
+        117,
+        126,
+        161,
+        158
+      ]
+    },
+    {
       "name": "StateCommitRecommended",
       "discriminator": [
         232,
@@ -2675,32 +2358,6 @@
         225,
         94,
         45
-      ]
-    },
-    {
-      "name": "TokensStaked",
-      "discriminator": [
-        220,
-        130,
-        145,
-        142,
-        109,
-        123,
-        38,
-        100
-      ]
-    },
-    {
-      "name": "TokensUnstaked",
-      "discriminator": [
-        137,
-        203,
-        131,
-        80,
-        135,
-        107,
-        181,
-        150
       ]
     },
     {
@@ -2874,26 +2531,6 @@
           },
           {
             "name": "Logarithmic"
-          }
-        ]
-      }
-    },
-    {
-      "name": "FeesClaimed",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "author",
-            "type": "pubkey"
-          },
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
           }
         ]
       }
@@ -3402,6 +3039,30 @@
       }
     },
     {
+      "name": "StakingMigrated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokens_returned",
+            "type": "u64"
+          },
+          {
+            "name": "fees_paid",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "StateCommitRecommended",
       "type": {
         "kind": "struct",
@@ -3476,54 +3137,6 @@
           },
           {
             "name": "new_supply",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "TokensStaked",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "author",
-            "type": "pubkey"
-          },
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "total_staked",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "TokensUnstaked",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "author",
-            "type": "pubkey"
-          },
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "total_staked",
             "type": "u64"
           }
         ]
