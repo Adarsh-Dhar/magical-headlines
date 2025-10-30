@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { NewspaperIcon, TrendingUpIcon, WalletIcon, TrophyIcon, BarChart3Icon, Bell as BellIcon } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -62,9 +63,14 @@ export function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <NewspaperIcon className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <Image
+              src="/magical-headlines-logo-minimal.png"
+              alt="Magical Headlines"
+              width={100}
+              height={100}
+              priority
+              className="w-8 h-8 rounded-md object-contain"
+            />
             <span className="font-bold text-xl">Magical Headlines</span>
           </Link>
 
