@@ -493,39 +493,7 @@ export default function PortfolioPage() {
                     />
                   ) : null}
 
-                  {/* Individual Token P&L Statements */}
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold">Individual Token Analysis</h4>
-                    {portfolioHoldings.map((holding) => {
-                      const tokenId = tokenIdMap[holding.mint];
-                      if (!tokenId) {
-                        return (
-                          <Card key={holding.mint} className="p-4 mb-4">
-                            <div className="text-center py-4">
-                              <p className="text-muted-foreground">
-                                P&L data not available for {holding.headline}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Token not found in database
-                              </p>
-                            </div>
-                          </Card>
-                        );
-                      }
-                      
-                      return (
-                        <ProfitLossStatement
-                          key={holding.mint}
-                          tokenId={tokenId}
-                          userAddress={publicKey.toString()}
-                          currentPrice={holding.currentPrice}
-                          className="mb-4"
-                          compact={true}
-                          collapsible={true}
-                        />
-                      );
-                    })}
-                  </div>
+                  
                 </div>
               )}
             </div>

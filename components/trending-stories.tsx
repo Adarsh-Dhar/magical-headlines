@@ -195,7 +195,7 @@ export function TrendingStories() {
                           </div>
                         )}
                         <span className="text-muted-foreground">
-                          {Math.round(item.confidence * 100)}% conf
+                          {/* {Math.round(item.confidence * 100)}% conf */}
                         </span>
                       </>
                     ) : (
