@@ -8,7 +8,7 @@ import {
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
-import { TorusWalletAdapter, LedgerWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { TorusWalletAdapter, LedgerWalletAdapter, SolflareWalletAdapter, PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 // Note: styles are imported globally in `app/layout.tsx` to control order
 
 interface SolanaProviderProps {
@@ -26,6 +26,7 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   // Note: Phantom is detected as a standard wallet and doesn't need explicit registration
   const wallets = useMemo(
     () => [
+      new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
       new TorusWalletAdapter(),
       new LedgerWalletAdapter(),
@@ -35,7 +36,16 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider
+        wallets={wallets}
+        autoConnect={false}
+        onError={(error) => {
+          // Swallow noisy adapter errors that can occur during initialization/autoconnect
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("Wallet error:", error);
+          }
+        }}
+      >
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
