@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "No active season" }, { status: 404 })
       }
       
+      // Prevent premature end if current time is before scheduled end
+      const now = new Date()
+      if (now < new Date(currentSeason.endTimestamp)) {
+        return NextResponse.json({ error: "Season has not ended yet" }, { status: 400 })
+      }
+      
       // Award trophies to top 10
       const trophyTiers = ['gold', 'silver', 'bronze', ...Array(7).fill('top10')]
       const top10Users = currentSeason.seasonStats.slice(0, Math.min(10, currentSeason.seasonStats.length))
@@ -84,13 +90,20 @@ export async function POST(request: NextRequest) {
       
       await prisma.season.update({
         where: { id: currentSeason.id },
-        data: { isActive: false }
+        data: { isActive: false, endTimestamp: now }
       })
       
       return NextResponse.json({ success: true, winner: currentSeason.seasonStats[0] })
     }
     
     if (action === 'start_season') {
+      // Disallow starting if there is already an active season
+      const existingActive = await prisma.season.findFirst({
+        where: { isActive: true }
+      })
+      if (existingActive) {
+        return NextResponse.json({ error: "An active season already exists. End it before starting a new one." }, { status: 400 })
+      }
       const lastSeason = await prisma.season.findFirst({
         orderBy: { seasonId: 'desc' }
       })

@@ -7,8 +7,7 @@ async function checkAndManageSeasons() {
     })
     
     if (!currentSeason) {
-      console.log("No active season, starting new one")
-      await startNewSeason()
+      console.log("No active season. Nothing to do.")
       return
     }
     
@@ -18,7 +17,7 @@ async function checkAndManageSeasons() {
     if (now >= endTime) {
       console.log(`Season ${currentSeason.seasonId} has ended, processing...`)
       await endSeason()
-      await startNewSeason()
+      console.log("Season ended. Not starting a new one automatically.")
     } else {
       const timeLeft = endTime.getTime() - now.getTime()
       console.log(`Season ${currentSeason.seasonId} has ${Math.floor(timeLeft / 1000 / 60)} minutes remaining`)
@@ -42,19 +41,7 @@ async function endSeason() {
   console.log("Season ended successfully")
 }
 
-async function startNewSeason() {
-  const response = await fetch('http://localhost:3000/api/seasons/manage', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'start_season' })
-  })
-  
-  if (!response.ok) {
-    throw new Error('Failed to start season')
-  }
-  
-  console.log("New season started successfully")
-}
+// Removed auto-starting logic to prevent overlapping seasons and enforce manual starts
 
 // Run immediately
 checkAndManageSeasons().then(() => {

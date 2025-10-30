@@ -75,27 +75,12 @@ export function UserProfile() {
   }, [publicKey])
 
   if (loading) {
-    return (
-      <Card className="p-6">
-        <div className="animate-pulse">
-          <div className="h-5 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="space-y-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex justify-between">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/6"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-    )
+    return null
   }
 
   if (!profile) {
     return (
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Your Stats</h3>
         {publicKey ? (
           <div className="text-center">
             <p className="text-muted-foreground text-sm mb-4">
@@ -114,80 +99,6 @@ export function UserProfile() {
     )
   }
 
-  const winRate = profile.tradesCount > 0 ? (profile.wins / profile.tradesCount) * 100 : 0
-  const recentSeason = profile.seasonStats[0]
-
-  return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Your Stats</h3>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Total PnL</span>
-          <div className="flex items-center gap-1">
-            {profile.totalPnl >= 0 ? (
-              <TrendingUpIcon className="w-4 h-4 text-green-600" />
-            ) : (
-              <TrendingDownIcon className="w-4 h-4 text-red-600" />
-            )}
-            <span className={`font-semibold ${profile.totalPnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${profile.totalPnl?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Season PnL</span>
-          <div className="flex items-center gap-1">
-            {profile.currentSeasonPnl >= 0 ? (
-              <TrendingUpIcon className="w-4 h-4 text-green-600" />
-            ) : (
-              <TrendingDownIcon className="w-4 h-4 text-red-600" />
-            )}
-            <span className={`font-semibold ${profile.currentSeasonPnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${profile.currentSeasonPnl?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Win Rate</span>
-          <span className="font-semibold">
-            {winRate.toFixed(1)}%
-          </span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Total Trades</span>
-          <span className="font-semibold">{profile.tradesCount || 0}</span>
-        </div>
-        
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Trophies</span>
-          <div className="flex items-center gap-1">
-            <TrophyIcon className="w-4 h-4 text-yellow-500" />
-            <span className="font-semibold">{profile.trophies || 0}</span>
-          </div>
-        </div>
-
-        {recentSeason && (
-          <div className="pt-3 border-t">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Last Season Rank</span>
-              <span className="font-semibold">
-                {recentSeason.rank ? `#${recentSeason.rank}` : 'N/A'}
-              </span>
-            </div>
-            {recentSeason.trophyTier && (
-              <div className="flex justify-between text-sm mt-1">
-                <span className="text-muted-foreground">Trophy</span>
-                <Badge variant="outline" className="text-xs">
-                  {recentSeason.trophyTier}
-                </Badge>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
-  )
+  // Removed the entire stats block. Just don't render anything if profile exists (can be replaced with other content if you wish or left blank).
+  return null
 }

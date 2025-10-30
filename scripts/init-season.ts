@@ -1,7 +1,7 @@
 import { Connection, PublicKey, Keypair } from "@solana/web3.js"
 import { Program, AnchorProvider, Wallet } from "@coral-xyz/anchor"
 import * as anchor from "@coral-xyz/anchor"
-import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json'
+import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json' with { type: "json" };
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { PrismaClient } from "@prisma/client"
