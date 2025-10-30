@@ -289,7 +289,7 @@ class ServerContractService {
       const tx = await this.program.methods
         .updateTrendIndex(
           new anchor.BN(trendScoreU64),
-          Array.from(factorsHashBytes) as [number; 32]
+          Array.from(factorsHashBytes) as number[]
         )
         .accounts({
           market: marketAccount,

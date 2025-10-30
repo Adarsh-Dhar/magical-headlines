@@ -9,8 +9,8 @@ export async function getMagicBlockAIOracle() {
   // Only import when needed to avoid initialization errors in API routes
   if (!magicBlockAIOracleInstance) {
     try {
-      const module = await import("../oracle-service/src/magicblock-ai-oracle");
-      magicBlockAIOracleInstance = module.magicBlockAIOracle;
+      const importedModule = await import("../oracle-service/src/magicblock-ai-oracle");
+      magicBlockAIOracleInstance = importedModule.magicBlockAIOracle;
     } catch (error) {
       console.error("Failed to import MagicBlock AI Oracle:", error);
       return null;
