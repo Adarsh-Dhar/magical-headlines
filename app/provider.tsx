@@ -23,15 +23,18 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
   // Configure wallet adapters
-  // Note: Phantom is detected as a standard wallet and doesn't need explicit registration
+  // Note: Wallets that support Wallet Standard (e.g., Phantom, Backpack, Solflare)
+  // are auto-discovered, but explicit adapters can be more reliable for connection
   const wallets = useMemo(
     () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
+      // Explicitly include Phantom with network configuration for better reliability
+      new PhantomWalletAdapter({ network }),
+      // Keep Solflare adapter for legacy support
+      new SolflareWalletAdapter({ network }),
       new TorusWalletAdapter(),
       new LedgerWalletAdapter(),
     ],
-    []
+    [network]
   );
 
   return (
@@ -39,10 +42,11 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
       <WalletProvider
         wallets={wallets}
         autoConnect={false}
-        onError={(error) => {
-          // Swallow noisy adapter errors that can occur during initialization/autoconnect
-          if (process.env.NODE_ENV !== "production") {
-            console.debug("Wallet error:", error);
+        onError={(error, adapter) => {
+          // Only log errors that are not related to auto-connect failures
+          // Auto-connect errors are expected when no wallet is previously connected
+          if (error.name !== 'WalletConnectionError' && error.name !== 'WalletNotFoundError') {
+            console.error("Wallet error:", error);
           }
         }}
       >

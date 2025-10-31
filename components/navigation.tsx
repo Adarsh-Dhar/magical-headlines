@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { NewspaperIcon, TrendingUpIcon, WalletIcon, TrophyIcon, BarChart3Icon, Bell as BellIcon } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { useWalletModal } from "@solana/wallet-adapter-react-ui"
+import { useWalletModal, WalletMultiButton } from "@solana/wallet-adapter-react-ui"
 import { useNotifications } from "@/lib/hooks/use-notifications"
 
 const navItems = [
@@ -127,14 +127,9 @@ export function Navigation() {
                 ) : null}
               </div>
 
-              <Button
-                onClick={() => setVisible(true)}
-                className="bg-white text-black hover:bg-white/90 border-0 rounded-md h-9 px-4"
-              >
-                {connected && publicKey
-                  ? `${publicKey.toBase58().slice(0, 4)}…${publicKey.toBase58().slice(-4)}`
-                  : "Connect Wallet"}
-              </Button>
+              <div className="[&_*]:!rounded-md">
+                <WalletMultiButton className="!bg-white !text-black hover:!bg-white/90 !border-0 !h-9 !px-4" />
+              </div>
             </div>
           ) : null}
         </div>
