@@ -1,7 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import * as anchor from '@coral-xyz/anchor';
-import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
+import NEWS_PLATFORM_IDL from '../app/news_platform.json';
 
 // Get connection and program
 function getConnection(): Connection {
