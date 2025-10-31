@@ -10,7 +10,7 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token
 import { requestCache } from "./request-cache";
 
 // Import the IDL from the contract
-import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
+import NEWS_PLATFORM_IDL from '../app/news_platform.json';
 
 // Force refresh the IDL to avoid caching issues
 const IDL_WITH_TIMESTAMP = {

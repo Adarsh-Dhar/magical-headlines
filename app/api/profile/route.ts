@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Connection, PublicKey } from "@solana/web3.js"
 import { Program, AnchorProvider } from "@coral-xyz/anchor"
 import { prisma } from "@/lib/prisma"
-import NEWS_PLATFORM_IDL from '../../../contract/target/idl/news_platform.json'
+import NEWS_PLATFORM_IDL from '../../../app/news_platform.json'
 
 const getProgramId = () => new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID || "HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3"

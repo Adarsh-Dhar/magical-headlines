@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Import the IDL from the contract
-import NEWS_PLATFORM_IDL from '../contract/target/idl/news_platform.json';
+import NEWS_PLATFORM_IDL from '../app/news_platform.json';
 
 // Program ID from the contract
 const PROGRAM_ID = new PublicKey("HEqdzibcMw3Sz43ZJbgQxGzgx7mCXtz6j85E7saJhbJ3");

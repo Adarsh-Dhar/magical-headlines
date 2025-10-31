@@ -4,7 +4,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import * as fs from "fs";
 import * as path from "path";
-import IDL from "../contract/target/idl/news_platform.json";
+import IDL from "../app/news_platform.json";
 import type { NewsPlatform } from "../contract/target/types/news_platform";
 
 const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
